@@ -1,0 +1,10 @@
+# Binaries
+bin/
+main
+
+# OS metadata
+.DS_store
+Thumbs.db
+
+# Go workspace
+go.work
