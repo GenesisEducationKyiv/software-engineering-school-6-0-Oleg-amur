@@ -25,4 +25,4 @@ jobs:
         run: go test -v ./...
 
       - name: build image
-        run: docker build -t release-notifier:latest
+        run: docker build -t release-notifier .
