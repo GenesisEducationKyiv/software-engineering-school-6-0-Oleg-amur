@@ -1,5 +1,17 @@
 database:
-  connectionString: "postgres://postgres:postgres@localhost:5432/db?sslMode=disable"
+  connectionString: "postgres://postgres:postgres@localhost:5432/release_notifier?sslMode=disable"
 server:
   host: "0.0.0.0"
   port: "8080"
+  grpcPort: "50051"
+scanner:
+  interval: "1m"
+notifier:
+  smtpHost: "localhost"
+  smtpPort: "1025"
+  fromEmail: "noreply@release-notifier.com"
+  confirmationUrl: "http://localhost:8080/api/confirm"
+github:
+  url: "https://api.github.com"
+  apiToken: ""
+  timeout: "10s"

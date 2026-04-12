@@ -21,12 +21,12 @@ Requirements:
     - Reason: I'm interested in this language. For this task this is enough:)
 - Database: PostgreSQL
     - Reason: I have experience with it. Also it quite common to use posgre + go. Mongo does not fit there as it's overcomplicating due to absence of real relations and foreign keys there. SQLite is also good option here.
-- Web framework: Chi
-    - Reason: It's a bit more lightweight that Gin. But it also makes life a bit easier, comparing to net/http
+- Web framework: net/http 
+    - Reason: For learning purposes it's better 
 - Subscription: timer
     - Reason: Timer is good enough and it avoids external dependecies (if we compare with cron)
 - Mail sending: I think we can use go-smpt and MailPit as kind of mock
-    - Reason: Do we really need realy emails? Mailpit will be more convinient for such task
+    - Reason: Do we really need real emails? Mailpit will be more convinient for such task
 - Github API: use own client
     - Reason: there is go-github google lib, but own implementation makes more sense for education purposes
 - DataSchema: use two tables, subscribprions and repositories:
