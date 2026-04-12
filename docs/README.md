@@ -37,6 +37,11 @@ Requirements:
 - Config: started with yaml parser, ended up with clearenv, because it allows both yaml, ENV and default configuration, which is convinient
 - Unsubscription: I've decided not to remove subscribers and repos if they are not subscribed to anything, or if repo does not have any subscribers. Saving repo release tag will reduce amount of requests to API when subscribing. This can increase amount of requests during scaning operations, because we will update tag for "dead" repos, but I think for us is more important to save repository tag. Probably some kind of CleanUp can be implemented for repos that are not watched for more than 30 days. As for users, it does not affect almost anything, so we can save them for history or some future metrics. 
 
+## What have been done from extra:
+- gRPC interface as an alternative or addition to REST API
+- Prometheus metrics - /metrics endpoint with basic service indicators
+- GitHub Actions CI pipeline: run linter and tests on every push
+
 # Project Structure:
 
   ├── .github/workflows  # CI/CD pipelines
