@@ -1,10 +1,7 @@
 package config
 
 import (
-	"fmt"
-	"os"
-
-	"gopkg.in/yaml.v3"
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
@@ -16,78 +13,38 @@ type Config struct {
 }
 
 type Database struct {
-	ConnectionString string `yaml:"connectionString"`
+	ConnectionString string `yaml:"connectionString" env:"DATABASE_URL"`
 }
 
 type Server struct {
-	Host     string `yaml:"host"`
-	Port     string `yaml:"port"`
-	GrpcPort string `yaml:"grpcPort"`
+	Host     string `yaml:"host" env:"SERVER_HOST" env-default:"0.0.0.0"`
+	Port     string `yaml:"port" env:"SERVER_PORT" env-default:"8080"`
+	GrpcPort string `yaml:"grpcPort" env:"GRPC_PORT" env-default:"50051"`
 }
 
 type Scanner struct {
-	Interval string `yaml:"interval"`
+	Interval string `yaml:"interval" env:"SCAN_INTERVAL" env-default:"1h"`
 }
 
 type Notifier struct {
-	SMTPHost        string `yaml:"smtpHost"`
-	SMTPPort        string `yaml:"smtpPort"`
-	FromEmail       string `yaml:"fromEmail"`
-	ConfirmationUrl string `yaml:"confirmationUrl"`
+	SMTPHost        string `yaml:"smtpHost" env:"SMTP_HOST"`
+	SMTPPort        string `yaml:"smtpPort" env:"SMTP_PORT"`
+	FromEmail       string `yaml:"fromEmail" env:"FROM_EMAIL"`
+	ConfirmationUrl string `yaml:"confirmationUrl" env:"CONFIRMATION_URL"`
 }
 
 type GithubClient struct {
-	Timeout  string `yaml:"timeout"`
-	Url      string `yaml:"url"`
-	ApiToken string `yaml:"apiToken"`
+	Timeout  string `yaml:"timeout" env:"GITHUB_TIMEOUT" env-default:"10s"`
+	Url      string `yaml:"url" env:"GITHUB_URL" env-default:"https://api.github.com"`
+	ApiToken string `yaml:"apiToken" env:"GITHUB_TOKEN"`
 }
 
 func LoadConfig(path string) (*Config, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+	var cfg Config
+
+	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
+		return nil, err
 	}
 
-	var config Config
-	if err := yaml.Unmarshal(content, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse yaml config: %w", err)
-	}
-
-	if envURL := os.Getenv("DATABASE_URL"); envURL != "" {
-		config.Database.ConnectionString = envURL
-	}
-
-	if envHost := os.Getenv("SERVER_HOST"); envHost != "" {
-		config.Server.Host = envHost
-	}
-
-	if envPort := os.Getenv("SERVER_PORT"); envPort != "" {
-		config.Server.Port = envPort
-	}
-
-	if envGrpcPort := os.Getenv("SERVER_GRPC_PORT"); envGrpcPort != "" {
-		config.Server.GrpcPort = envGrpcPort
-	}
-
-	if envSMTPHost := os.Getenv("SMTP_HOST"); envSMTPHost != "" {
-		config.Notifier.SMTPHost = envSMTPHost
-	}
-
-	if envSMTPPort := os.Getenv("SMTP_PORT"); envSMTPPort != "" {
-		config.Notifier.SMTPPort = envSMTPPort
-	}
-
-	if envGHUrl := os.Getenv("GITHUB_URL"); envGHUrl != "" {
-		config.GithubClient.Url = envGHUrl
-	}
-
-	if envGHToken := os.Getenv("GITHUB_TOKEN"); envGHToken != "" {
-		config.GithubClient.ApiToken = envGHToken
-	}
-
-	if envGHTimeout := os.Getenv("GITHUB_TIMEOUT"); envGHTimeout != "" {
-		config.GithubClient.Timeout = envGHTimeout
-	}
-
-	return &config, nil
+	return &cfg, nil
 }

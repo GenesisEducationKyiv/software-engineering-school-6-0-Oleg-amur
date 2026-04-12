@@ -35,9 +35,17 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+      - "50051:50051"
     environment:
       SERVER_HOST: ${SERVER_HOST}
       SERVER_PORT: ${SERVER_PORT}
+      GRPC_PORT: ${GRPC_PORT}
       DATABASE_URL: ${DATABASE_URL}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
+      FROM_EMAIL: ${FROM_EMAIL}
+      CONFIRMATION_URL: ${CONFIRMATION_URL}
+      SCAN_INTERVAL: ${SCAN_INTERVAL}
+      GITHUB_TIMEOUT: ${GITHUB_TIMEOUT}
+      GITHUB_URL: ${GITHUB_URL}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
