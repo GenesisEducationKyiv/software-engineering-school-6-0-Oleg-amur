@@ -1,0 +1,28 @@
+name: CI/CD workflow
+
+on: 
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.3
+
+      - name: lint
+        uses: golangci/golangci-lint-action@v9
+
+      - name: unit tests
+        run: go test -v ./...
+
+      - name: build image
+        run: docker build -t release-notifier .

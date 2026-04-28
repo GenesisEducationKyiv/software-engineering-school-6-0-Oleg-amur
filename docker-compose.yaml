@@ -1,0 +1,51 @@
+services:
+
+  postgresql:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:v1.24
+    container_name: mailpit
+    restart: unless-stopped
+    ports:
+      - 8025:8025
+      - 1025:1025
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  release-notifier:
+    build: .
+    image: release-notifier:latest
+    container_name: release-notifier
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      SERVER_HOST: ${SERVER_HOST}
+      SERVER_PORT: ${SERVER_PORT}
+      GRPC_PORT: ${GRPC_PORT}
+      DATABASE_URL: ${DATABASE_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      FROM_EMAIL: ${FROM_EMAIL}
+      CONFIRMATION_URL: ${CONFIRMATION_URL}
+      SCAN_INTERVAL: ${SCAN_INTERVAL}
+      GITHUB_TIMEOUT: ${GITHUB_TIMEOUT}
+      GITHUB_URL: ${GITHUB_URL}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}

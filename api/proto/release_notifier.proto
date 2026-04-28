@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package api.v1;
+
+option go_package = "github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/grpc/pb";
+
+service ReleaseNotifier {
+    rpc Subscribe (SubscribeRequest) returns (SubscribeResponse);
+    rpc Confirm (ConfirmRequest) returns (ConfirmResponse);
+    rpc Unsubscribe (UnsubscribeRequest) returns (UnsubscribeResponse);
+    rpc GetSubscriptions (GetSubscriptionsRequest) returns (GetSubscriptionsResponse);
+}
+
+message SubscribeRequest {
+    string email = 1;
+    string repo = 2;
+}
+
+message SubscribeResponse {}
+
+message ConfirmRequest {
+    string token = 1;
+}
+
+message ConfirmResponse {}
+
+message UnsubscribeRequest {
+    string token = 1;
+}
+
+message UnsubscribeResponse {}
+
+message GetSubscriptionsRequest {
+    string email = 1;
+}
+
+message Subscription {
+    string email = 1;
+    string repo = 2;
+    bool confirmed = 3;
+    string last_seen_tag = 4;
+}
+
+message GetSubscriptionsResponse {
+repeated Subscription subscriptions = 1;
+}
