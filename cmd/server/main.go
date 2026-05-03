@@ -154,8 +154,9 @@ func setupScanner(
 
 func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {
 	return &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: handler,
+		Addr:              ":" + cfg.Port,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 }
 

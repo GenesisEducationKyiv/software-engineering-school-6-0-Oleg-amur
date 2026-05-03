@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
@@ -128,7 +129,10 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req dto.SubscribeRe
 	}
 
 	go func() {
-		if err := s.notifier.SendConfirmation(context.Background(), req.Email, token); err != nil {
+		bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+
+		if err := s.notifier.SendConfirmation(bgCtx, req.Email, token); err != nil {
 			s.log.Error("failed to send notification", "err", err)
 		}
 	}()
