@@ -453,7 +453,7 @@ const file_api_proto_release_notifier_proto_rawDesc = "" +
 	"\tSubscribe\x12\x18.api.v1.SubscribeRequest\x1a\x19.api.v1.SubscribeResponse\x12:\n" +
 	"\aConfirm\x12\x16.api.v1.ConfirmRequest\x1a\x17.api.v1.ConfirmResponse\x12F\n" +
 	"\vUnsubscribe\x12\x1a.api.v1.UnsubscribeRequest\x1a\x1b.api.v1.UnsubscribeResponse\x12U\n" +
-	"\x10GetSubscriptions\x12\x1f.api.v1.GetSubscriptionsRequest\x1a .api.v1.GetSubscriptionsResponseBDZBgithub.com/Oleg-amur/case-task-swe-school-6.0/internal/api/grpc/pbb\x06proto3"
+	"\x10GetSubscriptions\x12\x1f.api.v1.GetSubscriptionsRequest\x1a .api.v1.GetSubscriptionsResponseB`Z^github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pbb\x06proto3"
 
 var (
 	file_api_proto_release_notifier_proto_rawDescOnce sync.Once

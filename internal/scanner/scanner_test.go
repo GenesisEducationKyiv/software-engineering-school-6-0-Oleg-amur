@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
 func TestScan(t *testing.T) {
@@ -69,13 +69,25 @@ func TestScan(t *testing.T) {
 			s.Scan(context.Background())
 
 			if len(repoRepo.updateArgs) != tt.expectedUpdateCount {
-				t.Errorf("expected %d database updates, got %d", tt.expectedUpdateCount, len(repoRepo.updateArgs))
+				t.Errorf(
+					"expected %d database updates, got %d",
+					tt.expectedUpdateCount,
+					len(repoRepo.updateArgs),
+				)
 			}
 			if tt.expectedUpdateCount > 0 && repoRepo.updateArgs[0].tag != tt.expectedUpdatedTag {
-				t.Errorf("expected database tag to be updated to %s, got %s", tt.expectedUpdatedTag, repoRepo.updateArgs[0].tag)
+				t.Errorf(
+					"expected database tag to be updated to %s, got %s",
+					tt.expectedUpdatedTag,
+					repoRepo.updateArgs[0].tag,
+				)
 			}
 			if notifier.sentCount != tt.expectedEmailCount {
-				t.Errorf("expected %d email notifications sent, got %d", tt.expectedEmailCount, notifier.sentCount)
+				t.Errorf(
+					"expected %d email notifications sent, got %d",
+					tt.expectedEmailCount,
+					notifier.sentCount,
+				)
 			}
 		})
 	}
@@ -113,7 +125,10 @@ type mockSubscriptionRepo struct {
 	getErr error
 }
 
-func (m *mockSubscriptionRepo) GetActiveByRepoID(ctx context.Context, repoID int) ([]models.Subscription, error) {
+func (m *mockSubscriptionRepo) GetActiveByRepoID(
+	ctx context.Context,
+	repoID int,
+) ([]models.Subscription, error) {
 	return m.subs, m.getErr
 }
 
@@ -131,10 +146,13 @@ type mockGithubClient struct {
 	errs map[string]error
 }
 
-func (m *mockGithubClient) GetRepositoryLatestTag(ctx context.Context, repoAddr string, log *slog.Logger) (string, error) {
+func (m *mockGithubClient) GetRepositoryLatestTag(
+	ctx context.Context,
+	repoAddr string,
+	log *slog.Logger,
+) (string, error) {
 	if err, ok := m.errs[repoAddr]; ok && err != nil {
 		return "", err
 	}
 	return m.tags[repoAddr], nil
 }
-

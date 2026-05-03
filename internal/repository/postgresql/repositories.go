@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
 type RepositoryRepository struct {
@@ -17,23 +17,33 @@ func NewRepositoryRepository(db *sql.DB) *RepositoryRepository {
 	return &RepositoryRepository{db: db}
 }
 
-func (r *RepositoryRepository) Create(ctx context.Context, name string, lastSeenTag string) (*models.Repository, error) {
+func (r *RepositoryRepository) Create(
+	ctx context.Context,
+	name string,
+	lastSeenTag string,
+) (*models.Repository, error) {
 	query := `
 		INSERT INTO repositories (name, last_seen_tag) 
 		VALUES ($1, $2) 
 		RETURNING id, name, last_seen_tag, created_at`
 
 	var repo models.Repository
-	err := r.db.QueryRowContext(ctx, query, name, lastSeenTag).Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
+	err := r.db.QueryRowContext(ctx, query, name, lastSeenTag).
+		Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repository: %w", err)
 	}
 	return &repo, nil
 }
-func (r *RepositoryRepository) GetByName(ctx context.Context, name string) (*models.Repository, error) {
+
+func (r *RepositoryRepository) GetByName(
+	ctx context.Context,
+	name string,
+) (*models.Repository, error) {
 	query := `SELECT id, name, last_seen_tag, created_at FROM repositories WHERE name = $1`
 	var repo models.Repository
-	err := r.db.QueryRowContext(ctx, query, name).Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
+	err := r.db.QueryRowContext(ctx, query, name).
+		Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -65,5 +75,9 @@ func (r *RepositoryRepository) GetAll(ctx context.Context) ([]models.Repository,
 		}
 		repos = append(repos, repo)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return repos, nil
 }

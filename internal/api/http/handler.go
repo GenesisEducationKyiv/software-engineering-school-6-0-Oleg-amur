@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/http/dto"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/service"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 )
 
 type Handler struct {

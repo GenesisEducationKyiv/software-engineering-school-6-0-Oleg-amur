@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
 type Scanner struct {
@@ -97,7 +97,15 @@ func (s *Scanner) Scan(ctx context.Context) {
 		}
 
 		if repo.LastSeenTag != latestTag {
-			s.log.Info("new release found", "repo", repo.Name, "old", repo.LastSeenTag, "new", latestTag)
+			s.log.Info(
+				"new release found",
+				"repo",
+				repo.Name,
+				"old",
+				repo.LastSeenTag,
+				"new",
+				latestTag,
+			)
 
 			if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
 				s.log.Error("failed to update last_seen_tag", "repo", repo.Name, "err", err)
@@ -111,9 +119,28 @@ func (s *Scanner) Scan(ctx context.Context) {
 			}
 
 			for _, sub := range subs {
-				s.log.Info("sending release notification", "email", sub.Subscriber.Email, "repo", repo.Name, "tag", latestTag)
-				if err := s.notifier.SendReleaseNotification(ctx, sub.Subscriber.Email, repo.Name, latestTag); err != nil {
-					s.log.Error("failed to send notification", "email", sub.Subscriber.Email, "err", err)
+				s.log.Info(
+					"sending release notification",
+					"email",
+					sub.Subscriber.Email,
+					"repo",
+					repo.Name,
+					"tag",
+					latestTag,
+				)
+				if err := s.notifier.SendReleaseNotification(
+					ctx,
+					sub.Subscriber.Email,
+					repo.Name,
+					latestTag,
+				); err != nil {
+					s.log.Error(
+						"failed to send notification",
+						"email",
+						sub.Subscriber.Email,
+						"err",
+						err,
+					)
 				}
 			}
 		}

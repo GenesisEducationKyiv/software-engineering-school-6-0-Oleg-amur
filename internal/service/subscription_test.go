@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/http/dto"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
 func TestSubscribe(t *testing.T) {
@@ -95,11 +95,24 @@ func TestSubscribe(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSubscriptionService(
 				log,
-				&mockSubscriberRepo{sub: tt.subRepoSub, getByEmailErr: tt.getByEmailErr, createSubErr: tt.createSubErr},
-				&mockRepositoryRepo{repo: tt.repoRepoRepo, getByNameErr: tt.getByNameErr, createRepoErr: tt.createRepoErr},
+				&mockSubscriberRepo{
+					sub:           tt.subRepoSub,
+					getByEmailErr: tt.getByEmailErr,
+					createSubErr:  tt.createSubErr,
+				},
+				&mockRepositoryRepo{
+					repo:          tt.repoRepoRepo,
+					getByNameErr:  tt.getByNameErr,
+					createRepoErr: tt.createRepoErr,
+				},
 				&mockSubscriptionRepo{createErr: tt.subCreateErr},
 				&mockNotifier{},
-				&mockGithubClient{tag: tt.ghTag, err: tt.ghErr, exists: tt.ghExists, checkExistsErr: tt.checkExistsErr},
+				&mockGithubClient{
+					tag:            tt.ghTag,
+					err:            tt.ghErr,
+					exists:         tt.ghExists,
+					checkExistsErr: tt.checkExistsErr,
+				},
 			)
 
 			err := svc.Subscribe(context.Background(), tt.req)
@@ -226,11 +239,17 @@ func TestGetSubscriptions(t *testing.T) {
 			mockSubs: []models.Subscription{
 				{
 					SubscriptionStatus: models.StatusActive,
-					Repository:         &models.Repository{Name: "owner/repo1", LastSeenTag: "v1.0"},
+					Repository: &models.Repository{
+						Name:        "owner/repo1",
+						LastSeenTag: "v1.0",
+					},
 				},
 				{
 					SubscriptionStatus: models.StatusActive,
-					Repository:         &models.Repository{Name: "owner/repo2", LastSeenTag: "v2.0"},
+					Repository: &models.Repository{
+						Name:        "owner/repo2",
+						LastSeenTag: "v2.0",
+					},
 				},
 			},
 			expectedError: nil,
@@ -270,7 +289,10 @@ type mockSubscriberRepo struct {
 	createSubErr  error
 }
 
-func (m *mockSubscriberRepo) GetByEmail(ctx context.Context, email string) (*models.Subscriber, error) {
+func (m *mockSubscriberRepo) GetByEmail(
+	ctx context.Context,
+	email string,
+) (*models.Subscriber, error) {
 	return m.sub, m.getByEmailErr
 }
 
@@ -284,11 +306,18 @@ type mockRepositoryRepo struct {
 	createRepoErr error
 }
 
-func (m *mockRepositoryRepo) GetByName(ctx context.Context, name string) (*models.Repository, error) {
+func (m *mockRepositoryRepo) GetByName(
+	ctx context.Context,
+	name string,
+) (*models.Repository, error) {
 	return m.repo, m.getByNameErr
 }
 
-func (m *mockRepositoryRepo) Create(ctx context.Context, name string, lastSeenTag string) (*models.Repository, error) {
+func (m *mockRepositoryRepo) Create(
+	ctx context.Context,
+	name string,
+	lastSeenTag string,
+) (*models.Repository, error) {
 	return m.repo, m.createRepoErr
 }
 
@@ -312,7 +341,10 @@ func (m *mockSubscriptionRepo) DeleteByToken(ctx context.Context, token string) 
 	return m.deleteErr
 }
 
-func (m *mockSubscriptionRepo) GetActiveByEmail(ctx context.Context, email string) ([]models.Subscription, error) {
+func (m *mockSubscriptionRepo) GetActiveByEmail(
+	ctx context.Context,
+	email string,
+) ([]models.Subscription, error) {
 	return m.getActiveByEmailSubs, m.getActiveByEmailErr
 }
 
@@ -321,6 +353,7 @@ type mockNotifier struct{}
 func (m *mockNotifier) SendConfirmation(ctx context.Context, email, token string) error {
 	return nil
 }
+
 func (m *mockNotifier) SendReleaseNotification(ctx context.Context, email, repo, tag string) error {
 	return nil
 }
@@ -332,10 +365,18 @@ type mockGithubClient struct {
 	checkExistsErr error
 }
 
-func (m *mockGithubClient) GetRepositoryLatestTag(ctx context.Context, repoAddr string, log *slog.Logger) (string, error) {
+func (m *mockGithubClient) GetRepositoryLatestTag(
+	ctx context.Context,
+	repoAddr string,
+	log *slog.Logger,
+) (string, error) {
 	return m.tag, m.err
 }
 
-func (m *mockGithubClient) CheckIfRepoExists(ctx context.Context, repoAddr string, log *slog.Logger) (bool, error) {
+func (m *mockGithubClient) CheckIfRepoExists(
+	ctx context.Context,
+	repoAddr string,
+	log *slog.Logger,
+) (bool, error) {
 	return m.exists, m.checkExistsErr
 }

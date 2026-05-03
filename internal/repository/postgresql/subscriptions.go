@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
 type SubscriptionRepository struct {
@@ -17,7 +17,11 @@ func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepository {
 	return &SubscriptionRepository{db: db}
 }
 
-func (r *SubscriptionRepository) Create(ctx context.Context, subID, repoID int, token string) error {
+func (r *SubscriptionRepository) Create(
+	ctx context.Context,
+	subID, repoID int,
+	token string,
+) error {
 	query := `
 		INSERT INTO subscriptions (subscriber_id, repository_id, subscription_status, token) 
 		VALUES ($1, $2, $3, $4)
@@ -39,7 +43,10 @@ func (r *SubscriptionRepository) Create(ctx context.Context, subID, repoID int, 
 	return nil
 }
 
-func (r *SubscriptionRepository) GetByToken(ctx context.Context, token string) (*models.Subscription, error) {
+func (r *SubscriptionRepository) GetByToken(
+	ctx context.Context,
+	token string,
+) (*models.Subscription, error) {
 	query := `
 		SELECT s.id, s.subscriber_id, s.repository_id, s.subscription_status, s.token, s.created_at, sub.email, repo.name, repo.last_seen_tag
 		FROM subscriptions s
@@ -80,7 +87,10 @@ func (r *SubscriptionRepository) DeleteByToken(ctx context.Context, token string
 	return err
 }
 
-func (r *SubscriptionRepository) GetActiveByEmail(ctx context.Context, email string) ([]models.Subscription, error) {
+func (r *SubscriptionRepository) GetActiveByEmail(
+	ctx context.Context,
+	email string,
+) ([]models.Subscription, error) {
 	query := `
 		SELECT s.id, s.token, s.subscription_status, sub.email, repo.name, repo.last_seen_tag
 		FROM subscriptions s
@@ -116,11 +126,17 @@ func (r *SubscriptionRepository) GetActiveByEmail(ctx context.Context, email str
 		}
 		subs = append(subs, s)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return subs, nil
 }
 
-func (r *SubscriptionRepository) GetActiveByRepoID(ctx context.Context, repoID int) ([]models.Subscription, error) {
+func (r *SubscriptionRepository) GetActiveByRepoID(
+	ctx context.Context,
+	repoID int,
+) ([]models.Subscription, error) {
 	query := `
 		SELECT s.id, s.token, s.subscription_status, sub.email
 		FROM subscriptions s
@@ -141,10 +157,19 @@ func (r *SubscriptionRepository) GetActiveByRepoID(ctx context.Context, repoID i
 		var s models.Subscription
 		s.Subscriber = &models.Subscriber{}
 
-		if err := rows.Scan(&s.ID, &s.Token, &s.SubscriptionStatus, &s.Subscriber.Email); err != nil {
+		if err := rows.Scan(
+			&s.ID,
+			&s.Token,
+			&s.SubscriptionStatus,
+			&s.Subscriber.Email,
+		); err != nil {
 			return nil, err
 		}
 		subs = append(subs, s)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return subs, nil
 }

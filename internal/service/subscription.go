@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/http/dto"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 	"github.com/google/uuid"
 )
 
@@ -151,7 +151,10 @@ func (s *SubscriptionService) Unsubscribe(ctx context.Context, token string) err
 	return s.subscriptionRepo.DeleteByToken(ctx, token)
 }
 
-func (s *SubscriptionService) GetSubscriptions(ctx context.Context, email string) ([]dto.Subscription, error) {
+func (s *SubscriptionService) GetSubscriptions(
+	ctx context.Context,
+	email string,
+) ([]dto.Subscription, error) {
 	subs, err := s.subscriptionRepo.GetActiveByEmail(ctx, email)
 	if err != nil {
 		return nil, err

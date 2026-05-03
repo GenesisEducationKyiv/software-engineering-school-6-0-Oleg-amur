@@ -12,16 +12,16 @@ import (
 	"syscall"
 	"time"
 
-	grpcapi "github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/grpc"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/grpc/pb"
-	api "github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/http"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/config"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/database"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/github"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/notifier"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/repository/postgresql"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/scanner"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/service"
+	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
+	api "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/config"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/database"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/github"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/notifier"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/scanner"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
@@ -69,7 +69,14 @@ func runApp(log *slog.Logger) error {
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
 	n := notifier.NewEmailNotifier(cfg.Notifier)
-	subscriptionSvc := service.NewSubscriptionService(log, subRepo, repoRepo, subscriptionRepo, n, githubClient)
+	subscriptionSvc := service.NewSubscriptionService(
+		log,
+		subRepo,
+		repoRepo,
+		subscriptionRepo,
+		n,
+		githubClient,
+	)
 
 	s := setupScanner(log, cfg.Scanner, repoRepo, subscriptionRepo, githubClient, n)
 	go s.Start(ctx)
@@ -79,7 +86,7 @@ func runApp(log *slog.Logger) error {
 	httpServer := setupHttpServer(cfg.Server, mux)
 
 	grpcH := grpcapi.NewGrpcHandler(log, subscriptionSvc)
-	grpcServer, grpcLis, err := setupGrpcServer(cfg.Server, grpcH)
+	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcH)
 	if err != nil {
 		return err
 	}
@@ -129,7 +136,14 @@ func setupGithubClient(cfg config.GithubClient) (*github.Client, error) {
 	return github.NewClient(cfg.Url, cfg.ApiToken, timeout), nil
 }
 
-func setupScanner(log *slog.Logger, cfg config.Scanner, repoRepo *postgresql.RepositoryRepository, subRepo *postgresql.SubscriptionRepository, ghClient *github.Client, n service.Notifier) *scanner.Scanner {
+func setupScanner(
+	log *slog.Logger,
+	cfg config.Scanner,
+	repoRepo *postgresql.RepositoryRepository,
+	subRepo *postgresql.SubscriptionRepository,
+	ghClient *github.Client,
+	n service.Notifier,
+) *scanner.Scanner {
 	scanInterval, err := time.ParseDuration(cfg.Interval)
 	if err != nil {
 		log.Error("failed to parse scanner interval", "val", cfg.Interval, "err", err)
@@ -145,9 +159,15 @@ func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {
 	}
 }
 
-func setupGrpcServer(cfg config.Server, handler *grpcapi.GrpcHandler) (*grpc.Server, net.Listener, error) {
+func setupGrpcServer(
+	ctx context.Context,
+	cfg config.Server,
+	handler *grpcapi.GrpcHandler,
+) (*grpc.Server, net.Listener, error) {
 	grpcAddr := ":" + cfg.GrpcPort
-	lis, err := net.Listen("tcp", grpcAddr)
+
+	lc := net.ListenConfig{}
+	lis, err := lc.Listen(ctx, "tcp", grpcAddr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to listen for gRPC: %w", err)
 	}

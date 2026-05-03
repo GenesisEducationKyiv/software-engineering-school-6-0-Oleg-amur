@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 )
 
 type Client struct {
@@ -54,7 +54,11 @@ func (c *Client) do(ctx context.Context, method, url string) (*http.Response, er
 	return resp, nil
 }
 
-func (c *Client) CheckIfRepoExists(ctx context.Context, repoAddr string, log *slog.Logger) (bool, error) {
+func (c *Client) CheckIfRepoExists(
+	ctx context.Context,
+	repoAddr string,
+	log *slog.Logger,
+) (bool, error) {
 	url := fmt.Sprintf("%s/repos/%s", c.baseUrl, repoAddr)
 	log.Info("checking repository existence", "url", url)
 
@@ -79,7 +83,11 @@ func (c *Client) CheckIfRepoExists(ctx context.Context, repoAddr string, log *sl
 	return true, nil
 }
 
-func (c *Client) GetRepositoryLatestTag(ctx context.Context, repoAddr string, log *slog.Logger) (string, error) {
+func (c *Client) GetRepositoryLatestTag(
+	ctx context.Context,
+	repoAddr string,
+	log *slog.Logger,
+) (string, error) {
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", c.baseUrl, repoAddr)
 	log.Info("fetching latest release", "url", url)
 
