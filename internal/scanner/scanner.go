@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -82,67 +83,50 @@ func (s *Scanner) Scan(ctx context.Context) {
 	}
 
 	for _, repo := range repos {
-		latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name, s.log)
+		stopScan, err := s.processRepo(ctx, repo)
 		if err != nil {
-			if errors.Is(err, apperr.ErrRateLimitExceeded) {
-				s.log.Warn("rate limit reached", "error", err)
-				break
-			}
-			s.log.Error("failed to get latest release from github", "repo", repo.Name, "err", err)
-			continue
+			s.log.Error("failed to process repository", "repo", repo.Name, "err", err)
 		}
-
-		if latestTag == "" {
-			continue
+		if stopScan {
+			break
 		}
+	}
+}
 
-		if repo.LastSeenTag != latestTag {
-			s.log.Info(
-				"new release found",
-				"repo",
-				repo.Name,
-				"old",
-				repo.LastSeenTag,
-				"new",
-				latestTag,
-			)
+func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) (bool, error) {
+	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name, s.log)
+	if err != nil {
+		if errors.Is(err, apperr.ErrRateLimitExceeded) {
+			s.log.Warn("rate limit reached", "error", err)
+			return true, nil
+		}
+		return false, err
+	}
 
-			if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
-				s.log.Error("failed to update last_seen_tag", "repo", repo.Name, "err", err)
-				continue
-			}
+	if latestTag == "" || repo.LastSeenTag == latestTag {
+		return false, nil
+	}
 
-			subs, err := s.subscriptionRepo.GetActiveByRepoID(ctx, repo.ID)
-			if err != nil {
-				s.log.Error("failed to fetch subscribers for repo", "repo", repo.Name, "err", err)
-				continue
-			}
+	s.log.Info("new release found", "repo", repo.Name, "old", repo.LastSeenTag, "new", latestTag)
 
-			for _, sub := range subs {
-				s.log.Info(
-					"sending release notification",
-					"email",
-					sub.Subscriber.Email,
-					"repo",
-					repo.Name,
-					"tag",
-					latestTag,
-				)
-				if err := s.notifier.SendReleaseNotification(
-					ctx,
-					sub.Subscriber.Email,
-					repo.Name,
-					latestTag,
-				); err != nil {
-					s.log.Error(
-						"failed to send notification",
-						"email",
-						sub.Subscriber.Email,
-						"err",
-						err,
-					)
-				}
-			}
+	if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
+		return false, fmt.Errorf("failed to update tag: %w", err)
+	}
+
+	subs, err := s.subscriptionRepo.GetActiveByRepoID(ctx, repo.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch subscribers: %w", err)
+	}
+
+	s.notifySubscribers(ctx, repo.Name, latestTag, subs)
+	return false, nil
+}
+
+func (s *Scanner) notifySubscribers(ctx context.Context, repo, tag string, subs []models.Subscription) {
+	for _, sub := range subs {
+		s.log.Info("sending notification", "email", sub.Subscriber.Email, "repo", repo, "tag", tag)
+		if err := s.notifier.SendReleaseNotification(ctx, sub.Subscriber.Email, repo, tag); err != nil {
+			s.log.Error("failed to send notification", "email", sub.Subscriber.Email, "err", err)
 		}
 	}
 }
