@@ -36,14 +36,14 @@ linters:
       rules:
         - name: package-comments
           disabled: true
-    golines:
-      max-len: 120 
-  exclusions:
 
 formatters:
   enable:
     - gofumpt
     - golines
+  settings:
+    golines:
+      max-len: 120
 
 issues:
   max-issues-per-linter: 0
