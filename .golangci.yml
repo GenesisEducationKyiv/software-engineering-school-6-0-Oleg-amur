@@ -1,0 +1,55 @@
+version: "2"
+
+linters:
+  default: none 
+
+  enable:
+    - bodyclose
+    - depguard
+    - durationcheck
+    - errcheck
+    - errorlint
+    - gocritic
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - noctx
+    - nolintlint
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - testifylint
+    - unused
+
+  settings:
+    depguard:
+      rules:
+        all:
+          deny:
+            - pkg: io/ioutil
+              desc: "io/ioutil is deprecated. Use package io or os instead."
+            - pkg: github.com/pkg/errors
+              desc: "Should be replaced by standard lib errors package."
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+    golines:
+      max-len: 120 
+  exclusions:
+
+formatters:
+  enable:
+    - gofumpt
+    - golines
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 2m
+  go: '1.25.3'
+
