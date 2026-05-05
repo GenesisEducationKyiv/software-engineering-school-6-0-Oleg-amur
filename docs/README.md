@@ -72,10 +72,10 @@ The service will be available at:
 The API documentation is available in Swagger format at `api/swagger.yaml`.
 
 **Endpoints:**
-- `POST /api/subscribe`: Subscribe an email to a GitHub repository.
-- `GET /api/confirm/{token}`: Confirm the subscription.
-- `GET /api/unsubscribe/{token}`: Unsubscribe from notifications.
-- `GET /api/subscriptions?email=...`: List all subscriptions for an email.
+- `POST /api/v1/subscribe`: Subscribe an email to a GitHub repository.
+- `GET /api/v1/confirm/{token}`: Confirm the subscription.
+- `GET /api/v1/unsubscribe/{token}`: Unsubscribe from notifications.
+- `GET /api/v1/subscriptions?email=...`: List all subscriptions for an email.
 
 ### gRPC API
 
