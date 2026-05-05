@@ -56,7 +56,7 @@ func NewSubscriptionService(
 	repo RepositoryRepo,
 	subscription SubscriptionRepo,
 	notifier Notifier,
-	githubClient     GithubClient,
+	githubClient GithubClient,
 ) *SubscriptionService {
 	return &SubscriptionService{
 		log:              log,
