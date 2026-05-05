@@ -8,3 +8,6 @@ Thumbs.db
 
 # Go workspace
 go.work
+
+# Environment variables
+.env

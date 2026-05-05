@@ -2,9 +2,9 @@ name: CI/CD workflow
 
 on: 
   push:
-    branches: [ master ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ master ]
+    branches: [ "**" ]
 
 jobs:
   build-and-test:
@@ -17,9 +17,12 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: 1.25.3
+          cache: true
 
       - name: lint
         uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
 
       - name: unit tests
         run: go test -v ./...

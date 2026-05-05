@@ -5,10 +5,10 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/grpc/pb"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/http/dto"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/service"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,8 +26,11 @@ func NewGrpcHandler(log *slog.Logger, svc *service.SubscriptionService) *GrpcHan
 	}
 }
 
-func (h *GrpcHandler) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (*pb.SubscribeResponse, error) {
-	err := h.service.Subscribe(ctx, dto.SubscribeRequest{
+func (h *GrpcHandler) Subscribe(
+	ctx context.Context,
+	req *pb.SubscribeRequest,
+) (*pb.SubscribeResponse, error) {
+	err := h.service.Subscribe(ctx, models.SubscribeRequest{
 		Email: req.GetEmail(),
 		Repo:  req.GetRepo(),
 	})
@@ -51,7 +54,10 @@ func (h *GrpcHandler) Subscribe(ctx context.Context, req *pb.SubscribeRequest) (
 	return &pb.SubscribeResponse{}, nil
 }
 
-func (h *GrpcHandler) Confirm(ctx context.Context, req *pb.ConfirmRequest) (*pb.ConfirmResponse, error) {
+func (h *GrpcHandler) Confirm(
+	ctx context.Context,
+	req *pb.ConfirmRequest,
+) (*pb.ConfirmResponse, error) {
 	err := h.service.Confirm(ctx, req.GetToken())
 	if err != nil {
 		if errors.Is(err, apperr.ErrTokenNotFound) {
@@ -64,7 +70,10 @@ func (h *GrpcHandler) Confirm(ctx context.Context, req *pb.ConfirmRequest) (*pb.
 	return &pb.ConfirmResponse{}, nil
 }
 
-func (h *GrpcHandler) Unsubscribe(ctx context.Context, req *pb.UnsubscribeRequest) (*pb.UnsubscribeResponse, error) {
+func (h *GrpcHandler) Unsubscribe(
+	ctx context.Context,
+	req *pb.UnsubscribeRequest,
+) (*pb.UnsubscribeResponse, error) {
 	err := h.service.Unsubscribe(ctx, req.GetToken())
 	if err != nil {
 		h.log.Error("unsubscription failed", "err", err)
@@ -74,7 +83,10 @@ func (h *GrpcHandler) Unsubscribe(ctx context.Context, req *pb.UnsubscribeReques
 	return &pb.UnsubscribeResponse{}, nil
 }
 
-func (h *GrpcHandler) GetSubscriptions(ctx context.Context, req *pb.GetSubscriptionsRequest) (*pb.GetSubscriptionsResponse, error) {
+func (h *GrpcHandler) GetSubscriptions(
+	ctx context.Context,
+	req *pb.GetSubscriptionsRequest,
+) (*pb.GetSubscriptionsResponse, error) {
 	subs, err := h.service.GetSubscriptions(ctx, req.GetEmail())
 	if err != nil {
 		h.log.Error("get subscriptions failed", "err", err)

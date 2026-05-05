@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/http/dto"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 	"github.com/google/uuid"
 )
 
@@ -37,8 +37,8 @@ type Notifier interface {
 }
 
 type GithubClient interface {
-	GetRepositoryLatestTag(ctx context.Context, repoAddr string, log *slog.Logger) (string, error)
-	CheckIfRepoExists(ctx context.Context, repoAddr string, log *slog.Logger) (bool, error)
+	GetRepositoryLatestTag(ctx context.Context, repoAddr string) (string, error)
+	CheckIfRepoExists(ctx context.Context, repoAddr string) (bool, error)
 }
 
 type SubscriptionService struct {
@@ -68,7 +68,7 @@ func NewSubscriptionService(
 	}
 }
 
-func (s *SubscriptionService) Subscribe(ctx context.Context, req dto.SubscribeRequest) error {
+func (s *SubscriptionService) Subscribe(ctx context.Context, req models.SubscribeRequest) error {
 	parts := strings.Split(req.Repo, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return apperr.ErrInvalidFormat
@@ -91,7 +91,7 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req dto.SubscribeRe
 			return fmt.Errorf("repository check error: %w", err)
 		}
 
-		exists, checkErr := s.githubClient.CheckIfRepoExists(ctx, req.Repo, s.log)
+		exists, checkErr := s.githubClient.CheckIfRepoExists(ctx, req.Repo)
 		if checkErr != nil {
 			if errors.Is(checkErr, apperr.ErrRateLimitExceeded) {
 				return apperr.ErrRateLimitExceeded
@@ -102,7 +102,7 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req dto.SubscribeRe
 			return apperr.ErrRepoNotFound
 		}
 
-		tag, tagErr := s.githubClient.GetRepositoryLatestTag(ctx, req.Repo, s.log)
+		tag, tagErr := s.githubClient.GetRepositoryLatestTag(ctx, req.Repo)
 		if tagErr != nil {
 			if errors.Is(tagErr, apperr.ErrRateLimitExceeded) {
 				return apperr.ErrRateLimitExceeded
@@ -128,7 +128,10 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req dto.SubscribeRe
 	}
 
 	go func() {
-		if err := s.notifier.SendConfirmation(context.Background(), req.Email, token); err != nil {
+		bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+
+		if err := s.notifier.SendConfirmation(bgCtx, req.Email, token); err != nil {
 			s.log.Error("failed to send notification", "err", err)
 		}
 	}()
@@ -151,15 +154,18 @@ func (s *SubscriptionService) Unsubscribe(ctx context.Context, token string) err
 	return s.subscriptionRepo.DeleteByToken(ctx, token)
 }
 
-func (s *SubscriptionService) GetSubscriptions(ctx context.Context, email string) ([]dto.Subscription, error) {
+func (s *SubscriptionService) GetSubscriptions(
+	ctx context.Context,
+	email string,
+) ([]models.SubscriptionDTO, error) {
 	subs, err := s.subscriptionRepo.GetActiveByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
 
-	var result []dto.Subscription
+	var result []models.SubscriptionDTO
 	for _, sub := range subs {
-		result = append(result, dto.Subscription{
+		result = append(result, models.SubscriptionDTO{
 			Email:       email,
 			Repo:        sub.Repository.Name,
 			Confirmed:   sub.SubscriptionStatus == models.StatusActive,

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/migrations"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/migrations"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -23,7 +23,7 @@ func InitDb(ctx context.Context, connectionString string, log *slog.Logger) (*sq
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	log.Info("database connection established succesfully")
+	log.Info("database connection established successfully")
 	return db, nil
 }
 
@@ -45,7 +45,6 @@ func RunMigrations(ctx context.Context, db *sql.DB, log *slog.Logger) error {
 		log.Info("applying migration", "file", file.Name())
 
 		content, err := fs.ReadFile(migrations.Files, file.Name())
-
 		if err != nil {
 			return fmt.Errorf("failed to read a migration file: %w", err)
 		}
