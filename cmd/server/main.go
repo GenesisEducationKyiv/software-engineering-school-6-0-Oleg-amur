@@ -40,26 +40,32 @@ func runApp(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	log.Debug("loading configuration", "config_path", configPath)
+
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load config from %s: %w", configPath, err)
 	}
 
+	log.Debug("connecting to database")
 	db, err := database.InitDb(ctx, cfg.Database.ConnectionString, log)
 	if err != nil {
 		return err
 	}
 	defer func(db *sql.DB) {
+		log.Debug("closing database connection")
 		err := db.Close()
 		if err != nil {
 			log.Error("unable to close database connection", "error", err)
 		}
 	}(db)
 
+	log.Debug("running database migrations")
 	if err := database.RunMigrations(ctx, db, log); err != nil {
 		return err
 	}
 
+	log.Debug("initializing dependencies")
 	githubClient, err := setupGithubClient(cfg.GithubClient, log)
 	if err != nil {
 		return err
@@ -79,9 +85,10 @@ func runApp(log *slog.Logger) error {
 		githubClient,
 	)
 
-	bgScanner := setupScanner(log, cfg.Scanner, repositoryRepo, subscriptionRepo, githubClient, emailNotifier)
-	go bgScanner.Start(ctx)
+	releaseScanner := setupScanner(log, cfg.Scanner, repositoryRepo, subscriptionRepo, githubClient, emailNotifier)
+	go releaseScanner.Start(ctx)
 
+	log.Debug("setting up transport layers")
 	router := httpapi.NewRouter(log, subscriptionSvc)
 	httpServer := setupHttpServer(cfg.Server, router)
 
@@ -94,14 +101,14 @@ func runApp(log *slog.Logger) error {
 	errCh := make(chan error, 2)
 
 	go func() {
-		log.Info("HTTP server started", "addr", httpServer.Addr)
+		log.Info("HTTP server starting", "addr", httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
 	}()
 
 	go func() {
-		log.Info("gRPC server started", "addr", ":"+cfg.Server.GrpcPort)
+		log.Info("gRPC server starting", "addr", ":"+cfg.Server.GrpcPort)
 		if err := grpcServer.Serve(grpcLis); err != nil {
 			errCh <- err
 		}
