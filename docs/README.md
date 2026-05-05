@@ -1,99 +1,136 @@
-This is Case Task for Software Engineering School 6.0
+# Release Notifier Service
 
+A Go-based service that monitors GitHub repositories for new releases and notifies subscribers via email. It provides both REST and gRPC interfaces for subscription management.
 
-# Requerenments:
+## Features
 
-Introduction: This is high-level summary of the project and some kind of decision log.
+- **GitHub Monitoring**: Periodically scans GitHub repositories for new releases.
+- **Email Notifications**: Notifies subscribers when a new release is detected.
+- **Multi-Protocol Support**:
+  - **REST API**: Standard HTTP endpoints for subscription management.
+  - **gRPC API**: High-performance interface for service-to-service communication.
+- **Persistence**: Uses PostgreSQL to store subscribers, repositories, and subscription states.
+- **Monitoring**: Includes Prometheus metrics for service observability.
+- **Dockerized**: Ready to run with Docker and Docker Compose.
 
-Requirements:
-- The service must match the API described in the swagger documentation.
-- All functionality (API, Scanner, Notifier) must be implemented within a single service (monolith). Splitting into microservices is not allowed at this stage.
-- All application data must be stored in a database. Database schema migrations must run on service startup.
-- The repository must contain Dockerfile and docker-compose.yml that allow running the entire system in Docker.
-- The service must regularly check for new releases for all active subscriptions. When a new release is detected, send an email to the subscriber. For each repository, store last_seen_tag and only notify if a new release appears.
-- When creating a subscription, the service must verify the repository exists via GitHub API. Parameter format: owner/repo (e.g., golang/go). If the repository is not found - return 404. If the format is invalid - return 400.
-- The service must correctly handle 429 Too Many Requests from GitHub API (rate limit: 60 req/hour without token, 5000 with token).
-- You may use frameworks, but only “thin” solutions. High-level frameworks are prohibited: Nest.js (Node.js), Revel or Fx (Go), Laravel (PHP). Allowed: Fastify or Express (Node.js), Gin / Chi / net/http (Go), Slim or built-in language capabilities (PHP).
-- Unit tests for business logic are mandatory. Integration tests are a bonus.
-- You may add comments or logic descriptions in README.md. Correct logic can be an advantage in evaluation if you don’t fully complete the task.
-- Expected languages: Golang, Node.js, or PHP.
+## Tech Stack
 
-# Decision Log:
+- **Language**: [Go](https://go.dev/) (1.25+)
+- **Database**: [PostgreSQL](https://www.postgresql.org/)
+- **Communication**: [gRPC](https://grpc.io/), [net/http](https://pkg.go.dev/net/http)
+- **Configuration**: [cleanenv](https://github.com/ilyakaznacheev/cleanenv)
+- **Metrics**: [Prometheus](https://prometheus.io/)
+- **Containerization**: [Docker](https://www.docker.com/)
 
-- Language: Go
-    - Reason: I'm interested in this language. For this task this is enough:)
-- Database: PostgreSQL
-    - Reason: I have experience with it. Also it quite common to use posgre + go. Mongo does not fit there as it's overcomplicating due to absence of real relations and foreign keys there. SQLite is also good option here.
-- Web framework: net/http 
-    - Reason: For learning purposes it's better 
-- Subscription: timer
-    - Reason: Timer is good enough and it avoids external dependecies (if we compare with cron)
-- Mail sending: I think we can use go-smpt and MailPit as kind of mock
-    - Reason: Do we really need real emails? Mailpit will be more convinient for such task. But as we will use smtp, maybe we could also send those request to some external API, to send real messages
-- Github API: use own client
-    - Reason: there is go-github google lib, but own implementation makes more sense for education purposes
-- DataSchema: use tree tables, subscribprions, subscribers and repositories:
-    - Reason: to separate concerns, avoid duplication of data
-- Config: started with yaml parser, ended up with clearenv, because it allows both yaml, ENV and default configuration, which is convinient
-- Unsubscription: I've decided not to remove subscribers and repos if they are not subscribed to anything, or if repo does not have any subscribers. Saving repo release tag will reduce amount of requests to API when subscribing. This can increase amount of requests during scaning operations, because we will update tag for "dead" repos, but I think for us is more important to save repository tag. Probably some kind of CleanUp can be implemented for repos that are not watched for more than 30 days. As for users, it does not affect almost anything, so we can save them for history or some future metrics. 
+## Getting Started
 
-## What have been done from extra:
-- gRPC interface as an alternative or addition to REST API
-- Prometheus metrics - /metrics endpoint with basic service indicators
-- GitHub Actions CI pipeline: run linter and tests on every push
+### Prerequisites
 
-# Project Structure:
+- [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Go](https://go.dev/doc/install) (optional, for local development)
 
-  ├── .github/workflows  # CI/CD pipelines
-  ├── api/               # API definitions (Swagger/Proto)
-  ├── cmd/
-  │   └── server/        # Entry point
-  ├── configs/           # YAML configuration files
-  ├── docs/              # Documentation
-  ├── internal/
-  │   ├── api/           # HTTP and gRPC handlers + DTOs
-  │   ├── apperr/        # Centralized application errors
-  │   ├── config/        # Configuration loading 
-  │   ├── database/      # DB initialization and migration runner
-  │   ├── github/        # GitHub API client
-  │   ├── models/        # Domain entities
-  │   ├── notifier/      # Email notification logic
-  │   ├── repository/    
-  │   ├── scanner/       # New releases scanner
-  │   └── service/       # Services
-  └── migrations/        # SQL migration files
-structure generated using AI
+### Configuration
 
-inspired partially by [this](https://github.com/golang-standards/project-layout/tree/master)
+The service is configured using environment variables or a YAML file. You can find an example configuration in `.env.example`.
 
-# Main business logic:
+Key configuration options:
+- `DATABASE_URL`: PostgreSQL connection string.
+- `SCAN_INTERVAL`: How often to check for new releases (e.g., `1m`, `1h`).
+- `GITHUB_TOKEN`: GitHub Personal Access Token (optional, but recommended to avoid rate limits).
+- `SMTP_HOST`/`SMTP_PORT`: Email server configuration.
 
-## Scaning logic:
-- Select all repositories from db (they are already unique, as the same "name" can not be twice in db)
-- loop through them and get latest release
-- compare with last_seen_tag
-- notify all subscribers to this repository if different
-- if we hit rate limit, skip all requests until next scan (there could be some kind of sleep, but i don't not if we need it here)
+### Running with Docker Compose
 
-# Issues I've faced with
+The easiest way to run the service along with its dependencies (PostgreSQL and Mailpit):
 
-## GitHub API
-Probably the biggest and the most interesting issue here is that some repos does not have realses, for example golang/go. And probably there we should get latest tag, not release. But API does not have such endpoint, unlike releases with releases/latest. So probably we should get all gets, and get latest. But there is the catch, that we can not sort them correctly, because go version are not correct according to semver. And if we manage to sort them somehow, this may not work for other cases. As task says only about releases, and not about tags, I think it was not the main goal of this task, so I did not implement getting latest tag. But i've found some way how this can be done: \r\n
-- We can get them via GraphQL GitHub API:
-```curl -s -H "Authorization: Bearer <token>" -X POST -d '{      "query": "query { repository(owner: \"golang\", name: \"go\") { refs(refPrefix: \"refs/tags/\", first: 1, orderBy: {field: TAG_COMMIT_DATE, direction: DESC}) {     nodes { name } } } }" }' https://api.github.com/graphql```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur.git
+   cd software-engineering-school-6-0-Oleg-amur
+   ```
 
-The issue here is that API token is mandatory here to retrieve data. Requirements mention case without token, so it does not fit there, but it can do the task if needed. 
-- We can get latest tag by parsing github UI or via Atom Feed
-```curl -s https://github.com/golang/go/tags.atom```
+2. Copy `.env.example` to `.env` and adjust if necessary:
+   ```bash
+   cp .env.example .env
+   ```
 
-It can work great here, does not need token, but it's not API, so maybe also does not fit there
+3. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
 
-Maybe those things can be done later as improvement
+The service will be available at:
+- REST API: `http://localhost:8080`
+- gRPC API: `localhost:50051`
+- Mailpit UI (Email testing): `http://localhost:8025`
+- Prometheus Metrics: `http://localhost:8080/metrics`
 
-## Database Schema
-I've splited Subscribers, Repositories and Subscriptions. Initially I thought it would be great, because it separate those entities, allowing further easier extention and so on. But it resulted in some JOINs, that looks like overhead in this task, so maybe one or two tables (subscriptions + repos) would be more approptiate for this task.
+## API Documentation
 
-## Golang
-I must say, it was not that easy (after dotnet), especially ?enums?. I knew golang syntax, as I went through go.dev/learn and tried to implement some projects, but this task was and interesting challenge and a great way to get event closer to it. I went through a lot of repos trying to find how goland project usually looks like, what and how people usually do things, and I glad I did this task
+### REST API
 
-Author: Volkoboi Oleh
+The API documentation is available in Swagger format at `api/swagger.yaml`.
+
+**Endpoints:**
+- `POST /api/subscribe`: Subscribe an email to a GitHub repository.
+- `GET /api/confirm/{token}`: Confirm the subscription.
+- `GET /api/unsubscribe/{token}`: Unsubscribe from notifications.
+- `GET /api/subscriptions?email=...`: List all subscriptions for an email.
+
+### gRPC API
+
+The gRPC definition is available at `api/proto/release_notifier.proto`.
+
+**Services:**
+- `Subscribe`: Create a new subscription.
+- `Confirm`: Confirm a subscription.
+- `Unsubscribe`: Remove a subscription.
+- `GetSubscriptions`: List all subscriptions for an email.
+
+## Project Structure
+
+```text
+├── api/               # API definitions (Swagger/Proto)
+├── cmd/               # Service entry points
+├── configs/           # Configuration files
+├── internal/          # Private application code
+│   ├── api/           # Transport layers (HTTP/gRPC)
+│   ├── apperr/        # Domain errors
+│   ├── config/        # Configuration loading
+│   ├── database/      # DB initialization and migrations
+│   ├── github/        # GitHub API client
+│   ├── models/        # Domain entities
+│   ├── notifier/      # Email notification logic
+│   ├── repository/    # Database persistence
+│   ├── scanner/       # Release monitoring logic
+│   └── service/       # Business logic layer
+├── migrations/        # SQL migration files
+└── docs/              # Additional documentation
+```
+
+## Architecture & Design Decisions
+
+- **Web Framework**: Built using standard `net/http` for the REST API to keep dependencies "thin" and leverage Go's powerful standard library.
+- **Database Schema**: Uses a normalized structure with separate tables for `Subscribers`, `Repositories`, and `Subscriptions`. This allows for efficient data management and prevents duplication (e.g., one repository being scanned once even if it has multiple subscribers).
+- **GitHub Client**: Custom implementation of the GitHub API client to handle rate limiting (429 Too Many Requests) and provide specific functionality needed for release monitoring without the overhead of larger libraries.
+- **Background Scanner**: Uses a Go-native `time.Timer` for periodic scanning, avoiding external cron dependencies and ensuring a self-contained monolith.
+
+## Release Detection Logic
+
+The service maintains a `last_seen_tag` for every tracked repository:
+1. It fetches all active repositories from the database.
+2. For each, it queries the GitHub API for the latest release.
+3. If a new version is detected (different from `last_seen_tag`), it triggers email notifications to all confirmed subscribers of that repository.
+4. If rate limits are hit, the scanner gracefully skips the current cycle to wait for the window reset.
+
+## Technical Considerations
+
+- **Releases vs. Tags**: Currently, the service monitors the GitHub "Releases" endpoint. Some repositories (like `golang/go`) primarily use git tags rather than official GitHub Releases. Future improvements could include fallback logic to monitor tags via Atom feeds or GraphQL if no releases are found.
+- **Rate Limiting**: To avoid hitting GitHub's public API limits (60 req/hour), it is highly recommended to provide a `GITHUB_TOKEN`. This increases the limit to 5,000 requests per hour.
+
+## Testing
+
+Run unit tests:
+```bash
+go test ./...
+```
