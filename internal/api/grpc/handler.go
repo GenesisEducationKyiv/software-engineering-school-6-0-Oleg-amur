@@ -6,8 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,7 +30,7 @@ func (h *GrpcHandler) Subscribe(
 	ctx context.Context,
 	req *pb.SubscribeRequest,
 ) (*pb.SubscribeResponse, error) {
-	err := h.service.Subscribe(ctx, dto.SubscribeRequest{
+	err := h.service.Subscribe(ctx, models.SubscribeRequest{
 		Email: req.GetEmail(),
 		Repo:  req.GetRepo(),
 	})

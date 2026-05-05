@@ -149,7 +149,6 @@ type mockGithubClient struct {
 func (m *mockGithubClient) GetRepositoryLatestTag(
 	ctx context.Context,
 	repoAddr string,
-	log *slog.Logger,
 ) (string, error) {
 	if err, ok := m.errs[repoAddr]; ok && err != nil {
 		return "", err

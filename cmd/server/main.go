@@ -14,7 +14,7 @@ import (
 
 	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
-	api "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http"
+	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/database"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/github"
@@ -22,9 +22,10 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/scanner"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
+
+const configPath = "configs/config.yaml"
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -39,7 +40,7 @@ func runApp(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	cfg, err := config.LoadConfig("configs/config.yaml")
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -59,34 +60,33 @@ func runApp(log *slog.Logger) error {
 		return err
 	}
 
-	githubClient, err := setupGithubClient(cfg.GithubClient)
+	githubClient, err := setupGithubClient(cfg.GithubClient, log)
 	if err != nil {
 		return err
 	}
 
-	subRepo := postgresql.NewSubscriberRepository(db)
-	repoRepo := postgresql.NewRepositoryRepository(db)
+	subscriberRepo := postgresql.NewSubscriberRepository(db)
+	repositoryRepo := postgresql.NewRepositoryRepository(db)
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
-	n := notifier.NewEmailNotifier(cfg.Notifier)
+	emailNotifier := notifier.NewEmailNotifier(cfg.Notifier)
 	subscriptionSvc := service.NewSubscriptionService(
 		log,
-		subRepo,
-		repoRepo,
+		subscriberRepo,
+		repositoryRepo,
 		subscriptionRepo,
-		n,
+		emailNotifier,
 		githubClient,
 	)
 
-	s := setupScanner(log, cfg.Scanner, repoRepo, subscriptionRepo, githubClient, n)
-	go s.Start(ctx)
+	bgScanner := setupScanner(log, cfg.Scanner, repositoryRepo, subscriptionRepo, githubClient, emailNotifier)
+	go bgScanner.Start(ctx)
 
-	h := api.NewHandler(log, subscriptionSvc)
-	mux := setupMux(h)
-	httpServer := setupHttpServer(cfg.Server, mux)
+	router := httpapi.NewRouter(log, subscriptionSvc)
+	httpServer := setupHttpServer(cfg.Server, router)
 
-	grpcH := grpcapi.NewGrpcHandler(log, subscriptionSvc)
-	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcH)
+	grpcHandler := grpcapi.NewGrpcHandler(log, subscriptionSvc)
+	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcHandler)
 	if err != nil {
 		return err
 	}
@@ -128,28 +128,28 @@ func runApp(log *slog.Logger) error {
 	return nil
 }
 
-func setupGithubClient(cfg config.GithubClient) (*github.Client, error) {
+func setupGithubClient(cfg config.GithubClient, log *slog.Logger) (*github.Client, error) {
 	timeout, err := time.ParseDuration(cfg.Timeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse github client timeout: %w", err)
 	}
-	return github.NewClient(cfg.Url, cfg.ApiToken, timeout), nil
+	return github.NewClient(cfg.Url, cfg.ApiToken, timeout, log), nil
 }
 
 func setupScanner(
 	log *slog.Logger,
 	cfg config.Scanner,
-	repoRepo *postgresql.RepositoryRepository,
-	subRepo *postgresql.SubscriptionRepository,
+	repositoryRepo *postgresql.RepositoryRepository,
+	subscriptionRepo *postgresql.SubscriptionRepository,
 	ghClient *github.Client,
-	n service.Notifier,
+	emailNotifier service.Notifier,
 ) *scanner.Scanner {
 	scanInterval, err := time.ParseDuration(cfg.Interval)
 	if err != nil {
 		log.Error("failed to parse scanner interval", "val", cfg.Interval, "err", err)
 		scanInterval = time.Hour
 	}
-	return scanner.NewScanner(log, repoRepo, subRepo, ghClient, n, scanInterval)
+	return scanner.NewScanner(log, repositoryRepo, subscriptionRepo, ghClient, emailNotifier, scanInterval)
 }
 
 func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {
@@ -177,14 +177,4 @@ func setupGrpcServer(
 	pb.RegisterReleaseNotifierServer(srv, handler)
 
 	return srv, lis, nil
-}
-
-func setupMux(h *api.Handler) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/subscribe", h.Subscribe)
-	mux.HandleFunc("/api/confirm/", h.Confirm)
-	mux.HandleFunc("/api/unsubscribe/", h.Unsubscribe)
-	mux.HandleFunc("/api/subscriptions", h.GetSubscriptions)
-	mux.Handle("/metrics", promhttp.Handler())
-	return mux
 }

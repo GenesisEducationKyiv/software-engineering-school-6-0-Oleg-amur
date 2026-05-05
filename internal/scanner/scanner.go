@@ -34,7 +34,7 @@ type Notifier interface {
 }
 
 type GithubClient interface {
-	GetRepositoryLatestTag(ctx context.Context, repoAddr string, log *slog.Logger) (string, error)
+	GetRepositoryLatestTag(ctx context.Context, repoAddr string) (string, error)
 }
 
 func NewScanner(
@@ -94,7 +94,7 @@ func (s *Scanner) Scan(ctx context.Context) {
 }
 
 func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) (bool, error) {
-	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name, s.log)
+	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name)
 	if err != nil {
 		if errors.Is(err, apperr.ErrRateLimitExceeded) {
 			s.log.Warn("rate limit reached", "error", err)
