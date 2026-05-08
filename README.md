@@ -115,6 +115,8 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 - **GitHub Client**: Custom implementation of the GitHub API client to handle rate limiting (429 Too Many Requests) and provide specific functionality needed for release monitoring without the overhead of larger libraries.
 - **Background Scanner**: Uses a Go-native `time.Timer` for periodic scanning, avoiding external cron dependencies and ensuring a self-contained monolith.
 
+See the **[ADR Summary](docs/adr/adr-summary.md)** for more in-depth rationales for these decisions.
+
 ## Release Detection Logic
 
 The service maintains a `last_seen_tag` for every tracked repository:
@@ -126,6 +128,15 @@ The service maintains a `last_seen_tag` for every tracked repository:
 ## Technical Considerations
 
 - **Releases vs. Tags**: Currently, the service monitors the GitHub "Releases" endpoint. Some repositories (like `golang/go`) primarily use git tags rather than official GitHub Releases. Future improvements could include fallback logic to monitor tags via Atom feeds or GraphQL if no releases are found.
+- **Rate Limiting**: To avoid hitting GitHub's public API limits (60 req/hour), it is highly recommended to provide a `GITHUB_TOKEN`. This increases the limit to 5,000 requests per hour.
+
+## Testing
+
+Run unit tests:
+```bash
+go test ./...
+```
+found.
 - **Rate Limiting**: To avoid hitting GitHub's public API limits (60 req/hour), it is highly recommended to provide a `GITHUB_TOKEN`. This increases the limit to 5,000 requests per hour.
 
 ## Testing
