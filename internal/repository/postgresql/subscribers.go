@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/models"
+
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
 type SubscriberRepository struct {
@@ -15,7 +16,10 @@ func NewSubscriberRepository(db *sql.DB) *SubscriberRepository {
 	return &SubscriberRepository{db: db}
 }
 
-func (r *SubscriberRepository) Create(ctx context.Context, email string) (*models.Subscriber, error) {
+func (r *SubscriberRepository) Create(
+	ctx context.Context,
+	email string,
+) (*models.Subscriber, error) {
 	query := `
 		INSERT INTO subscribers (email) 
 		VALUES ($1) 
@@ -29,7 +33,10 @@ func (r *SubscriberRepository) Create(ctx context.Context, email string) (*model
 	return &s, nil
 }
 
-func (r *SubscriberRepository) GetByEmail(ctx context.Context, email string) (*models.Subscriber, error) {
+func (r *SubscriberRepository) GetByEmail(
+	ctx context.Context,
+	email string,
+) (*models.Subscriber, error) {
 	query := `SELECT id, email, created_at FROM subscribers WHERE email = $1`
 	var s models.Subscriber
 	err := r.db.QueryRowContext(ctx, query, email).Scan(&s.ID, &s.Email, &s.CreatedAt)

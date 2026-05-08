@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/smtp"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/config"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/config"
 )
 
 type EmailNotifier struct {
@@ -18,11 +18,18 @@ func NewEmailNotifier(cfg config.Notifier) *EmailNotifier {
 
 func (n *EmailNotifier) SendConfirmation(ctx context.Context, email, token string) error {
 	subject := "Confirm your subscription"
-	body := fmt.Sprintf("Please confirm your subscription by clicking here: %s/%s", n.cfg.ConfirmationUrl, token)
+	body := fmt.Sprintf(
+		"Please confirm your subscription by clicking here: %s/%s",
+		n.cfg.ConfirmationUrl,
+		token,
+	)
 	return n.send(email, subject, body)
 }
 
-func (n *EmailNotifier) SendReleaseNotification(ctx context.Context, email, repo, tag string) error {
+func (n *EmailNotifier) SendReleaseNotification(
+	ctx context.Context,
+	email, repo, tag string,
+) error {
 	subject := fmt.Sprintf("New release for %s", repo)
 	body := fmt.Sprintf("A new release %s is available for %s!", tag, repo)
 	return n.send(email, subject, body)

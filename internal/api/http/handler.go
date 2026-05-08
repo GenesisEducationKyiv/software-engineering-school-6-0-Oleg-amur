@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/http/dto"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/apperr"
-	"github.com/Oleg-amur/case-task-swe-school-6.0/internal/service"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 )
 
 type Handler struct {
@@ -36,7 +37,10 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Subscribe(r.Context(), req)
+	err := h.service.Subscribe(r.Context(), models.SubscribeRequest{
+		Email: req.Email,
+		Repo:  req.Repo,
+	})
 	if err != nil {
 		if errors.Is(err, apperr.ErrInvalidFormat) {
 			h.sendError(w, err.Error(), http.StatusBadRequest)
@@ -127,8 +131,18 @@ func (h *Handler) GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var response []dto.Subscription
+	for _, s := range subs {
+		response = append(response, dto.Subscription{
+			Email:       s.Email,
+			Repo:        s.Repo,
+			Confirmed:   s.Confirmed,
+			LastSeenTag: s.LastSeenTag,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(subs); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		h.log.Error("failed to encode response", "err", err)
 		h.sendError(w, "failed to encode response", http.StatusInternalServerError)
 	}

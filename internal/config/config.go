@@ -17,9 +17,9 @@ type Database struct {
 }
 
 type Server struct {
-	Host     string `yaml:"host" env:"SERVER_HOST" env-default:"0.0.0.0"`
-	Port     string `yaml:"port" env:"SERVER_PORT" env-default:"8080"`
-	GrpcPort string `yaml:"grpcPort" env:"GRPC_PORT" env-default:"50051"`
+	Host     string `yaml:"host"     env:"SERVER_HOST" env-default:"0.0.0.0"`
+	Port     string `yaml:"port"     env:"SERVER_PORT" env-default:"8080"`
+	GrpcPort string `yaml:"grpcPort" env:"GRPC_PORT"   env-default:"50051"`
 }
 
 type Scanner struct {
@@ -27,15 +27,15 @@ type Scanner struct {
 }
 
 type Notifier struct {
-	SMTPHost        string `yaml:"smtpHost" env:"SMTP_HOST"`
-	SMTPPort        string `yaml:"smtpPort" env:"SMTP_PORT"`
-	FromEmail       string `yaml:"fromEmail" env:"FROM_EMAIL"`
+	SMTPHost        string `yaml:"smtpHost"        env:"SMTP_HOST"`
+	SMTPPort        string `yaml:"smtpPort"        env:"SMTP_PORT"`
+	FromEmail       string `yaml:"fromEmail"       env:"FROM_EMAIL"`
 	ConfirmationUrl string `yaml:"confirmationUrl" env:"CONFIRMATION_URL"`
 }
 
 type GithubClient struct {
-	Timeout  string `yaml:"timeout" env:"GITHUB_TIMEOUT" env-default:"10s"`
-	Url      string `yaml:"url" env:"GITHUB_URL" env-default:"https://api.github.com"`
+	Timeout  string `yaml:"timeout"  env:"GITHUB_TIMEOUT" env-default:"10s"`
+	Url      string `yaml:"url"      env:"GITHUB_URL"     env-default:"https://api.github.com"`
 	ApiToken string `yaml:"apiToken" env:"GITHUB_TOKEN"`
 }
 

@@ -4,7 +4,7 @@ info:
   version: "1.0.0"
   title: "GitHub Release Notification API"
 host: "releases-api.app"
-basePath: "/api"
+basePath: "/api/v1"
 tags:
   - name: "subscription"
     description: "Subscription management operations"

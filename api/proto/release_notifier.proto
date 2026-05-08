@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package api.v1;
 
-option go_package = "github.com/Oleg-amur/case-task-swe-school-6.0/internal/api/grpc/pb";
+option go_package = "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb";
 
 service ReleaseNotifier {
     rpc Subscribe (SubscribeRequest) returns (SubscribeResponse);
