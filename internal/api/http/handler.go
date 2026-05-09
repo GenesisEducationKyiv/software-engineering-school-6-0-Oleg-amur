@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -10,15 +11,21 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 )
+
+type SubscriptionService interface {
+	Subscribe(context.Context, models.SubscribeRequest) error
+	Confirm(context.Context, string) error
+	Unsubscribe(context.Context, string) error
+	GetSubscriptions(context.Context, string) ([]models.SubscriptionDTO, error)
+}
 
 type Handler struct {
 	log     *slog.Logger
-	service *service.SubscriptionService
+	service SubscriptionService
 }
 
-func NewHandler(log *slog.Logger, svc *service.SubscriptionService) *Handler {
+func NewHandler(log *slog.Logger, svc SubscriptionService) *Handler {
 	return &Handler{
 		log:     log,
 		service: svc,

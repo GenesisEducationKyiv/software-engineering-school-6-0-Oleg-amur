@@ -4,11 +4,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func NewRouter(log *slog.Logger, svc *service.SubscriptionService) http.Handler {
+func NewRouter(log *slog.Logger, svc SubscriptionService) http.Handler {
 	mux := http.NewServeMux()
 	h := NewHandler(log, svc)
 

@@ -8,18 +8,24 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+type SubscriptionService interface {
+	Subscribe(context.Context, models.SubscribeRequest) error
+	Confirm(context.Context, string) error
+	Unsubscribe(context.Context, string) error
+	GetSubscriptions(context.Context, string) ([]models.SubscriptionDTO, error)
+}
+
 type GrpcHandler struct {
 	pb.UnimplementedReleaseNotifierServer
 	log     *slog.Logger
-	service *service.SubscriptionService
+	service SubscriptionService
 }
 
-func NewGrpcHandler(log *slog.Logger, svc *service.SubscriptionService) *GrpcHandler {
+func NewGrpcHandler(log *slog.Logger, svc SubscriptionService) *GrpcHandler {
 	return &GrpcHandler{
 		log:     log,
 		service: svc,
