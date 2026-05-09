@@ -8,7 +8,7 @@
 - **List of Subscriptions**: Users must be able to see a list of all its subscriptions.
 - **Release Scanning**: The system must periodically check GitHub for new releases of all tracked repositories.
 - **Release Notification**: When a new release is detected, all confirmed subscribers of that repository must receive an email alert with specified tag and repo name.
-- **Unsubscription**: Users must be able to unsubscribe from a specific repository usign provided link or token.
+- **Unsubscription**: Users must be able to unsubscribe from a specific repository using provided link or token.
 
 ### Non-functional Requirements
 - **Reliability**: Release notifications must not be missed. The system should gracefully handle transient GitHub API or SMTP failures.
