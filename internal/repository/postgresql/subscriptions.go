@@ -63,6 +63,9 @@ func (r *SubscriptionRepository) GetByToken(
 		&s.Subscriber.Email, &s.Repository.Name, &s.Repository.LastSeenTag,
 	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperr.ErrNotFound
+		}
 		return nil, err
 	}
 	return &s, nil
@@ -76,7 +79,7 @@ func (r *SubscriptionRepository) Activate(ctx context.Context, token string) err
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return sql.ErrNoRows
+		return apperr.ErrNotFound
 	}
 	return nil
 }

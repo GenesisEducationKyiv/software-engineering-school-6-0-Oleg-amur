@@ -3,8 +3,10 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
@@ -41,6 +43,9 @@ func (r *SubscriberRepository) GetByEmail(
 	var s models.Subscriber
 	err := r.db.QueryRowContext(ctx, query, email).Scan(&s.ID, &s.Email, &s.CreatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperr.ErrNotFound
+		}
 		return nil, err
 	}
 	return &s, nil

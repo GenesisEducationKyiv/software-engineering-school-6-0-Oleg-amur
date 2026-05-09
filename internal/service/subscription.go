@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -76,7 +75,7 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req models.Subscrib
 
 	subscriber, err := s.subscriberRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
+		if !errors.Is(err, apperr.ErrNotFound) {
 			return fmt.Errorf("subscriber check error: %w", err)
 		}
 		subscriber, err = s.subscriberRepo.Create(ctx, req.Email)
@@ -87,7 +86,7 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req models.Subscrib
 
 	repo, err := s.repositoryRepo.GetByName(ctx, req.Repo)
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
+		if !errors.Is(err, apperr.ErrNotFound) {
 			return fmt.Errorf("repository check error: %w", err)
 		}
 
@@ -142,7 +141,7 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req models.Subscrib
 func (s *SubscriptionService) Confirm(ctx context.Context, token string) error {
 	err := s.subscriptionRepo.Activate(ctx, token)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, apperr.ErrNotFound) {
 			return apperr.ErrTokenNotFound
 		}
 		return err

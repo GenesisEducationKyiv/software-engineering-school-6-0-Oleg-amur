@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
 
@@ -45,6 +46,9 @@ func (r *RepositoryRepository) GetByName(
 	err := r.db.QueryRowContext(ctx, query, name).
 		Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperr.ErrNotFound
+		}
 		return nil, err
 	}
 	return &repo, nil

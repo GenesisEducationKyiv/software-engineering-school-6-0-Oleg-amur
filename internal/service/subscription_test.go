@@ -39,21 +39,21 @@ func TestSubscribe(t *testing.T) {
 		{
 			name:           "GitHub rate limit",
 			req:            models.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			getByNameErr:   sql.ErrNoRows,
+			getByNameErr:   apperr.ErrNotFound,
 			checkExistsErr: apperr.ErrRateLimitExceeded,
 			expectedError:  apperr.ErrRateLimitExceeded,
 		},
 		{
 			name:          "Repository not found",
 			req:           models.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			getByNameErr:  sql.ErrNoRows,
+			getByNameErr:  apperr.ErrNotFound,
 			ghExists:      false,
 			expectedError: apperr.ErrRepoNotFound,
 		},
 		{
 			name:          "Repository has no releases but exists",
 			req:           models.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			getByNameErr:  sql.ErrNoRows,
+			getByNameErr:  apperr.ErrNotFound,
 			ghErr:         apperr.ErrRepoNotFound,
 			ghExists:      true,
 			subRepoSub:    &models.Subscriber{ID: 1, Email: "test@example.com"},
@@ -63,7 +63,7 @@ func TestSubscribe(t *testing.T) {
 		{
 			name:          "Success (New Repo)",
 			req:           models.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			getByNameErr:  sql.ErrNoRows,
+			getByNameErr:  apperr.ErrNotFound,
 			ghExists:      true,
 			ghTag:         "v1.0.0",
 			ghErr:         nil,
@@ -136,7 +136,7 @@ func TestConfirm(t *testing.T) {
 			name:          "Missing token",
 			token:         "test token",
 			expectedError: apperr.ErrTokenNotFound,
-			activateErr:   sql.ErrNoRows,
+			activateErr:   apperr.ErrNotFound,
 		},
 		{
 			name:          "Success",
