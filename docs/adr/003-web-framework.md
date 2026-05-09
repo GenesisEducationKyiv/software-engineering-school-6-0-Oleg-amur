@@ -24,7 +24,7 @@ We chose **Option 1: Standard Library (`net/http`) + gRPC** to keep the core lig
 - **Pros:**
     - Zero external dependencies for the HTTP layer.
     - Excellent performance and type safety for gRPC users.
-    - Better for leaning purposes
+    - Better for learning purposes
 - **Cons:**
     - Requires maintaining both Swagger (REST) and Protobuf (gRPC) definitions.
     - More manual work for HTTP parameter validation.

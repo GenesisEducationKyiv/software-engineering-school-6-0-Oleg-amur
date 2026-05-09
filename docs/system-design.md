@@ -8,7 +8,7 @@
 - **List of Subscriptions**: Users must be able to see a list of all its subscriptions.
 - **Release Scanning**: The system must periodically check GitHub for new releases of all tracked repositories.
 - **Release Notification**: When a new release is detected, all confirmed subscribers of that repository must receive an email alert with specified tag and repo name.
-- **Unsubscription**: Users must be able to unsubscribe from a specific repository.
+- **Unsubscription**: Users must be able to unsubscribe from a specific repository usign provided link or token.
 
 ### Non-functional Requirements
 - **Reliability**: Release notifications must not be missed. The system should gracefully handle transient GitHub API or SMTP failures.
@@ -51,12 +51,21 @@ Shows the GitHub Release Notifier in relation to users and external systems.
 > The diagram above is an "Editable PNG". To modify it, download the file and drag it into [drawio](https://drawio.com/).
 
 #### Level 2: Container Diagram
-Shows the internal structure of the Go monolith and its interactions.
+Shows the shows the high-level shape of the software architecture and how responsibilities are distributed across it.
 
 ![Container Diagram](diagrams/container.drawio.png)
 
 > [!TIP]
 > The diagram above is an "Editable PNG". To modify it, download the file and drag it into [drawio](https://drawio.com/).
+
+#### Level 3: Component Diagram
+Shows the internal structure of the Go monolith and its interactions.
+
+![Container Diagram](diagrams/component.drawio.png)
+
+> [!TIP]
+> The diagram above is an "Editable PNG". To modify it, download the file and drag it into [drawio](https://drawio.com/).
+
 
 ## 4. Detailed Design of Components
 

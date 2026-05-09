@@ -10,20 +10,43 @@ The application needs to store persistent data for subscribers, repositories bei
 ## Proposed Options
 
 ### Option 1: PostgreSQL
-- **Pros:** Strong consistency, ACID compliance, excellent Go integration, support for complex queries and relations.
-- **Cons:** Requires a separate database server.
+  Pros:
+   - Excellent integration with Go.
+   - Safely links data (subscribers to repositories) using strict foreign keys.
+   - Highly reliable and prevents data duplication.
+
+  Cons:
+   - Requires hosting a separate database server.
+   - Uses more server memory than SQLite.
+   - Requires writing and managing schema migration files.
 
 ### Option 2: MySQL
-- **Pros:** Performance for simple read-heavy workloads, very common.
-- **Cons:** Slightly less advanced feature set for complex data types compared to PostgreSQL.
+  Pros:
+   - Very common and easy to host.
+   - Fast performance for simple read queries.
+
+  Cons:
+   - Requires hosting a separate database server.
+   - Slightly weaker support for complex data types compared to PostgreSQL.
+   - Requires writing and managing schema migration files.
 
 ### Option 3: MongoDB
-- **Pros:** Flexible schema, easy horizontal scaling.
-- **Cons:** Lack of foreign keys and rigid relations makes the subscriber-repository link harder to manage reliably.
+  Pros:
+   - No strict schema (easy to add new fields without migrations).
+   - Easy to split across multiple servers as traffic grows.
+
+  Cons:
+   - Requires hosting a separate database server.
+   - Cannot enforce strict links between tables (foreign keys). Linking subscribers to repositories must be handled manually in the Go code, increasing the risk of bugs.
 
 ### Option 4: SQLite
-- **Pros:** Zero configuration, file-based.
-- **Cons:** Limited write concurrency; not ideal for services that might scale beyond a single instance.
+  Pros:
+   - Zero setup required.
+   - Stored as a single file directly next to the Go app.
+
+  Cons:
+   - Locks the whole database when saving data, making it slow for many concurrent users.
+   - Cannot share the database file easily if we want to run multiple copies of the Go app.
 
 ## Decision
 We chose **Option 1: PostgreSQL** for its robustness, strong support for relational integrity, and overall compatibility with the Go ecosystem.
