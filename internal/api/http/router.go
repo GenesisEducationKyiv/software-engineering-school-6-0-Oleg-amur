@@ -12,8 +12,8 @@ func NewRouter(log *slog.Logger, svc SubscriptionService) http.Handler {
 	h := NewHandler(log, svc)
 
 	mux.HandleFunc("/api/v1/subscribe", h.Subscribe)
-	mux.HandleFunc("/api/v1/confirm/", h.Confirm)
-	mux.HandleFunc("/api/v1/unsubscribe/", h.Unsubscribe)
+	mux.HandleFunc("/api/v1/confirm/{token}", h.Confirm)
+	mux.HandleFunc("/api/v1/unsubscribe/{token}", h.Unsubscribe)
 	mux.HandleFunc("/api/v1/subscriptions", h.GetSubscriptions)
 
 	mux.Handle("/metrics", promhttp.Handler())
