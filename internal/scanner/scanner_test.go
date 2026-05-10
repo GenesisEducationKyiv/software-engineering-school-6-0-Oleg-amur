@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 )
@@ -16,39 +15,33 @@ func TestScan(t *testing.T) {
 	tests := []struct {
 		name                string
 		mockRepos           []models.Repository
-		mockSubs            []models.Subscription
 		mockGithubTags      map[string]string
 		expectedUpdateCount int
 		expectedUpdatedTag  string
-		expectedEmailCount  int
+		expectedEventCount  int
 	}{
 		{
 			name: "No new release",
 			mockRepos: []models.Repository{
 				{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 			},
-			mockSubs: nil,
 			mockGithubTags: map[string]string{
 				"owner/repo": "v1.0.0",
 			},
 			expectedUpdateCount: 0,
-			expectedEmailCount:  0,
+			expectedEventCount:  0,
 		},
 		{
 			name: "New release found",
 			mockRepos: []models.Repository{
 				{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 			},
-			mockSubs: []models.Subscription{
-				{Subscriber: &models.Subscriber{Email: "test1@example.com"}},
-				{Subscriber: &models.Subscriber{Email: "test2@example.com"}},
-			},
 			mockGithubTags: map[string]string{
 				"owner/repo": "v2.0.0",
 			},
 			expectedUpdateCount: 1,
 			expectedUpdatedTag:  "v2.0.0",
-			expectedEmailCount:  2,
+			expectedEventCount:  1,
 		},
 	}
 
@@ -57,16 +50,15 @@ func TestScan(t *testing.T) {
 			repoRepo := &mockRepositoryRepo{
 				repos: tt.mockRepos,
 			}
-			subRepo := &mockSubscriptionRepo{
-				subs: tt.mockSubs,
-			}
 			ghClient := &mockGithubClient{
 				tags: tt.mockGithubTags,
 			}
-			notifier := &mockNotifier{}
+			
+			releasesChan := make(chan models.ReleaseEvent, 10)
 
-			s := NewScanner(log, repoRepo, subRepo, ghClient, notifier, time.Hour)
+			s := NewScanner(log, repoRepo, ghClient, releasesChan)
 			s.Scan(context.Background())
+			close(releasesChan)
 
 			if len(repoRepo.updateArgs) != tt.expectedUpdateCount {
 				t.Errorf(
@@ -82,11 +74,24 @@ func TestScan(t *testing.T) {
 					repoRepo.updateArgs[0].tag,
 				)
 			}
-			if notifier.sentCount != tt.expectedEmailCount {
+			
+			var actualEventCount int
+			for event := range releasesChan {
+				actualEventCount++
+				if tt.expectedUpdateCount > 0 && event.Tag != tt.expectedUpdatedTag {
+					t.Errorf(
+						"expected event tag to be %s, got %s",
+						tt.expectedUpdatedTag,
+						event.Tag,
+					)
+				}
+			}
+			
+			if actualEventCount != tt.expectedEventCount {
 				t.Errorf(
-					"expected %d email notifications sent, got %d",
-					tt.expectedEmailCount,
-					notifier.sentCount,
+					"expected %d events, got %d",
+					tt.expectedEventCount,
+					actualEventCount,
 				)
 			}
 		})
@@ -117,27 +122,6 @@ func (m *mockRepositoryRepo) UpdateTag(ctx context.Context, id int, tag string) 
 		m.updateErrs = m.updateErrs[1:]
 		return err
 	}
-	return nil
-}
-
-type mockSubscriptionRepo struct {
-	subs   []models.Subscription
-	getErr error
-}
-
-func (m *mockSubscriptionRepo) GetActiveByRepoID(
-	ctx context.Context,
-	repoID int,
-) ([]models.Subscription, error) {
-	return m.subs, m.getErr
-}
-
-type mockNotifier struct {
-	sentCount int
-}
-
-func (m *mockNotifier) SendReleaseNotification(ctx context.Context, email, repo, tag string) error {
-	m.sentCount++
 	return nil
 }
 

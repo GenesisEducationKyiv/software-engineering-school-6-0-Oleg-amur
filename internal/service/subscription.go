@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
@@ -27,17 +26,12 @@ type SubscriptionRepo interface {
 	GetActiveByEmail(ctx context.Context, email string) ([]models.Subscription, error)
 }
 
-type Notifier interface {
-	SendConfirmation(ctx context.Context, email, token string) error
-	SendReleaseNotification(ctx context.Context, email, repo, tag string) error
-}
-
 type SubscriptionService struct {
 	log               *slog.Logger
 	subscriberService subscriberService
 	repositoryService repositoryService
 	subscriptionRepo  SubscriptionRepo
-	notifier          Notifier
+	subsChan          chan<- models.SubscriptionEvent
 }
 
 func NewSubscriptionService(
@@ -45,14 +39,14 @@ func NewSubscriptionService(
 	sub subscriberService,
 	repo repositoryService,
 	subscription SubscriptionRepo,
-	notifier Notifier,
+	subsChan chan<- models.SubscriptionEvent,
 ) *SubscriptionService {
 	return &SubscriptionService{
 		log:               log,
 		subscriberService: sub,
 		repositoryService: repo,
 		subscriptionRepo:  subscription,
-		notifier:          notifier,
+		subsChan:          subsChan,
 	}
 }
 
@@ -76,14 +70,11 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req models.Subscrib
 		return fmt.Errorf("subscription error: %w", err)
 	}
 
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
-		defer cancel()
-
-		if err := s.notifier.SendConfirmation(bgCtx, req.Email, token); err != nil {
-			s.log.Error("failed to send notification", "err", err)
-		}
-	}()
+	select {
+	case s.subsChan <- models.SubscriptionEvent{Email: req.Email, Token: token}:
+	default:
+		s.log.Error("failed to enqueue subscription event, channel full", "email", req.Email)
+	}
 
 	return nil
 }

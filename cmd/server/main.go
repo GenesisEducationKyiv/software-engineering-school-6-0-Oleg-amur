@@ -15,10 +15,11 @@ import (
 	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/client/email"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/client/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/database"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/notifier"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/scanner"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
@@ -75,7 +76,7 @@ func runApp(log *slog.Logger) error {
 	repositoryRepo := postgresql.NewRepositoryRepository(db)
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
-	emailNotifier := notifier.NewEmailNotifier(cfg.Notifier)
+	emailNotifier := email.NewEmailNotifier(cfg.Notifier)
 
 	subscriberService := service.NewSubscriberService(
 		log,
@@ -88,16 +89,29 @@ func runApp(log *slog.Logger) error {
 		githubClient,
 	)
 
+	subsChan := make(chan models.SubscriptionEvent, 100)
+
 	subscriptionSvc := service.NewSubscriptionService(
 		log,
 		subscriberService,
 		repositoryService,
 		subscriptionRepo,
-		emailNotifier,
+		subsChan,
 	)
 
-	releaseScanner := setupScanner(log, cfg.Scanner, repositoryRepo, subscriptionRepo, githubClient, emailNotifier)
-	go releaseScanner.Start(ctx)
+	releasesChan := make(chan models.ReleaseEvent, 100)
+	notificationService := service.NewNotificationService(log, subscriptionRepo, emailNotifier)
+	go notificationService.Start(ctx, releasesChan, subsChan)
+
+	releaseScanner := scanner.NewScanner(log, repositoryRepo, githubClient, releasesChan)
+
+	scanInterval, err := time.ParseDuration(cfg.Scanner.Interval)
+	if err != nil {
+		log.Error("failed to parse scanner interval", "val", cfg.Scanner.Interval, "err", err)
+		scanInterval = time.Hour
+	}
+	scheduler := scanner.NewScheduler(log, releaseScanner, scanInterval)
+	go scheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")
 	router := httpapi.NewRouter(log, subscriptionSvc)
@@ -155,22 +169,6 @@ func setupGithubClient(cfg config.GithubClient, log *slog.Logger) (*github.Clien
 	httpClient := &http.Client{Timeout: timeout}
 
 	return github.NewClient(httpClient, cfg.Url, cfg.ApiToken, log), nil
-}
-
-func setupScanner(
-	log *slog.Logger,
-	cfg config.Scanner,
-	repositoryRepo *postgresql.RepositoryRepository,
-	subscriptionRepo *postgresql.SubscriptionRepository,
-	ghClient *github.Client,
-	emailNotifier service.Notifier,
-) *scanner.Scanner {
-	scanInterval, err := time.ParseDuration(cfg.Interval)
-	if err != nil {
-		log.Error("failed to parse scanner interval", "val", cfg.Interval, "err", err)
-		scanInterval = time.Hour
-	}
-	return scanner.NewScanner(log, repositoryRepo, subscriptionRepo, ghClient, emailNotifier, scanInterval)
 }
 
 func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {

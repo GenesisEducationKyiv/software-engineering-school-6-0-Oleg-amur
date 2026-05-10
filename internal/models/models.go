@@ -33,3 +33,14 @@ type Subscription struct {
 	Subscriber *Subscriber
 	Repository *Repository
 }
+
+type ReleaseEvent struct {
+	RepoID   int
+	RepoName string
+	Tag      string
+}
+
+type SubscriptionEvent struct {
+	Email string
+	Token string
+}

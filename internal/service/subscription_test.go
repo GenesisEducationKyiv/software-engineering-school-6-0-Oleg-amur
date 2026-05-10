@@ -62,7 +62,7 @@ func TestSubscribe(t *testing.T) {
 				&mockSubscriberService{sub: tt.sub, err: tt.subErr},
 				&mockRepositoryService{repo: tt.repo, err: tt.repoErr},
 				&mockSubscriptionRepo{createErr: tt.subCreateErr},
-				&mockNotifier{},
+				make(chan models.SubscriptionEvent, 10),
 			)
 
 			err := svc.Subscribe(context.Background(), tt.req)
@@ -107,7 +107,7 @@ func TestConfirm(t *testing.T) {
 				&mockSubscriberService{},
 				&mockRepositoryService{},
 				&mockSubscriptionRepo{activateErr: tt.activateErr},
-				&mockNotifier{},
+				make(chan models.SubscriptionEvent, 10),
 			)
 
 			err := svc.Confirm(context.Background(), tt.token)
@@ -148,7 +148,7 @@ func TestUnsubscribe(t *testing.T) {
 				&mockSubscriberService{},
 				&mockRepositoryService{},
 				&mockSubscriptionRepo{deleteErr: tt.deleteErr},
-				&mockNotifier{},
+				make(chan models.SubscriptionEvent, 10),
 			)
 
 			err := svc.Unsubscribe(context.Background(), tt.token)
@@ -219,7 +219,7 @@ func TestGetSubscriptions(t *testing.T) {
 					getActiveByEmailSubs: tt.mockSubs,
 					getActiveByEmailErr:  tt.mockErr,
 				},
-				&mockNotifier{},
+				make(chan models.SubscriptionEvent, 10),
 			)
 
 			subs, err := svc.GetSubscriptions(context.Background(), tt.email)
@@ -277,14 +277,4 @@ func (m *mockSubscriptionRepo) GetActiveByEmail(
 	email string,
 ) ([]models.Subscription, error) {
 	return m.getActiveByEmailSubs, m.getActiveByEmailErr
-}
-
-type mockNotifier struct{}
-
-func (m *mockNotifier) SendConfirmation(ctx context.Context, email, token string) error {
-	return nil
-}
-
-func (m *mockNotifier) SendReleaseNotification(ctx context.Context, email, repo, tag string) error {
-	return nil
 }
