@@ -39,11 +39,11 @@ func TestNotificationService_processEvent(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	tests := []struct {
-		name          string
-		event         models.ReleaseEvent
-		mockSubs      []models.Subscription
-		repoErr       error
-		notifierErr   error
+		name           string
+		event          models.ReleaseEvent
+		mockSubs       []models.Subscription
+		repoErr        error
+		notifierErr    error
 		expectedEmails int
 	}{
 		{
@@ -86,7 +86,7 @@ func TestNotificationService_processEvent(t *testing.T) {
 			},
 			repoErr:        nil,
 			notifierErr:    errors.New("smtp error"),
-			expectedEmails: 2, // Even if there is an error, it should attempt to call Send for both
+			expectedEmails: 2,
 		},
 	}
 
@@ -121,27 +121,17 @@ func TestNotificationService_StartAndStop(t *testing.T) {
 	subsChan := make(chan models.SubscriptionEvent)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Run in background
 	go svc.Start(ctx, eventsChan, subsChan)
 
-	// Send an event
 	eventsChan <- models.ReleaseEvent{
 		RepoID:   1,
 		RepoName: "owner/test",
 		Tag:      "v1",
 	}
 
-	// Give it a tiny bit of time to process
 	time.Sleep(10 * time.Millisecond)
 
-	// Cancel context to stop service
 	cancel()
 
-	// Give it a tiny bit of time to shutdown
 	time.Sleep(10 * time.Millisecond)
-
-	// Try to send another event after shutdown - this will block if no one is reading,
-	// but we don't want to block the test, so we use a select with default.
-	// Actually, just verifying it exits cleanly without panic is the main goal here.
-	// The fact that the test finishes without hanging means `cancel()` worked.
 }
