@@ -140,7 +140,10 @@ func setupGithubClient(cfg config.GithubClient, log *slog.Logger) (*github.Clien
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse github client timeout: %w", err)
 	}
-	return github.NewClient(cfg.Url, cfg.ApiToken, timeout, log), nil
+
+	httpClient := &http.Client{Timeout: timeout}
+
+	return github.NewClient(httpClient, cfg.Url, cfg.ApiToken, log), nil
 }
 
 func setupScanner(
