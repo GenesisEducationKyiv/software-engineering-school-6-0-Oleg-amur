@@ -53,7 +53,7 @@ func TestScan(t *testing.T) {
 			ghClient := &mockGithubClient{
 				tags: tt.mockGithubTags,
 			}
-			
+
 			releasesChan := make(chan models.ReleaseEvent, 10)
 
 			s := NewScanner(log, repoRepo, ghClient, releasesChan)
@@ -74,7 +74,7 @@ func TestScan(t *testing.T) {
 					repoRepo.updateArgs[0].tag,
 				)
 			}
-			
+
 			var actualEventCount int
 			for event := range releasesChan {
 				actualEventCount++
@@ -86,7 +86,7 @@ func TestScan(t *testing.T) {
 					)
 				}
 			}
-			
+
 			if actualEventCount != tt.expectedEventCount {
 				t.Errorf(
 					"expected %d events, got %d",
