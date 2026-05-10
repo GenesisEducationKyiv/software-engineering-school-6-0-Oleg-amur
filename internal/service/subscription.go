@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
@@ -13,14 +12,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type SubscriberRepo interface {
-	GetByEmail(ctx context.Context, email string) (*models.Subscriber, error)
-	Create(ctx context.Context, email string) (*models.Subscriber, error)
+type subscriberService interface {
+	GetOrCreate(ctx context.Context, email string) (*models.Subscriber, error)
 }
 
-type RepositoryRepo interface {
-	GetByName(ctx context.Context, name string) (*models.Repository, error)
-	Create(ctx context.Context, name string, lastSeenTag string) (*models.Repository, error)
+type repositoryService interface {
+	GetOrCreate(ctx context.Context, repoName string) (*models.Repository, error)
 }
 
 type SubscriptionRepo interface {
@@ -35,86 +32,39 @@ type Notifier interface {
 	SendReleaseNotification(ctx context.Context, email, repo, tag string) error
 }
 
-type GithubClient interface {
-	GetRepositoryLatestTag(ctx context.Context, repoAddr string) (string, error)
-	CheckIfRepoExists(ctx context.Context, repoAddr string) (bool, error)
-}
-
 type SubscriptionService struct {
-	log              *slog.Logger
-	subscriberRepo   SubscriberRepo
-	repositoryRepo   RepositoryRepo
-	subscriptionRepo SubscriptionRepo
-	notifier         Notifier
-	githubClient     GithubClient
+	log               *slog.Logger
+	subscriberService subscriberService
+	repositoryService repositoryService
+	subscriptionRepo  SubscriptionRepo
+	notifier          Notifier
 }
 
 func NewSubscriptionService(
 	log *slog.Logger,
-	sub SubscriberRepo,
-	repo RepositoryRepo,
+	sub subscriberService,
+	repo repositoryService,
 	subscription SubscriptionRepo,
 	notifier Notifier,
-	githubClient GithubClient,
 ) *SubscriptionService {
 	return &SubscriptionService{
-		log:              log,
-		subscriberRepo:   sub,
-		repositoryRepo:   repo,
-		subscriptionRepo: subscription,
-		notifier:         notifier,
-		githubClient:     githubClient,
+		log:               log,
+		subscriberService: sub,
+		repositoryService: repo,
+		subscriptionRepo:  subscription,
+		notifier:          notifier,
 	}
 }
 
 func (s *SubscriptionService) Subscribe(ctx context.Context, req models.SubscribeRequest) error {
-	parts := strings.Split(req.Repo, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return apperr.ErrInvalidFormat
+	subscriber, err := s.subscriberService.GetOrCreate(ctx, req.Email)
+	if err != nil {
+		return err
 	}
 
-	subscriber, err := s.subscriberRepo.GetByEmail(ctx, req.Email)
+	repo, err := s.repositoryService.GetOrCreate(ctx, req.Repo)
 	if err != nil {
-		if !errors.Is(err, apperr.ErrNotFound) {
-			return fmt.Errorf("subscriber check error: %w", err)
-		}
-		subscriber, err = s.subscriberRepo.Create(ctx, req.Email)
-		if err != nil {
-			return fmt.Errorf("subscriber create error: %w", err)
-		}
-	}
-
-	repo, err := s.repositoryRepo.GetByName(ctx, req.Repo)
-	if err != nil {
-		if !errors.Is(err, apperr.ErrNotFound) {
-			return fmt.Errorf("repository check error: %w", err)
-		}
-
-		exists, checkErr := s.githubClient.CheckIfRepoExists(ctx, req.Repo)
-		if checkErr != nil {
-			if errors.Is(checkErr, apperr.ErrRateLimitExceeded) {
-				return apperr.ErrRateLimitExceeded
-			}
-			return fmt.Errorf("github check existence failed: %w", checkErr)
-		}
-		if !exists {
-			return apperr.ErrRepoNotFound
-		}
-
-		tag, tagErr := s.githubClient.GetRepositoryLatestTag(ctx, req.Repo)
-		if tagErr != nil {
-			if errors.Is(tagErr, apperr.ErrRateLimitExceeded) {
-				return apperr.ErrRateLimitExceeded
-			}
-			if !errors.Is(tagErr, apperr.ErrRepoNotFound) {
-				return fmt.Errorf("github get tag failed: %w", tagErr)
-			}
-		}
-
-		repo, err = s.repositoryRepo.Create(ctx, req.Repo, tag)
-		if err != nil {
-			return fmt.Errorf("failed to create repository: %w", err)
-		}
+		return err
 	}
 
 	token := uuid.New().String()

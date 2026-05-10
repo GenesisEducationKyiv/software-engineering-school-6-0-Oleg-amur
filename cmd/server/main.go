@@ -76,13 +76,24 @@ func runApp(log *slog.Logger) error {
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
 	emailNotifier := notifier.NewEmailNotifier(cfg.Notifier)
-	subscriptionSvc := service.NewSubscriptionService(
+
+	subscriberService := service.NewSubscriberService(
 		log,
 		subscriberRepo,
+	)
+
+	repositoryService := service.NewRepositoryService(
+		log,
 		repositoryRepo,
+		githubClient,
+	)
+
+	subscriptionSvc := service.NewSubscriptionService(
+		log,
+		subscriberService,
+		repositoryService,
 		subscriptionRepo,
 		emailNotifier,
-		githubClient,
 	)
 
 	releaseScanner := setupScanner(log, cfg.Scanner, repositoryRepo, subscriptionRepo, githubClient, emailNotifier)
