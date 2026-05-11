@@ -11,26 +11,33 @@ type subscriptionRepoForNotifications interface {
 	GetActiveByRepoID(ctx context.Context, repoID int) ([]models.Subscription, error)
 }
 
-type Notifier interface {
-	SendReleaseNotification(ctx context.Context, email, repo, tag string) error
-	SendConfirmation(ctx context.Context, email, token string) error
+type EmailSender interface {
+	Send(ctx context.Context, to, subject, body string) error
+}
+
+type MessageBuilder interface {
+	BuildConfirmationMessage(token string) (subject, body string)
+	BuildReleaseMessage(repo, tag, token string) (subject, body string)
 }
 
 type NotificationService struct {
 	log              *slog.Logger
 	subscriptionRepo subscriptionRepoForNotifications
-	notifier         Notifier
+	emailSender      EmailSender
+	messageBuilder   MessageBuilder
 }
 
 func NewNotificationService(
 	log *slog.Logger,
 	subscriptionRepo subscriptionRepoForNotifications,
-	notifier Notifier,
+	emailSender EmailSender,
+	messageBuilder MessageBuilder,
 ) *NotificationService {
 	return &NotificationService{
 		log:              log,
 		subscriptionRepo: subscriptionRepo,
-		notifier:         notifier,
+		emailSender:      emailSender,
+		messageBuilder:   messageBuilder,
 	}
 }
 
@@ -63,7 +70,10 @@ func (s *NotificationService) processReleaseEvent(ctx context.Context, event mod
 
 	for _, sub := range subs {
 		s.log.Info("sending notification", "email", sub.Subscriber.Email, "repo", event.RepoName, "tag", event.Tag)
-		if err := s.notifier.SendReleaseNotification(ctx, sub.Subscriber.Email, event.RepoName, event.Tag); err != nil {
+
+		subject, body := s.messageBuilder.BuildReleaseMessage(event.RepoName, event.Tag, sub.Token)
+
+		if err := s.emailSender.Send(ctx, sub.Subscriber.Email, subject, body); err != nil {
 			s.log.Error("failed to send notification", "email", sub.Subscriber.Email, "err", err)
 		}
 	}
@@ -71,7 +81,10 @@ func (s *NotificationService) processReleaseEvent(ctx context.Context, event mod
 
 func (s *NotificationService) processSubscriptionEvent(ctx context.Context, event models.SubscriptionEvent) {
 	s.log.Info("sending confirmation email", "email", event.Email)
-	if err := s.notifier.SendConfirmation(ctx, event.Email, event.Token); err != nil {
+
+	subject, body := s.messageBuilder.BuildConfirmationMessage(event.Token)
+
+	if err := s.emailSender.Send(ctx, event.Email, subject, body); err != nil {
 		s.log.Error("failed to send confirmation", "email", event.Email, "err", err)
 	}
 }

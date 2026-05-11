@@ -81,7 +81,8 @@ func runApp(log *slog.Logger) error {
 	repositoryRepo := postgresql.NewRepositoryRepository(db)
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
-	emailNotifier := email.NewEmailNotifier(cfg.Notifier)
+	emailClient := email.NewClient(cfg.Notifier.SMTPHost, cfg.Notifier.SMTPPort, cfg.Notifier.FromEmail)
+	msgBuilder := email.NewSimpleMessageBuilder(cfg.Notifier.BaseUrl)
 
 	subscriberService := service.NewSubscriberService(
 		log,
@@ -105,7 +106,7 @@ func runApp(log *slog.Logger) error {
 	)
 
 	releasesChan := make(chan models.ReleaseEvent, releaseEventsBufferSize)
-	notificationService := service.NewNotificationService(log, subscriptionRepo, emailNotifier)
+	notificationService := service.NewNotificationService(log, subscriptionRepo, emailClient, msgBuilder)
 	go notificationService.Start(ctx, releasesChan, subsChan)
 
 	releaseScanner := scanner.NewScanner(log, repositoryRepo, githubClient, releasesChan)

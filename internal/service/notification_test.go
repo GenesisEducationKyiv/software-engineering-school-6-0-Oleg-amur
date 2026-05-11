@@ -20,19 +20,24 @@ func (m *mockNotificationSubRepo) GetActiveByRepoID(ctx context.Context, repoID 
 	return m.subs, m.err
 }
 
-type mockReleaseNotifier struct {
+type mockEmailSender struct {
 	sentEmails []string
 	err        error
 }
 
-func (m *mockReleaseNotifier) SendReleaseNotification(ctx context.Context, email, repo, tag string) error {
-	m.sentEmails = append(m.sentEmails, email)
+func (m *mockEmailSender) Send(ctx context.Context, to, subject, body string) error {
+	m.sentEmails = append(m.sentEmails, to)
 	return m.err
 }
 
-func (m *mockReleaseNotifier) SendConfirmation(ctx context.Context, email, token string) error {
-	m.sentEmails = append(m.sentEmails, email)
-	return m.err
+type mockMessageBuilder struct{}
+
+func (m *mockMessageBuilder) BuildConfirmationMessage(token string) (string, string) {
+	return "Confirm Subject", "Confirm Body"
+}
+
+func (m *mockMessageBuilder) BuildReleaseMessage(repo, tag, token string) (string, string) {
+	return "Release Subject", "Release Body"
 }
 
 func TestNotificationService_processEvent(t *testing.T) {
@@ -43,7 +48,7 @@ func TestNotificationService_processEvent(t *testing.T) {
 		event          models.ReleaseEvent
 		mockSubs       []models.Subscription
 		repoErr        error
-		notifierErr    error
+		senderErr      error
 		expectedEmails int
 	}{
 		{
@@ -58,7 +63,7 @@ func TestNotificationService_processEvent(t *testing.T) {
 				{Subscriber: &models.Subscriber{Email: "user2@example.com"}},
 			},
 			repoErr:        nil,
-			notifierErr:    nil,
+			senderErr:      nil,
 			expectedEmails: 2,
 		},
 		{
@@ -70,11 +75,11 @@ func TestNotificationService_processEvent(t *testing.T) {
 			},
 			mockSubs:       nil,
 			repoErr:        errors.New("db error"),
-			notifierErr:    nil,
+			senderErr:      nil,
 			expectedEmails: 0,
 		},
 		{
-			name: "Notifier error - attempts to send to all despite errors",
+			name: "Sender error - attempts to send to all despite errors",
 			event: models.ReleaseEvent{
 				RepoID:   1,
 				RepoName: "owner/repo",
@@ -85,7 +90,7 @@ func TestNotificationService_processEvent(t *testing.T) {
 				{Subscriber: &models.Subscriber{Email: "user2@example.com"}},
 			},
 			repoErr:        nil,
-			notifierErr:    errors.New("smtp error"),
+			senderErr:      errors.New("smtp error"),
 			expectedEmails: 2,
 		},
 	}
@@ -96,15 +101,16 @@ func TestNotificationService_processEvent(t *testing.T) {
 				subs: tt.mockSubs,
 				err:  tt.repoErr,
 			}
-			notifier := &mockReleaseNotifier{
-				err: tt.notifierErr,
+			sender := &mockEmailSender{
+				err: tt.senderErr,
 			}
+			builder := &mockMessageBuilder{}
 
-			svc := NewNotificationService(log, repo, notifier)
+			svc := NewNotificationService(log, repo, sender, builder)
 			svc.processReleaseEvent(context.Background(), tt.event)
 
-			if len(notifier.sentEmails) != tt.expectedEmails {
-				t.Errorf("expected %d emails attempted, got %d", tt.expectedEmails, len(notifier.sentEmails))
+			if len(sender.sentEmails) != tt.expectedEmails {
+				t.Errorf("expected %d emails attempted, got %d", tt.expectedEmails, len(sender.sentEmails))
 			}
 		})
 	}
@@ -113,9 +119,10 @@ func TestNotificationService_processEvent(t *testing.T) {
 func TestNotificationService_StartAndStop(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	repo := &mockNotificationSubRepo{}
-	notifier := &mockReleaseNotifier{}
+	sender := &mockEmailSender{}
+	builder := &mockMessageBuilder{}
 
-	svc := NewNotificationService(log, repo, notifier)
+	svc := NewNotificationService(log, repo, sender, builder)
 
 	eventsChan := make(chan models.ReleaseEvent)
 	subsChan := make(chan models.SubscriptionEvent)
