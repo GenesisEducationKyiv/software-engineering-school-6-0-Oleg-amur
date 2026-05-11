@@ -11,10 +11,10 @@ import (
 )
 
 type RepositoryRepository struct {
-	db *sql.DB
+	db Queryable
 }
 
-func NewRepositoryRepository(db *sql.DB) *RepositoryRepository {
+func NewRepositoryRepository(db Queryable) *RepositoryRepository {
 	return &RepositoryRepository{db: db}
 }
 

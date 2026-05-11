@@ -11,10 +11,10 @@ import (
 )
 
 type SubscriberRepository struct {
-	db *sql.DB
+	db Queryable
 }
 
-func NewSubscriberRepository(db *sql.DB) *SubscriberRepository {
+func NewSubscriberRepository(db Queryable) *SubscriberRepository {
 	return &SubscriberRepository{db: db}
 }
 
