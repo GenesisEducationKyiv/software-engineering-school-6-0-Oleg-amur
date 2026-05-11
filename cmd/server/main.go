@@ -26,7 +26,12 @@ import (
 	"google.golang.org/grpc"
 )
 
-const configPath = "configs/config.yaml"
+const (
+	configPath                   = "configs/config.yaml"
+	subscriptionEventsBufferSize = 100
+	releaseEventsBufferSize      = 100
+	errorChannelBufferSize       = 2
+)
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -89,7 +94,7 @@ func runApp(log *slog.Logger) error {
 		githubClient,
 	)
 
-	subsChan := make(chan models.SubscriptionEvent, 100)
+	subsChan := make(chan models.SubscriptionEvent, subscriptionEventsBufferSize)
 
 	subscriptionSvc := service.NewSubscriptionService(
 		log,
@@ -99,7 +104,7 @@ func runApp(log *slog.Logger) error {
 		subsChan,
 	)
 
-	releasesChan := make(chan models.ReleaseEvent, 100)
+	releasesChan := make(chan models.ReleaseEvent, releaseEventsBufferSize)
 	notificationService := service.NewNotificationService(log, subscriptionRepo, emailNotifier)
 	go notificationService.Start(ctx, releasesChan, subsChan)
 
@@ -123,7 +128,7 @@ func runApp(log *slog.Logger) error {
 		return err
 	}
 
-	errCh := make(chan error, 2)
+	errCh := make(chan error, errorChannelBufferSize)
 
 	go func() {
 		log.Info("HTTP server starting", "addr", httpServer.Addr)
