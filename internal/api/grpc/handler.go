@@ -36,10 +36,16 @@ func (h *GrpcHandler) Subscribe(
 	ctx context.Context,
 	req *pb.SubscribeRequest,
 ) (*pb.SubscribeResponse, error) {
-	err := h.service.Subscribe(ctx, models.SubscribeRequest{
+	subReq := models.SubscribeRequest{
 		Email: req.GetEmail(),
 		Repo:  req.GetRepo(),
-	})
+	}
+
+	if err := subReq.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	err := h.service.Subscribe(ctx, subReq)
 	if err != nil {
 		if errors.Is(err, apperr.ErrInvalidFormat) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())

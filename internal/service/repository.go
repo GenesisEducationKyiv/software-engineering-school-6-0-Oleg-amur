@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
@@ -40,11 +39,6 @@ func NewRepositoryService(
 }
 
 func (s *RepositoryService) GetOrCreate(ctx context.Context, repoName string) (*models.Repository, error) {
-	parts := strings.Split(repoName, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, apperr.ErrInvalidFormat
-	}
-
 	repo, err := s.repositoryRepo.GetByName(ctx, repoName)
 	if err != nil {
 		if !errors.Is(err, apperr.ErrNotFound) {

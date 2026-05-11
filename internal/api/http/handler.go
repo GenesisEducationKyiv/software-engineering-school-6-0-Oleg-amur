@@ -43,10 +43,17 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Subscribe(r.Context(), models.SubscribeRequest{
+	subReq := models.SubscribeRequest{
 		Email: req.Email,
 		Repo:  req.Repo,
-	})
+	}
+
+	if err := subReq.Validate(); err != nil {
+		h.sendError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err := h.service.Subscribe(r.Context(), subReq)
 	if err != nil {
 		if errors.Is(err, apperr.ErrInvalidFormat) {
 			h.sendError(w, err.Error(), http.StatusBadRequest)

@@ -27,11 +27,6 @@ func TestRepositoryService_GetOrCreate(t *testing.T) {
 		expectedError error
 	}{
 		{
-			name:          "Invalid format",
-			repoName:      "invalid",
-			expectedError: apperr.ErrInvalidFormat,
-		},
-		{
 			name:     "Exists in DB",
 			repoName: "owner/repo",
 			mockRepo: &models.Repository{ID: 1, Name: "owner/repo"},

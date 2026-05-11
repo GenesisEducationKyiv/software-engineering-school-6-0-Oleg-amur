@@ -11,6 +11,7 @@ func NewSimpleMessageBuilder(baseURL string) *SimpleMessageBuilder {
 		baseURL: baseURL,
 	}
 }
+
 func (b *SimpleMessageBuilder) BuildConfirmationMessage(token string) (string, string) {
 	subject := "Confirm your subscription"
 	link := fmt.Sprintf("%s/api/v1/confirm/%s", b.baseURL, token)
