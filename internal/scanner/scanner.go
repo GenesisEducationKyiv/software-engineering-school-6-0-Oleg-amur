@@ -50,34 +50,31 @@ func (s *Scanner) Scan(ctx context.Context) {
 	}
 
 	for _, repo := range repos {
-		stopScan, err := s.processRepo(ctx, repo)
+		err := s.processRepo(ctx, repo)
 		if err != nil {
+			if errors.Is(err, apperr.ErrRateLimitExceeded) {
+				s.log.Warn("rate limit reached, stopping scan", "error", err)
+				break
+			}
 			s.log.Error("failed to process repository", "repo", repo.Name, "err", err)
-		}
-		if stopScan {
-			break
 		}
 	}
 }
 
-func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) (bool, error) {
+func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) error {
 	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name)
 	if err != nil {
-		if errors.Is(err, apperr.ErrRateLimitExceeded) {
-			s.log.Warn("rate limit reached", "error", err)
-			return true, nil
-		}
-		return false, err
+		return err
 	}
 
 	if latestTag == "" || repo.LastSeenTag == latestTag {
-		return false, nil
+		return nil
 	}
 
 	s.log.Info("new release found", "repo", repo.Name, "old", repo.LastSeenTag, "new", latestTag)
 
 	if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
-		return false, fmt.Errorf("failed to update tag: %w", err)
+		return fmt.Errorf("failed to update tag: %w", err)
 	}
 
 	s.releasesChan <- models.ReleaseEvent{
@@ -86,5 +83,5 @@ func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) (bool
 		Tag:      latestTag,
 	}
 
-	return false, nil
+	return nil
 }
