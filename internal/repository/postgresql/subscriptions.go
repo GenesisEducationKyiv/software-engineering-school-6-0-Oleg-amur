@@ -77,7 +77,10 @@ func (r *SubscriptionRepository) Activate(ctx context.Context, token string) err
 	if err != nil {
 		return err
 	}
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
 	if rows == 0 {
 		return apperr.ErrNotFound
 	}
