@@ -103,9 +103,8 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 │   ├── apperr/        # Domain errors
 │   ├── config/        # Configuration loading
 │   ├── database/      # DB initialization and migrations
-│   ├── github/        # GitHub API client
-│   ├── models/        # Domain entities
-│   ├── notifier/      # Email notification logic
+│   ├── client/        # External clients integration 
+│   ├── model/         # Domain entities
 │   ├── repository/    # Database persistence
 │   ├── scanner/       # Release monitoring logic
 │   └── service/       # Business logic layer
