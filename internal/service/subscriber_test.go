@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 func TestSubscriberService_GetOrCreate(t *testing.T) {
@@ -17,7 +17,7 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 	tests := []struct {
 		name          string
 		email         string
-		mockSub       *models.Subscriber
+		mockSub       *model.Subscriber
 		getErr        error
 		createErr     error
 		expectedError error
@@ -26,12 +26,12 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 		{
 			name:    "Subscriber exists",
 			email:   "test@example.com",
-			mockSub: &models.Subscriber{ID: 1, Email: "test@example.com"},
+			mockSub: &model.Subscriber{ID: 1, Email: "test@example.com"},
 		},
 		{
 			name:         "Subscriber created",
 			email:        "new@example.com",
-			mockSub:      &models.Subscriber{ID: 2, Email: "new@example.com"},
+			mockSub:      &model.Subscriber{ID: 2, Email: "new@example.com"},
 			getErr:       apperr.ErrNotFound,
 			expectCreate: true,
 		},
@@ -83,17 +83,17 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 }
 
 type mockSubscriberRepoForService struct {
-	sub          *models.Subscriber
+	sub          *model.Subscriber
 	getErr       error
 	createErr    error
 	createCalled bool
 }
 
-func (m *mockSubscriberRepoForService) GetByEmail(ctx context.Context, email string) (*models.Subscriber, error) {
+func (m *mockSubscriberRepoForService) GetByEmail(ctx context.Context, email string) (*model.Subscriber, error) {
 	return m.sub, m.getErr
 }
 
-func (m *mockSubscriberRepoForService) Create(ctx context.Context, email string) (*models.Subscriber, error) {
+func (m *mockSubscriberRepoForService) Create(ctx context.Context, email string) (*model.Subscriber, error) {
 	m.createCalled = true
 	return m.sub, m.createErr
 }

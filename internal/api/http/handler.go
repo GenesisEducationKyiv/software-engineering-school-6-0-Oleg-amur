@@ -9,14 +9,14 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type SubscriptionService interface {
-	Subscribe(context.Context, models.SubscribeRequest) error
+	Subscribe(context.Context, model.SubscribeRequest) error
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
-	GetSubscriptions(context.Context, string) ([]models.SubscriptionDTO, error)
+	GetSubscriptions(context.Context, string) ([]model.SubscriptionDTO, error)
 }
 
 type Handler struct {
@@ -43,7 +43,7 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subReq := models.SubscribeRequest{
+	subReq := model.SubscribeRequest{
 		Email: req.Email,
 		Repo:  req.Repo,
 	}

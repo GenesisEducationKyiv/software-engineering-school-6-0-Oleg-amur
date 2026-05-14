@@ -7,12 +7,12 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type SubscriberRepo interface {
-	GetByEmail(ctx context.Context, email string) (*models.Subscriber, error)
-	Create(ctx context.Context, email string) (*models.Subscriber, error)
+	GetByEmail(ctx context.Context, email string) (*model.Subscriber, error)
+	Create(ctx context.Context, email string) (*model.Subscriber, error)
 }
 
 type SubscriberService struct {
@@ -30,7 +30,7 @@ func NewSubscriberService(
 	}
 }
 
-func (s *SubscriberService) GetOrCreate(ctx context.Context, email string) (*models.Subscriber, error) {
+func (s *SubscriberService) GetOrCreate(ctx context.Context, email string) (*model.Subscriber, error) {
 	subscriber, err := s.subscriberRepo.GetByEmail(ctx, email)
 	if err != nil {
 		if !errors.Is(err, apperr.ErrNotFound) {

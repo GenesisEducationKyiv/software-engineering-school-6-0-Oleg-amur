@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type mockNotificationSubRepo struct {
-	subs []models.Subscription
+	subs []model.Subscription
 	err  error
 }
 
-func (m *mockNotificationSubRepo) GetActiveByRepoID(ctx context.Context, repoID int) ([]models.Subscription, error) {
+func (m *mockNotificationSubRepo) GetActiveByRepoID(ctx context.Context, repoID int) ([]model.Subscription, error) {
 	return m.subs, m.err
 }
 
@@ -45,22 +45,22 @@ func TestNotificationService_processEvent(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		event          models.ReleaseEvent
-		mockSubs       []models.Subscription
+		event          model.ReleaseEvent
+		mockSubs       []model.Subscription
 		repoErr        error
 		senderErr      error
 		expectedEmails int
 	}{
 		{
 			name: "Success - sends to multiple subscribers",
-			event: models.ReleaseEvent{
+			event: model.ReleaseEvent{
 				RepoID:   1,
 				RepoName: "owner/repo",
 				Tag:      "v1.0.0",
 			},
-			mockSubs: []models.Subscription{
-				{Subscriber: &models.Subscriber{Email: "user1@example.com"}},
-				{Subscriber: &models.Subscriber{Email: "user2@example.com"}},
+			mockSubs: []model.Subscription{
+				{Subscriber: &model.Subscriber{Email: "user1@example.com"}},
+				{Subscriber: &model.Subscriber{Email: "user2@example.com"}},
 			},
 			repoErr:        nil,
 			senderErr:      nil,
@@ -68,7 +68,7 @@ func TestNotificationService_processEvent(t *testing.T) {
 		},
 		{
 			name: "Repository error - skips sending",
-			event: models.ReleaseEvent{
+			event: model.ReleaseEvent{
 				RepoID:   1,
 				RepoName: "owner/repo",
 				Tag:      "v1.0.0",
@@ -80,14 +80,14 @@ func TestNotificationService_processEvent(t *testing.T) {
 		},
 		{
 			name: "Sender error - attempts to send to all despite errors",
-			event: models.ReleaseEvent{
+			event: model.ReleaseEvent{
 				RepoID:   1,
 				RepoName: "owner/repo",
 				Tag:      "v1.0.0",
 			},
-			mockSubs: []models.Subscription{
-				{Subscriber: &models.Subscriber{Email: "user1@example.com"}},
-				{Subscriber: &models.Subscriber{Email: "user2@example.com"}},
+			mockSubs: []model.Subscription{
+				{Subscriber: &model.Subscriber{Email: "user1@example.com"}},
+				{Subscriber: &model.Subscriber{Email: "user2@example.com"}},
 			},
 			repoErr:        nil,
 			senderErr:      errors.New("smtp error"),
@@ -124,13 +124,13 @@ func TestNotificationService_StartAndStop(t *testing.T) {
 
 	svc := NewNotificationService(log, repo, sender, builder)
 
-	eventsChan := make(chan models.ReleaseEvent)
-	subsChan := make(chan models.SubscriptionEvent)
+	eventsChan := make(chan model.ReleaseEvent)
+	subsChan := make(chan model.SubscriptionEvent)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go svc.Start(ctx, eventsChan, subsChan)
 
-	eventsChan <- models.ReleaseEvent{
+	eventsChan <- model.ReleaseEvent{
 		RepoID:   1,
 		RepoName: "owner/test",
 		Tag:      "v1",

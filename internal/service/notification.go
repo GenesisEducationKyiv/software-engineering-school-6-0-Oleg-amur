@@ -4,11 +4,11 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type subscriptionRepoForNotifications interface {
-	GetActiveByRepoID(ctx context.Context, repoID int) ([]models.Subscription, error)
+	GetActiveByRepoID(ctx context.Context, repoID int) ([]model.Subscription, error)
 }
 
 type EmailSender interface {
@@ -43,8 +43,8 @@ func NewNotificationService(
 
 func (s *NotificationService) Start(
 	ctx context.Context,
-	releaseEvents <-chan models.ReleaseEvent,
-	subscriptionEvents <-chan models.SubscriptionEvent,
+	releaseEvents <-chan model.ReleaseEvent,
+	subscriptionEvents <-chan model.SubscriptionEvent,
 ) {
 	s.log.Info("background notification service started")
 
@@ -61,7 +61,7 @@ func (s *NotificationService) Start(
 	}
 }
 
-func (s *NotificationService) processReleaseEvent(ctx context.Context, event models.ReleaseEvent) {
+func (s *NotificationService) processReleaseEvent(ctx context.Context, event model.ReleaseEvent) {
 	subs, err := s.subscriptionRepo.GetActiveByRepoID(ctx, event.RepoID)
 	if err != nil {
 		s.log.Error("failed to fetch subscribers for notification", "repo", event.RepoName, "err", err)
@@ -79,7 +79,7 @@ func (s *NotificationService) processReleaseEvent(ctx context.Context, event mod
 	}
 }
 
-func (s *NotificationService) processSubscriptionEvent(ctx context.Context, event models.SubscriptionEvent) {
+func (s *NotificationService) processSubscriptionEvent(ctx context.Context, event model.SubscriptionEvent) {
 	s.log.Info("sending confirmation email", "email", event.Email)
 
 	subject, body := s.messageBuilder.BuildConfirmationMessage(event.Token)

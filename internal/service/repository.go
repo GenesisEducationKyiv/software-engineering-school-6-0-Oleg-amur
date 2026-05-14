@@ -7,12 +7,12 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type RepositoryRepo interface {
-	GetByName(ctx context.Context, name string) (*models.Repository, error)
-	Create(ctx context.Context, name string, lastSeenTag string) (*models.Repository, error)
+	GetByName(ctx context.Context, name string) (*model.Repository, error)
+	Create(ctx context.Context, name string, lastSeenTag string) (*model.Repository, error)
 }
 
 type GithubClient interface {
@@ -38,7 +38,7 @@ func NewRepositoryService(
 	}
 }
 
-func (s *RepositoryService) GetOrCreate(ctx context.Context, repoName string) (*models.Repository, error) {
+func (s *RepositoryService) GetOrCreate(ctx context.Context, repoName string) (*model.Repository, error) {
 	repo, err := s.repositoryRepo.GetByName(ctx, repoName)
 	if err != nil {
 		if !errors.Is(err, apperr.ErrNotFound) {

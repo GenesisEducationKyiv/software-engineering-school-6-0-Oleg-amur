@@ -7,18 +7,18 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type Scanner struct {
 	log            *slog.Logger
 	repoRepository RepositoryRepo
 	githubClient   GithubClient
-	releasesChan   chan<- models.ReleaseEvent
+	releasesChan   chan<- model.ReleaseEvent
 }
 
 type RepositoryRepo interface {
-	GetAll(ctx context.Context) ([]models.Repository, error)
+	GetAll(ctx context.Context) ([]model.Repository, error)
 	UpdateTag(ctx context.Context, id int, tag string) error
 }
 
@@ -30,7 +30,7 @@ func NewScanner(
 	log *slog.Logger,
 	repo RepositoryRepo,
 	gh GithubClient,
-	releasesChan chan<- models.ReleaseEvent,
+	releasesChan chan<- model.ReleaseEvent,
 ) *Scanner {
 	return &Scanner{
 		log:            log,
@@ -61,7 +61,7 @@ func (s *Scanner) Scan(ctx context.Context) {
 	}
 }
 
-func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) error {
+func (s *Scanner) processRepo(ctx context.Context, repo model.Repository) error {
 	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name)
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) error
 		return fmt.Errorf("failed to update tag: %w", err)
 	}
 
-	s.releasesChan <- models.ReleaseEvent{
+	s.releasesChan <- model.ReleaseEvent{
 		RepoID:   repo.ID,
 		RepoName: repo.Name,
 		Tag:      latestTag,

@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 func TestScan(t *testing.T) {
@@ -14,7 +14,7 @@ func TestScan(t *testing.T) {
 
 	tests := []struct {
 		name                string
-		mockRepos           []models.Repository
+		mockRepos           []model.Repository
 		mockGithubTags      map[string]string
 		expectedUpdateCount int
 		expectedUpdatedTag  string
@@ -22,7 +22,7 @@ func TestScan(t *testing.T) {
 	}{
 		{
 			name: "No new release",
-			mockRepos: []models.Repository{
+			mockRepos: []model.Repository{
 				{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 			},
 			mockGithubTags: map[string]string{
@@ -33,7 +33,7 @@ func TestScan(t *testing.T) {
 		},
 		{
 			name: "New release found",
-			mockRepos: []models.Repository{
+			mockRepos: []model.Repository{
 				{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 			},
 			mockGithubTags: map[string]string{
@@ -54,7 +54,7 @@ func TestScan(t *testing.T) {
 				tags: tt.mockGithubTags,
 			}
 
-			releasesChan := make(chan models.ReleaseEvent, 10)
+			releasesChan := make(chan model.ReleaseEvent, 10)
 
 			s := NewScanner(log, repoRepo, ghClient, releasesChan)
 			s.Scan(context.Background())
@@ -99,7 +99,7 @@ func TestScan(t *testing.T) {
 }
 
 type mockRepositoryRepo struct {
-	repos      []models.Repository
+	repos      []model.Repository
 	getAllErr  error
 	updateErrs []error
 	updateArgs []struct {
@@ -108,7 +108,7 @@ type mockRepositoryRepo struct {
 	}
 }
 
-func (m *mockRepositoryRepo) GetAll(ctx context.Context) ([]models.Repository, error) {
+func (m *mockRepositoryRepo) GetAll(ctx context.Context) ([]model.Repository, error) {
 	return m.repos, m.getAllErr
 }
 

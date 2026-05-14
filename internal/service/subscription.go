@@ -7,23 +7,23 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 	"github.com/google/uuid"
 )
 
 type subscriberService interface {
-	GetOrCreate(ctx context.Context, email string) (*models.Subscriber, error)
+	GetOrCreate(ctx context.Context, email string) (*model.Subscriber, error)
 }
 
 type repositoryService interface {
-	GetOrCreate(ctx context.Context, repoName string) (*models.Repository, error)
+	GetOrCreate(ctx context.Context, repoName string) (*model.Repository, error)
 }
 
 type SubscriptionRepo interface {
 	Create(ctx context.Context, subID, repoID int, token string) error
 	Activate(ctx context.Context, token string) error
 	DeleteByToken(ctx context.Context, token string) error
-	GetActiveByEmail(ctx context.Context, email string) ([]models.Subscription, error)
+	GetActiveByEmail(ctx context.Context, email string) ([]model.Subscription, error)
 }
 
 type SubscriptionService struct {
@@ -31,7 +31,7 @@ type SubscriptionService struct {
 	subscriberService subscriberService
 	repositoryService repositoryService
 	subscriptionRepo  SubscriptionRepo
-	subsChan          chan<- models.SubscriptionEvent
+	subsChan          chan<- model.SubscriptionEvent
 }
 
 func NewSubscriptionService(
@@ -39,7 +39,7 @@ func NewSubscriptionService(
 	sub subscriberService,
 	repo repositoryService,
 	subscription SubscriptionRepo,
-	subsChan chan<- models.SubscriptionEvent,
+	subsChan chan<- model.SubscriptionEvent,
 ) *SubscriptionService {
 	return &SubscriptionService{
 		log:               log,
@@ -50,7 +50,7 @@ func NewSubscriptionService(
 	}
 }
 
-func (s *SubscriptionService) Subscribe(ctx context.Context, req models.SubscribeRequest) error {
+func (s *SubscriptionService) Subscribe(ctx context.Context, req model.SubscribeRequest) error {
 	subscriber, err := s.subscriberService.GetOrCreate(ctx, req.Email)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req models.Subscrib
 	}
 
 	select {
-	case s.subsChan <- models.SubscriptionEvent{Email: req.Email, Token: token}:
+	case s.subsChan <- model.SubscriptionEvent{Email: req.Email, Token: token}:
 	default:
 		s.log.Error("failed to enqueue subscription event, channel full", "email", req.Email)
 	}
@@ -97,18 +97,18 @@ func (s *SubscriptionService) Unsubscribe(ctx context.Context, token string) err
 func (s *SubscriptionService) GetSubscriptions(
 	ctx context.Context,
 	email string,
-) ([]models.SubscriptionDTO, error) {
+) ([]model.SubscriptionDTO, error) {
 	subs, err := s.subscriptionRepo.GetActiveByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
 
-	var result []models.SubscriptionDTO
+	var result []model.SubscriptionDTO
 	for _, sub := range subs {
-		result = append(result, models.SubscriptionDTO{
+		result = append(result, model.SubscriptionDTO{
 			Email:       email,
 			Repo:        sub.Repository.Name,
-			Confirmed:   sub.SubscriptionStatus == models.StatusActive,
+			Confirmed:   sub.SubscriptionStatus == model.StatusActive,
 			LastSeenTag: sub.Repository.LastSeenTag,
 		})
 	}

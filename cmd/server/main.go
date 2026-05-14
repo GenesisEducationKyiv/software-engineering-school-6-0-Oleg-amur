@@ -19,7 +19,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/client/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/database"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/scanner"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
@@ -95,7 +95,7 @@ func runApp(log *slog.Logger) error {
 		githubClient,
 	)
 
-	subsChan := make(chan models.SubscriptionEvent, subscriptionEventsBufferSize)
+	subsChan := make(chan model.SubscriptionEvent, subscriptionEventsBufferSize)
 
 	subscriptionSvc := service.NewSubscriptionService(
 		log,
@@ -105,7 +105,7 @@ func runApp(log *slog.Logger) error {
 		subsChan,
 	)
 
-	releasesChan := make(chan models.ReleaseEvent, releaseEventsBufferSize)
+	releasesChan := make(chan model.ReleaseEvent, releaseEventsBufferSize)
 	notificationService := service.NewNotificationService(log, subscriptionRepo, emailClient, msgBuilder)
 	go notificationService.Start(ctx, releasesChan, subsChan)
 

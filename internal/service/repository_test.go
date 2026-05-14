@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 func TestRepositoryService_GetOrCreate(t *testing.T) {
@@ -17,7 +17,7 @@ func TestRepositoryService_GetOrCreate(t *testing.T) {
 	tests := []struct {
 		name          string
 		repoName      string
-		mockRepo      *models.Repository
+		mockRepo      *model.Repository
 		getErr        error
 		ghExists      bool
 		ghCheckErr    error
@@ -29,7 +29,7 @@ func TestRepositoryService_GetOrCreate(t *testing.T) {
 		{
 			name:     "Exists in DB",
 			repoName: "owner/repo",
-			mockRepo: &models.Repository{ID: 1, Name: "owner/repo"},
+			mockRepo: &model.Repository{ID: 1, Name: "owner/repo"},
 			getErr:   nil,
 		},
 		{
@@ -52,7 +52,7 @@ func TestRepositoryService_GetOrCreate(t *testing.T) {
 			getErr:   apperr.ErrNotFound,
 			ghExists: true,
 			ghTag:    "v1.0.0",
-			mockRepo: &models.Repository{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
+			mockRepo: &model.Repository{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 		},
 	}
 
@@ -90,12 +90,12 @@ func TestRepositoryService_GetOrCreate(t *testing.T) {
 }
 
 type mockRepositoryRepoForService struct {
-	repo      *models.Repository
+	repo      *model.Repository
 	getErr    error
 	createErr error
 }
 
-func (m *mockRepositoryRepoForService) GetByName(ctx context.Context, name string) (*models.Repository, error) {
+func (m *mockRepositoryRepoForService) GetByName(ctx context.Context, name string) (*model.Repository, error) {
 	return m.repo, m.getErr
 }
 
@@ -103,7 +103,7 @@ func (m *mockRepositoryRepoForService) Create(
 	ctx context.Context,
 	name string,
 	tag string,
-) (*models.Repository, error) {
+) (*model.Repository, error) {
 	return m.repo, m.createErr
 }
 
