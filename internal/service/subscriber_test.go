@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
@@ -12,70 +10,63 @@ import (
 )
 
 func TestSubscriberService_GetOrCreate(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	errGet := errors.New("db error")
+	errCreate := errors.New("create error")
 
 	tests := []struct {
-		name          string
-		email         string
-		mockSub       *model.Subscriber
-		getErr        error
-		createErr     error
-		expectedError error
-		expectCreate  bool
+		name       string
+		email      string
+		subscriber *model.Subscriber
+		getErr     error
+		createErr  error
+		wantErr    error
+		wantCreate bool
 	}{
 		{
-			name:    "Subscriber exists",
-			email:   "test@example.com",
-			mockSub: &model.Subscriber{ID: 1, Email: "test@example.com"},
+			name:       "returns subscriber when it already exists",
+			email:      "test@example.com",
+			subscriber: &model.Subscriber{ID: 1, Email: "test@example.com"},
 		},
 		{
-			name:         "Subscriber created",
-			email:        "new@example.com",
-			mockSub:      &model.Subscriber{ID: 2, Email: "new@example.com"},
-			getErr:       apperr.ErrNotFound,
-			expectCreate: true,
+			name:       "creates subscriber when it does not exist",
+			email:      "new@example.com",
+			subscriber: &model.Subscriber{ID: 2, Email: "new@example.com"},
+			getErr:     apperr.ErrNotFound,
+			wantCreate: true,
 		},
 		{
-			name:          "DB error on get",
-			email:         "error@example.com",
-			getErr:        errors.New("db error"),
-			expectedError: errors.New("subscriber check error: db error"),
+			name:    "returns wrapped get error",
+			email:   "error@example.com",
+			getErr:  errGet,
+			wantErr: errGet,
 		},
 		{
-			name:          "DB error on create",
-			email:         "error@example.com",
-			getErr:        apperr.ErrNotFound,
-			createErr:     errors.New("create error"),
-			expectedError: errors.New("subscriber create error: create error"),
-			expectCreate:  true,
+			name:       "returns wrapped create error",
+			email:      "error@example.com",
+			getErr:     apperr.ErrNotFound,
+			createErr:  errCreate,
+			wantErr:    errCreate,
+			wantCreate: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &mockSubscriberRepoForService{
-				sub:       tt.mockSub,
-				getErr:    tt.getErr,
-				createErr: tt.createErr,
+				subscriber: tt.subscriber,
+				getErr:     tt.getErr,
+				createErr:  tt.createErr,
 			}
-			s := NewSubscriberService(log, repo)
+			svc := NewSubscriberService(testLogger(), repo)
 
-			sub, err := s.GetOrCreate(context.Background(), tt.email)
+			subscriber, err := svc.GetOrCreate(context.Background(), tt.email)
 
-			if tt.expectedError != nil {
-				if err == nil || err.Error() != tt.expectedError.Error() {
-					t.Errorf("expected error %v, got %v", tt.expectedError, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if sub.ID != tt.mockSub.ID {
-					t.Errorf("expected ID %d, got %d", tt.mockSub.ID, sub.ID)
-				}
+			assertErrorIs(t, err, tt.wantErr)
+			if tt.wantErr == nil && subscriber.ID != tt.subscriber.ID {
+				t.Errorf("expected ID %d, got %d", tt.subscriber.ID, subscriber.ID)
 			}
 
-			if tt.expectCreate && !repo.createCalled {
+			if tt.wantCreate && !repo.createCalled {
 				t.Error("expected Create to be called")
 			}
 		})
@@ -83,17 +74,17 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 }
 
 type mockSubscriberRepoForService struct {
-	sub          *model.Subscriber
+	subscriber   *model.Subscriber
 	getErr       error
 	createErr    error
 	createCalled bool
 }
 
-func (m *mockSubscriberRepoForService) GetByEmail(ctx context.Context, email string) (*model.Subscriber, error) {
-	return m.sub, m.getErr
+func (f *mockSubscriberRepoForService) GetByEmail(ctx context.Context, email string) (*model.Subscriber, error) {
+	return f.subscriber, f.getErr
 }
 
-func (m *mockSubscriberRepoForService) Create(ctx context.Context, email string) (*model.Subscriber, error) {
-	m.createCalled = true
-	return m.sub, m.createErr
+func (f *mockSubscriberRepoForService) Create(ctx context.Context, email string) (*model.Subscriber, error) {
+	f.createCalled = true
+	return f.subscriber, f.createErr
 }

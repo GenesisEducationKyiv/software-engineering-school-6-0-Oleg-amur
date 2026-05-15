@@ -4,106 +4,100 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
-func TestSubscribe(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+func TestSubscriptionService_Subscribe(t *testing.T) {
+	errSubscriber := errors.New("subscriber service error")
 
 	tests := []struct {
 		name          string
 		req           model.SubscribeRequest
-		sub           *model.Subscriber
-		subErr        error
-		repo          *model.Repository
-		repoErr       error
-		subCreateErr  error
-		expectedError error
+		subscriber    *model.Subscriber
+		subscriberErr error
+		repository    *model.Repository
+		repositoryErr error
+		createErr     error
+		wantErr       error
 	}{
 		{
-			name:          "Subscriber service error",
+			name:          "returns subscriber service error",
 			req:           model.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			subErr:        errors.New("sub error"),
-			expectedError: errors.New("sub error"),
+			subscriberErr: errSubscriber,
+			wantErr:       errSubscriber,
 		},
 		{
-			name:          "Repository service error",
+			name:          "returns repository service error",
 			req:           model.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			sub:           &model.Subscriber{ID: 1},
-			repoErr:       apperr.ErrRepoNotFound,
-			expectedError: apperr.ErrRepoNotFound,
+			subscriber:    &model.Subscriber{ID: 1},
+			repositoryErr: apperr.ErrRepoNotFound,
+			wantErr:       apperr.ErrRepoNotFound,
 		},
 		{
-			name:          "Already subscribed",
-			req:           model.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			sub:           &model.Subscriber{ID: 1},
-			repo:          &model.Repository{ID: 1},
-			subCreateErr:  apperr.ErrAlreadyExists,
-			expectedError: apperr.ErrAlreadySubscribed,
+			name:       "returns already subscribed when repository rejects duplicate",
+			req:        model.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
+			subscriber: &model.Subscriber{ID: 1},
+			repository: &model.Repository{ID: 1},
+			createErr:  apperr.ErrAlreadyExists,
+			wantErr:    apperr.ErrAlreadySubscribed,
 		},
 		{
-			name:          "Success",
-			req:           model.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			sub:           &model.Subscriber{ID: 1},
-			repo:          &model.Repository{ID: 1},
-			expectedError: nil,
+			name:       "enqueues confirmation event after successful subscription",
+			req:        model.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
+			subscriber: &model.Subscriber{ID: 1},
+			repository: &model.Repository{ID: 1},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			events := make(chan model.SubscriptionEvent, 10)
 			svc := NewSubscriptionService(
-				log,
-				&mockSubscriberService{sub: tt.sub, err: tt.subErr},
-				&mockRepositoryService{repo: tt.repo, err: tt.repoErr},
-				&mockSubscriptionRepo{createErr: tt.subCreateErr},
-				make(chan model.SubscriptionEvent, 10),
+				testLogger(),
+				&mockSubscriberService{subscriber: tt.subscriber, err: tt.subscriberErr},
+				&mockRepositoryService{repository: tt.repository, err: tt.repositoryErr},
+				&mockSubscriptionRepo{createErr: tt.createErr},
+				events,
 			)
 
 			err := svc.Subscribe(context.Background(), tt.req)
 
-			if tt.expectedError != nil {
-				if err == nil || err.Error() != tt.expectedError.Error() {
-					t.Errorf("expected error %v, got %v", tt.expectedError, err)
-				}
-			} else if err != nil {
-				t.Errorf("expected no error, got %v", err)
+			assertErrorIs(t, err, tt.wantErr)
+			if tt.wantErr == nil {
+				assertSubscriptionEvent(t, events, tt.req.Email)
 			}
 		})
 	}
 }
 
-func TestConfirm(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
+func TestSubscriptionService_Confirm(t *testing.T) {
 	tests := []struct {
-		name          string
-		token         string
-		expectedError error
-		activateErr   error
+		name        string
+		token       string
+		activateErr error
+		wantErr     error
 	}{
 		{
-			name:          "Missing token",
-			token:         "test token",
-			expectedError: apperr.ErrTokenNotFound,
-			activateErr:   apperr.ErrNotFound,
+			name:        "returns token not found when repository has no token",
+			token:       "test-token",
+			activateErr: apperr.ErrNotFound,
+			wantErr:     apperr.ErrTokenNotFound,
 		},
 		{
-			name:          "Success",
-			token:         "test token",
-			expectedError: nil,
+			name:  "confirms subscription",
+			token: "test-token",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSubscriptionService(
-				log,
+				testLogger(),
 				&mockSubscriberService{},
 				&mockRepositoryService{},
 				&mockSubscriptionRepo{activateErr: tt.activateErr},
@@ -112,39 +106,34 @@ func TestConfirm(t *testing.T) {
 
 			err := svc.Confirm(context.Background(), tt.token)
 
-			if !errors.Is(err, tt.expectedError) {
-				t.Errorf("expected error %v, got %v", tt.expectedError, err)
-			}
+			assertErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
-func TestUnsubscribe(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
+func TestSubscriptionService_Unsubscribe(t *testing.T) {
 	tests := []struct {
-		name          string
-		token         string
-		expectedError error
-		deleteErr     error
+		name      string
+		token     string
+		deleteErr error
+		wantErr   error
 	}{
 		{
-			name:          "Error for DB",
-			token:         "test token",
-			expectedError: sql.ErrConnDone,
-			deleteErr:     sql.ErrConnDone,
+			name:      "returns repository delete error",
+			token:     "test-token",
+			deleteErr: sql.ErrConnDone,
+			wantErr:   sql.ErrConnDone,
 		},
 		{
-			name:          "Success",
-			token:         "test token",
-			expectedError: nil,
+			name:  "deletes subscription by token",
+			token: "test-token",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSubscriptionService(
-				log,
+				testLogger(),
 				&mockSubscriberService{},
 				&mockRepositoryService{},
 				&mockSubscriptionRepo{deleteErr: tt.deleteErr},
@@ -153,42 +142,35 @@ func TestUnsubscribe(t *testing.T) {
 
 			err := svc.Unsubscribe(context.Background(), tt.token)
 
-			if !errors.Is(err, tt.expectedError) {
-				t.Errorf("expected error %v, got %v", tt.expectedError, err)
-			}
+			assertErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
-func TestGetSubscriptions(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
+func TestSubscriptionService_GetSubscriptions(t *testing.T) {
 	tests := []struct {
-		name          string
-		email         string
-		mockSubs      []model.Subscription
-		mockErr       error
-		expectedError error
-		expectedLen   int
+		name    string
+		email   string
+		subs    []model.Subscription
+		repoErr error
+		wantErr error
+		wantLen int
 	}{
 		{
-			name:          "DB Error",
-			email:         "test@example.com",
-			mockErr:       sql.ErrConnDone,
-			expectedError: sql.ErrConnDone,
-			expectedLen:   0,
+			name:    "returns repository query error",
+			email:   "test@example.com",
+			repoErr: sql.ErrConnDone,
+			wantErr: sql.ErrConnDone,
 		},
 		{
-			name:          "Success empty",
-			email:         "test@example.com",
-			mockSubs:      []model.Subscription{},
-			expectedError: nil,
-			expectedLen:   0,
-		},
-		{
-			name:  "Success with data",
+			name:  "returns empty list when user has no active subscriptions",
 			email: "test@example.com",
-			mockSubs: []model.Subscription{
+			subs:  []model.Subscription{},
+		},
+		{
+			name:  "maps active subscriptions to DTOs",
+			email: "test@example.com",
+			subs: []model.Subscription{
 				{
 					SubscriptionStatus: model.StatusActive,
 					Repository: &model.Repository{
@@ -204,52 +186,77 @@ func TestGetSubscriptions(t *testing.T) {
 					},
 				},
 			},
-			expectedError: nil,
-			expectedLen:   2,
+			wantLen: 2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSubscriptionService(
-				log,
+				testLogger(),
 				&mockSubscriberService{},
 				&mockRepositoryService{},
 				&mockSubscriptionRepo{
-					getActiveByEmailSubs: tt.mockSubs,
-					getActiveByEmailErr:  tt.mockErr,
+					getActiveByEmailSubs: tt.subs,
+					getActiveByEmailErr:  tt.repoErr,
 				},
 				make(chan model.SubscriptionEvent, 10),
 			)
 
 			subs, err := svc.GetSubscriptions(context.Background(), tt.email)
 
-			if !errors.Is(err, tt.expectedError) {
-				t.Errorf("expected error %v, got %v", tt.expectedError, err)
-			}
-			if len(subs) != tt.expectedLen {
-				t.Errorf("expected %d subscriptions, got %d", tt.expectedLen, len(subs))
+			assertErrorIs(t, err, tt.wantErr)
+			if len(subs) != tt.wantLen {
+				t.Errorf("expected %d subscriptions, got %d", tt.wantLen, len(subs))
 			}
 		})
 	}
 }
 
-type mockSubscriberService struct {
-	sub *model.Subscriber
-	err error
+func assertErrorIs(t *testing.T, got error, want error) {
+	t.Helper()
+
+	if !errors.Is(got, want) {
+		t.Fatalf("expected error %v, got %v", want, got)
+	}
 }
 
-func (m *mockSubscriberService) GetOrCreate(ctx context.Context, email string) (*model.Subscriber, error) {
-	return m.sub, m.err
+func assertSubscriptionEvent(t *testing.T, events <-chan model.SubscriptionEvent, wantEmail string) {
+	t.Helper()
+
+	select {
+	case event := <-events:
+		if event.Email != wantEmail {
+			t.Fatalf("expected subscription event email %s, got %s", wantEmail, event.Email)
+		}
+		if event.Token == "" {
+			t.Fatal("expected subscription event token to be set")
+		}
+	default:
+		t.Fatal("expected subscription event to be queued")
+	}
+}
+
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+type mockSubscriberService struct {
+	subscriber *model.Subscriber
+	err        error
+}
+
+func (f *mockSubscriberService) GetOrCreate(ctx context.Context, email string) (*model.Subscriber, error) {
+	return f.subscriber, f.err
 }
 
 type mockRepositoryService struct {
-	repo *model.Repository
-	err  error
+	repository *model.Repository
+	err        error
 }
 
-func (m *mockRepositoryService) GetOrCreate(ctx context.Context, repoName string) (*model.Repository, error) {
-	return m.repo, m.err
+func (f *mockRepositoryService) GetOrCreate(ctx context.Context, repoName string) (*model.Repository, error) {
+	return f.repository, f.err
 }
 
 type mockSubscriptionRepo struct {
@@ -260,21 +267,21 @@ type mockSubscriptionRepo struct {
 	getActiveByEmailErr  error
 }
 
-func (m *mockSubscriptionRepo) Create(ctx context.Context, subID, repoID int, token string) error {
-	return m.createErr
+func (f *mockSubscriptionRepo) Create(ctx context.Context, subID, repoID int, token string) error {
+	return f.createErr
 }
 
-func (m *mockSubscriptionRepo) Activate(ctx context.Context, token string) error {
-	return m.activateErr
+func (f *mockSubscriptionRepo) Activate(ctx context.Context, token string) error {
+	return f.activateErr
 }
 
-func (m *mockSubscriptionRepo) DeleteByToken(ctx context.Context, token string) error {
-	return m.deleteErr
+func (f *mockSubscriptionRepo) DeleteByToken(ctx context.Context, token string) error {
+	return f.deleteErr
 }
 
-func (m *mockSubscriptionRepo) GetActiveByEmail(
+func (f *mockSubscriptionRepo) GetActiveByEmail(
 	ctx context.Context,
 	email string,
 ) ([]model.Subscription, error) {
-	return m.getActiveByEmailSubs, m.getActiveByEmailErr
+	return f.getActiveByEmailSubs, f.getActiveByEmailErr
 }
