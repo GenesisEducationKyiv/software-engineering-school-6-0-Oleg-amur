@@ -7,16 +7,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/database"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
@@ -68,21 +63,8 @@ func Start(ctx context.Context) (*Suite, error) {
 		return nil, err
 	}
 
-	connString, err := container.ConnectionString(ctx, "sslmode=disable")
+	db, log, err := startDatabase(ctx, container)
 	if err != nil {
-		_ = testcontainers.TerminateContainer(container)
-		return nil, err
-	}
-
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	db, err := database.InitDb(ctx, connString, log)
-	if err != nil {
-		_ = testcontainers.TerminateContainer(container)
-		return nil, err
-	}
-
-	if err := database.RunMigrations(ctx, db, log); err != nil {
-		_ = db.Close()
 		_ = testcontainers.TerminateContainer(container)
 		return nil, err
 	}
@@ -110,71 +92,4 @@ func (s *Suite) Close() error {
 		}
 	}
 	return errors.Join(errs...)
-}
-
-func (s *Suite) ResetDatabase(t testing.TB) {
-	t.Helper()
-
-	_, err := s.DB.ExecContext(
-		context.Background(),
-		"TRUNCATE subscriptions, subscribers, repositories RESTART IDENTITY CASCADE",
-	)
-	if err != nil {
-		t.Fatalf("reset integration test database: %v", err)
-	}
-}
-
-func (s *Suite) NewSubscriptionService() (
-	*service.SubscriptionService,
-	*FakeGithubClient,
-	chan model.SubscriptionEvent,
-) {
-	subscriberRepo := postgresql.NewSubscriberRepository(s.DB)
-	repositoryRepo := postgresql.NewRepositoryRepository(s.DB)
-	subscriptionRepo := postgresql.NewSubscriptionRepository(s.DB)
-
-	githubClient := &FakeGithubClient{
-		Exists: map[string]bool{
-			"owner/repo": true,
-		},
-		Tags: map[string]string{
-			"owner/repo": "v1.0.0",
-		},
-		CheckErr: map[string]error{},
-		TagErr:   map[string]error{},
-	}
-
-	subscriberService := service.NewSubscriberService(s.Logger, subscriberRepo)
-	repositoryService := service.NewRepositoryService(s.Logger, repositoryRepo, githubClient)
-	subscriptionEvents := make(chan model.SubscriptionEvent, 10)
-	subscriptionService := service.NewSubscriptionService(
-		s.Logger,
-		subscriberService,
-		repositoryService,
-		subscriptionRepo,
-		subscriptionEvents,
-	)
-
-	return subscriptionService, githubClient, subscriptionEvents
-}
-
-type FakeGithubClient struct {
-	Exists   map[string]bool
-	Tags     map[string]string
-	CheckErr map[string]error
-	TagErr   map[string]error
-}
-
-func (f *FakeGithubClient) CheckIfRepoExists(ctx context.Context, repoAddr string) (bool, error) {
-	if err := f.CheckErr[repoAddr]; err != nil {
-		return false, err
-	}
-	return f.Exists[repoAddr], nil
-}
-
-func (f *FakeGithubClient) GetRepositoryLatestTag(ctx context.Context, repoAddr string) (string, error) {
-	if err := f.TagErr[repoAddr]; err != nil {
-		return "", err
-	}
-	return f.Tags[repoAddr], nil
 }
