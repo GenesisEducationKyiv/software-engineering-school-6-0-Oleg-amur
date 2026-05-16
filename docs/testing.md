@@ -1,11 +1,11 @@
 # Testing
 
-The project uses regular Go unit tests and Docker-backed integration tests.
+The project uses regular Go unit tests, Docker-backed integration tests, and Playwright E2E tests.
 
 ## Run All Tests
 
 ```sh
-go test -v ./... && go test -tags=integration -v ./test/integration/...
+sh -c 'go test -v ./... && go test -tags=integration -v ./test/integration/... && docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abort-on-container-exit --exit-code-from playwright; code=$?; docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans; exit $code'
 ```
 
 ## Unit Tests
@@ -37,4 +37,8 @@ Docker must be available. The tests start PostgreSQL automatically from scratch 
 
 ## E2E Tests
 
-There are no E2E tests yet because the application currently has no UI page for Playwright to drive.
+```sh
+sh -c 'docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abort-on-container-exit --exit-code-from playwright; code=$?; docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans; exit $code'
+```
+
+E2E tests live under `test/e2e`. Docker Compose starts PostgreSQL, Mailpit, a controlled fake GitHub HTTP service, the application, and a Playwright runner.
