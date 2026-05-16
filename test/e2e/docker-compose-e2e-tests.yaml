@@ -45,7 +45,7 @@ services:
       SMTP_PORT: 1025
       FROM_EMAIL: no-reply@test.com
       BASE_URL: http://release-notifier:8080
-      SCAN_INTERVAL: 1h
+      SCAN_INTERVAL: 2s
       GITHUB_TIMEOUT: 10s
       GITHUB_URL: http://fake-github:8081
       GITHUB_TOKEN: ""
@@ -73,6 +73,7 @@ services:
     environment:
       PLAYWRIGHT_BASE_URL: http://release-notifier:8080
       MAILPIT_URL: http://mailpit:8025
+      FAKE_GITHUB_URL: http://fake-github:8081
       PLAYWRIGHT_OUTPUT_DIR: /tmp/playwright-results
     command: sh -c "npm ci --no-audit --no-fund && npx playwright test"
     depends_on:
