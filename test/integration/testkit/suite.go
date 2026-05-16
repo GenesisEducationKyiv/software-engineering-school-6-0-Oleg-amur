@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	postgresImage    = "postgres:16-alpine"
+	postgresImage    = "postgres:18.3-alpine"
 	testDatabaseName = "release_notifier_test"
 	testDatabaseUser = "test"
 	testDatabasePass = "test"

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -14,7 +15,13 @@ func main() {
 	})
 	mux.HandleFunc("/repos/", handleRepository)
 
-	log.Fatal(http.ListenAndServe(":8081", mux))
+	server := &http.Server{
+		Addr:              ":8081",
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	log.Fatal(server.ListenAndServe())
 }
 
 func handleRepository(w http.ResponseWriter, r *http.Request) {

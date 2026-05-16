@@ -160,7 +160,7 @@ func assertError(t *testing.T, err error, want error) {
 		}
 		return
 	}
-	if want == errAny {
+	if errors.Is(want, errAny) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
