@@ -11,7 +11,6 @@ import (
 )
 
 func (s *GRPCSuite) TestConfirm_ActivatesSubscription() {
-	// Arrange
 	_, err := s.client.Subscribe(context.Background(), &pb.SubscribeRequest{
 		Email: "user@example.com",
 		Repo:  "owner/repo",
@@ -20,11 +19,9 @@ func (s *GRPCSuite) TestConfirm_ActivatesSubscription() {
 
 	token := s.receiveSubscriptionToken()
 
-	// Act
 	_, err = s.client.Confirm(context.Background(), &pb.ConfirmRequest{Token: token})
 	s.assertGRPCCode(err, codes.OK)
 
-	// Assert
 	s.assertSubscriptionStatus(token, model.StatusActive)
 }
 

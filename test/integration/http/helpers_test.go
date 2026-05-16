@@ -4,9 +4,7 @@ package http_test
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,52 +13,6 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
-
-func (s *HTTPSuite) createSubscription(req dto.SubscribeRequest) string {
-	s.T().Helper()
-
-	s.postJSON("/api/v1/subscribe", req, http.StatusOK)
-
-	return s.receiveSubscriptionToken()
-}
-
-func (s *HTTPSuite) assertActiveSubscription(want dto.Subscription) {
-	s.T().Helper()
-
-	s.assertSubscriptions(want.Email, func(response []dto.Subscription) {
-		s.Require().Len(response, 1, "active subscriptions")
-		got := response[0]
-		s.Equal(want.Email, got.Email)
-		s.Equal(want.Repo, got.Repo)
-		s.Equal(want.Confirmed, got.Confirmed)
-		s.Equal(want.LastSeenTag, got.LastSeenTag)
-	})
-}
-
-func (s *HTTPSuite) assertSubscriptions(email string, assertResponse func([]dto.Subscription)) {
-	s.T().Helper()
-
-	query := url.Values{}
-	query.Set("email", email)
-
-	s.get("/api/v1/subscriptions?"+query.Encode(), http.StatusOK, func(body []byte) {
-		response := decodeSubscriptions(s.T(), body)
-		assertResponse(response)
-	})
-}
-
-func (s *HTTPSuite) assertSubscriptionStatus(token string, want int) {
-	s.T().Helper()
-
-	var got int
-	err := s.app.DB.QueryRowContext(
-		s.T().Context(),
-		`SELECT subscription_status FROM subscriptions WHERE token = $1`,
-		token,
-	).Scan(&got)
-	s.Require().NoError(err, "get subscription status by token")
-	s.Equal(want, got)
-}
 
 func (s *HTTPSuite) postJSON(path string, body any, wantStatus int) []byte {
 	s.T().Helper()
@@ -102,6 +54,46 @@ func (s *HTTPSuite) get(path string, wantStatus int, assertBody func([]byte)) []
 	return body
 }
 
+func (s *HTTPSuite) postSubscribe(req dto.SubscribeRequest, wantStatus int) []byte {
+	s.T().Helper()
+
+	return s.postJSON("/api/v1/subscribe", req, wantStatus)
+}
+
+func (s *HTTPSuite) postSubscribeRaw(body []byte, wantStatus int) []byte {
+	s.T().Helper()
+
+	return s.postRaw("/api/v1/subscribe", body, wantStatus)
+}
+
+func (s *HTTPSuite) getConfirm(token string, wantStatus int) []byte {
+	s.T().Helper()
+
+	return s.get("/api/v1/confirm/"+token, wantStatus, nil)
+}
+
+func (s *HTTPSuite) getUnsubscribe(token string, wantStatus int) []byte {
+	s.T().Helper()
+
+	return s.get("/api/v1/unsubscribe/"+token, wantStatus, nil)
+}
+
+func (s *HTTPSuite) getSubscriptions(email string) []dto.Subscription {
+	s.T().Helper()
+
+	query := url.Values{}
+	query.Set("email", email)
+
+	body := s.get("/api/v1/subscriptions?"+query.Encode(), http.StatusOK, nil)
+	return decodeSubscriptions(s.T(), body)
+}
+
+func (s *HTTPSuite) getSubscriptionsWithoutEmail(wantStatus int) []byte {
+	s.T().Helper()
+
+	return s.get("/api/v1/subscriptions", wantStatus, nil)
+}
+
 func (s *HTTPSuite) receiveSubscriptionEvent() model.SubscriptionEvent {
 	s.T().Helper()
 
@@ -121,18 +113,6 @@ func (s *HTTPSuite) receiveSubscriptionToken() string {
 	event := s.receiveSubscriptionEvent()
 	s.Require().NotEmpty(event.Token, "subscription event token")
 	return event.Token
-}
-
-func (s *HTTPSuite) assertSubscriptionMissing(token string) {
-	s.T().Helper()
-
-	var id int
-	err := s.app.DB.QueryRowContext(
-		s.T().Context(),
-		`SELECT id FROM subscriptions WHERE token = $1`,
-		token,
-	).Scan(&id)
-	s.Require().True(errors.Is(err, sql.ErrNoRows), "expected subscription to be deleted, got id=%d err=%v", id, err)
 }
 
 func decodeSubscriptions(t *testing.T, body []byte) []dto.Subscription {

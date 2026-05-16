@@ -13,12 +13,13 @@ func (s *HTTPSuite) TestUnsubscribe_RemovesSubscription() {
 		Email: "user@example.com",
 		Repo:  "owner/repo",
 	}
-	token := s.createSubscription(subscribeRequest)
-	s.get("/api/v1/confirm/"+token, http.StatusOK, nil)
+	s.postSubscribe(subscribeRequest, http.StatusOK)
 
-	s.get("/api/v1/unsubscribe/"+token, http.StatusOK, nil)
+	token := s.receiveSubscriptionToken()
+	s.getConfirm(token, http.StatusOK)
 
-	s.assertSubscriptions(subscribeRequest.Email, func(response []dto.Subscription) {
-		s.Empty(response, "active subscriptions after unsubscribe")
-	})
+	s.getUnsubscribe(token, http.StatusOK)
+
+	response := s.getSubscriptions(subscribeRequest.Email)
+	s.Empty(response, "active subscriptions after unsubscribe")
 }

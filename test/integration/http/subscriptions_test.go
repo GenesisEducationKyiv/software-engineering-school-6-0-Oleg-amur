@@ -13,8 +13,10 @@ func (s *HTTPSuite) TestGetSubscriptions_ReturnsActiveSubscription() {
 		Email: "user@example.com",
 		Repo:  "owner/repo",
 	}
-	token := s.createSubscription(subscribeRequest)
-	s.get("/api/v1/confirm/"+token, http.StatusOK, nil)
+	s.postSubscribe(subscribeRequest, http.StatusOK)
+
+	token := s.receiveSubscriptionToken()
+	s.getConfirm(token, http.StatusOK)
 
 	s.assertActiveSubscription(dto.Subscription{
 		Email:       subscribeRequest.Email,
@@ -25,5 +27,18 @@ func (s *HTTPSuite) TestGetSubscriptions_ReturnsActiveSubscription() {
 }
 
 func (s *HTTPSuite) TestGetSubscriptions_ReturnsBadRequestForMissingEmail() {
-	s.get("/api/v1/subscriptions", http.StatusBadRequest, nil)
+	s.getSubscriptionsWithoutEmail(http.StatusBadRequest)
+}
+
+func (s *HTTPSuite) assertActiveSubscription(want dto.Subscription) {
+	s.T().Helper()
+
+	response := s.getSubscriptions(want.Email)
+	s.Require().Len(response, 1, "active subscriptions")
+
+	got := response[0]
+	s.Equal(want.Email, got.Email)
+	s.Equal(want.Repo, got.Repo)
+	s.Equal(want.Confirmed, got.Confirmed)
+	s.Equal(want.LastSeenTag, got.LastSeenTag)
 }
