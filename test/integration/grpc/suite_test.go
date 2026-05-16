@@ -21,13 +21,13 @@ const grpcBufferSize = 1024 * 1024
 type GRPCSuite struct {
 	suite.Suite
 
-	ctx     context.Context
-	cancel  context.CancelFunc
-	pg      *testkit.Postgres
-	github  *testkit.GitHubFixture
-	app     *testkit.App
-	client  pb.ReleaseNotifierClient
-	cleanup func()
+	ctx          context.Context
+	cancel       context.CancelFunc
+	pg           *testkit.Postgres
+	githubServer *testkit.FakeGitHubServer
+	app          *testkit.App
+	client       pb.ReleaseNotifierClient
+	cleanup      func()
 }
 
 func TestGRPCSuite(t *testing.T) {
@@ -50,10 +50,10 @@ func (s *GRPCSuite) TearDownSuite() {
 
 func (s *GRPCSuite) SetupTest() {
 	s.pg.Reset(s.T())
-	s.github = testkit.NewGitHubFixture(s.T())
+	s.githubServer = testkit.NewFakeGitHubServer(s.T())
 	s.app = testkit.NewApp(s.T(), testkit.AppConfig{
 		DB:        s.pg.DB,
-		GitHubURL: s.github.URL(),
+		GitHubURL: s.githubServer.URL(),
 	})
 	s.client, s.cleanup = newGRPCTestClient(s.T(), s.app)
 }

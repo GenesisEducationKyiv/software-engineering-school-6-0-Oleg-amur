@@ -14,11 +14,11 @@ import (
 type HTTPSuite struct {
 	suite.Suite
 
-	ctx    context.Context
-	cancel context.CancelFunc
-	pg     *testkit.Postgres
-	github *testkit.GitHubFixture
-	app    *testkit.App
+	ctx          context.Context
+	cancel       context.CancelFunc
+	pg           *testkit.Postgres
+	githubServer *testkit.FakeGitHubServer
+	app          *testkit.App
 }
 
 func TestHTTPSuite(t *testing.T) {
@@ -35,10 +35,10 @@ func (s *HTTPSuite) SetupSuite() {
 
 func (s *HTTPSuite) SetupTest() {
 	s.pg.Reset(s.T())
-	s.github = testkit.NewGitHubFixture(s.T())
+	s.githubServer = testkit.NewFakeGitHubServer(s.T())
 	s.app = testkit.NewApp(s.T(), testkit.AppConfig{
 		DB:        s.pg.DB,
-		GitHubURL: s.github.URL(),
+		GitHubURL: s.githubServer.URL(),
 	})
 }
 

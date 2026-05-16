@@ -36,7 +36,7 @@ func (s *HTTPSuite) TestSubscribe_ReturnsConflictForDuplicateSubscription() {
 }
 
 func (s *HTTPSuite) TestSubscribe_ReturnsNotFoundForMissingGitHubRepository() {
-	s.github.SetRepoExists("missing/repo", false)
+	s.githubServer.SetRepoExists("missing/repo", false)
 
 	s.postSubscribe(dto.SubscribeRequest{
 		Email: "user@example.com",
@@ -45,7 +45,7 @@ func (s *HTTPSuite) TestSubscribe_ReturnsNotFoundForMissingGitHubRepository() {
 }
 
 func (s *HTTPSuite) TestSubscribe_ReturnsTooManyRequestsForGitHubRateLimit() {
-	s.github.SetRepoStatus("owner/repo", http.StatusTooManyRequests)
+	s.githubServer.SetRepoStatus("owner/repo", http.StatusTooManyRequests)
 
 	s.postSubscribe(dto.SubscribeRequest{
 		Email: "user@example.com",

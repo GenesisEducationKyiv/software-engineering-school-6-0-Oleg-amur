@@ -4,25 +4,25 @@ package repository_test
 
 import "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 
-type subscriptionFixture struct {
+type createdSubscription struct {
 	subscriber *model.Subscriber
 	repository *model.Repository
 	token      string
 }
 
-func (s *RepositorySuite) createSubscriptionFixture(
+func (s *RepositorySuite) createSubscription(
 	email string,
 	repoName string,
 	lastSeenTag string,
 	token string,
-) subscriptionFixture {
+) createdSubscription {
 	s.T().Helper()
 
 	subscriber, err := s.subscriberRepo.Create(s.ctx, email)
 	s.Require().NoError(err, "create subscriber")
 	repository, err := s.repositoryRepo.Create(s.ctx, repoName, lastSeenTag)
 	s.Require().NoError(err, "create repository")
-	fixture := subscriptionFixture{
+	subscription := createdSubscription{
 		subscriber: subscriber,
 		repository: repository,
 		token:      token,
@@ -31,5 +31,5 @@ func (s *RepositorySuite) createSubscriptionFixture(
 	err = s.subscriptionRepo.Create(s.ctx, subscriber.ID, repository.ID, token)
 	s.Require().NoError(err, "create subscription")
 
-	return fixture
+	return subscription
 }
