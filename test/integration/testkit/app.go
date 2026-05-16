@@ -3,31 +3,68 @@
 package testkit
 
 import (
+	"database/sql"
+	"io"
+	"log/slog"
+	"net/http"
+	"testing"
+
+	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
+	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http"
+	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/client/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *Suite) NewSubscriptionService() (
-	*service.SubscriptionService,
-	*FakeGithubClient,
-	chan model.SubscriptionEvent,
-) {
-	subscriberRepo := postgresql.NewSubscriberRepository(s.DB)
-	repositoryRepo := postgresql.NewRepositoryRepository(s.DB)
-	subscriptionRepo := postgresql.NewSubscriptionRepository(s.DB)
-	githubClient := NewFakeGithubClient()
+type AppConfig struct {
+	DB        *sql.DB
+	Logger    *slog.Logger
+	GitHubURL string
+}
 
-	subscriberService := service.NewSubscriberService(s.Logger, subscriberRepo)
-	repositoryService := service.NewRepositoryService(s.Logger, repositoryRepo, githubClient)
+type App struct {
+	DB          *sql.DB
+	Logger      *slog.Logger
+	HTTPHandler http.Handler
+	GRPCHandler pb.ReleaseNotifierServer
+	Events      chan model.SubscriptionEvent
+}
+
+func NewApp(t testing.TB, cfg AppConfig) *App {
+	t.Helper()
+
+	require.NotNil(t, cfg.DB, "test app database is required")
+	require.NotEmpty(t, cfg.GitHubURL, "test app GitHub URL is required")
+	if cfg.Logger == nil {
+		cfg.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+
+	gitHubHTTPClient := &http.Client{}
+
+	subscriberRepo := postgresql.NewSubscriberRepository(cfg.DB)
+	repositoryRepo := postgresql.NewRepositoryRepository(cfg.DB)
+	subscriptionRepo := postgresql.NewSubscriptionRepository(cfg.DB)
+	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
+
+	subscriberService := service.NewSubscriberService(cfg.Logger, subscriberRepo)
+	repositoryService := service.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
 	subscriptionEvents := make(chan model.SubscriptionEvent, 10)
 	subscriptionService := service.NewSubscriptionService(
-		s.Logger,
+		cfg.Logger,
 		subscriberService,
 		repositoryService,
 		subscriptionRepo,
 		subscriptionEvents,
 	)
 
-	return subscriptionService, githubClient, subscriptionEvents
+	return &App{
+		DB:          cfg.DB,
+		Logger:      cfg.Logger,
+		HTTPHandler: httpapi.NewRouter(cfg.Logger, subscriptionService),
+		GRPCHandler: grpcapi.NewGrpcHandler(cfg.Logger, subscriptionService),
+		Events:      subscriptionEvents,
+	}
 }
