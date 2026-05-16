@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/test/integration/testkit"
 )
 
@@ -63,11 +65,7 @@ func TestHTTPConfirm_ActivatesSubscription(t *testing.T) {
 
 	get(t, app.handler, "/api/v1/confirm/"+token, http.StatusOK, nil)
 
-	assertSubscriptions(t, app.handler, subscribeRequest.Email, func(t *testing.T, response []dto.Subscription) {
-		if len(response) != 1 {
-			t.Fatalf("got %d active subscriptions after confirmation, want 1", len(response))
-		}
-	})
+	assertSubscriptionStatus(t, app, token, model.StatusActive)
 }
 
 func TestHTTPGetSubscriptions_ReturnsActiveSubscription(t *testing.T) {
@@ -228,7 +226,10 @@ func assertSubscriptions(
 ) {
 	t.Helper()
 
-	get(t, handler, "/api/v1/subscriptions?email="+email, http.StatusOK, func(t *testing.T, body []byte) {
+	query := url.Values{}
+	query.Set("email", email)
+
+	get(t, handler, "/api/v1/subscriptions?"+query.Encode(), http.StatusOK, func(t *testing.T, body []byte) {
 		t.Helper()
 
 		response := decodeSubscriptions(t, body)
@@ -250,6 +251,7 @@ func decodeSubscriptions(t *testing.T, body []byte) []dto.Subscription {
 type httpTestApp struct {
 	handler            http.Handler
 	github             *testkit.FakeGithubClient
+	subscriptionRepo   *postgresql.SubscriptionRepository
 	subscriptionEvents chan model.SubscriptionEvent
 }
 
@@ -259,7 +261,20 @@ func newHTTPTestApp() *httpTestApp {
 	return &httpTestApp{
 		handler:            httpapi.NewRouter(suite.Logger, subscriptionService),
 		github:             githubClient,
+		subscriptionRepo:   postgresql.NewSubscriptionRepository(suite.DB),
 		subscriptionEvents: subscriptionEvents,
+	}
+}
+
+func assertSubscriptionStatus(t *testing.T, app *httpTestApp, token string, want int) {
+	t.Helper()
+
+	subscription, err := app.subscriptionRepo.GetByToken(t.Context(), token)
+	if err != nil {
+		t.Fatalf("get subscription by token: %v", err)
+	}
+	if subscription.SubscriptionStatus != want {
+		t.Fatalf("got subscription status %d, want %d", subscription.SubscriptionStatus, want)
 	}
 }
 
