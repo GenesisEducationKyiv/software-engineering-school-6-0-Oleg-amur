@@ -74,7 +74,7 @@ services:
       PLAYWRIGHT_BASE_URL: http://release-notifier:8080
       MAILPIT_URL: http://mailpit:8025
       PLAYWRIGHT_OUTPUT_DIR: /tmp/playwright-results
-    command: sh -c "npm install --package-lock=false --no-audit --no-fund && npx playwright test"
+    command: sh -c "npm ci --no-audit --no-fund && npx playwright test"
     depends_on:
       release-notifier:
         condition: service_healthy

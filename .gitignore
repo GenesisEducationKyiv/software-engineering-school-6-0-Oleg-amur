@@ -14,5 +14,8 @@ node_modules/
 test-results/
 playwright-report/
 
+# Test coverage artifacts
+coverage/
+
 # Environment variables
 .env
