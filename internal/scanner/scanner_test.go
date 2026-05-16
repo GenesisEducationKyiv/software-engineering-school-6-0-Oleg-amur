@@ -81,7 +81,7 @@ func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 0)
 	if len(releasesChan) != 0 {
-		t.Fatalf("expected no release events, got %d", len(releasesChan))
+		t.Fatalf("got %d release events, want 0", len(releasesChan))
 	}
 }
 
@@ -107,7 +107,7 @@ func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 0)
 	if len(releasesChan) != 0 {
-		t.Fatalf("expected no release events, got %d", len(releasesChan))
+		t.Fatalf("got %d release events, want 0", len(releasesChan))
 	}
 }
 
@@ -133,10 +133,10 @@ func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 1)
 	if repoRepo.updateArgs[0].id != 2 {
-		t.Fatalf("expected repo id 2 to be updated, got %d", repoRepo.updateArgs[0].id)
+		t.Fatalf("got updated repo id %d, want 2", repoRepo.updateArgs[0].id)
 	}
 	if len(releasesChan) != 1 {
-		t.Fatalf("expected 1 release event, got %d", len(releasesChan))
+		t.Fatalf("got %d release events, want 1", len(releasesChan))
 	}
 }
 
@@ -159,7 +159,7 @@ func TestScanner_Scan_UpdateErrorDoesNotEmitEvent(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 1)
 	if len(releasesChan) != 0 {
-		t.Fatalf("expected no release events after update error, got %d", len(releasesChan))
+		t.Fatalf("got %d release events after update error, want 0", len(releasesChan))
 	}
 }
 
@@ -167,7 +167,7 @@ func assertUpdatesLen(t *testing.T, repo *mockRepositoryRepo, want int) {
 	t.Helper()
 
 	if len(repo.updateArgs) != want {
-		t.Fatalf("expected %d updates, got %d", want, len(repo.updateArgs))
+		t.Fatalf("got %d updates, want %d", len(repo.updateArgs), want)
 	}
 }
 
@@ -175,7 +175,7 @@ func assertUpdatedTag(t *testing.T, repo *mockRepositoryRepo, want string) {
 	t.Helper()
 
 	if repo.updateArgs[0].tag != want {
-		t.Fatalf("expected database tag to be updated to %s, got %s", want, repo.updateArgs[0].tag)
+		t.Fatalf("got updated database tag %q, want %q", repo.updateArgs[0].tag, want)
 	}
 }
 
@@ -186,12 +186,12 @@ func assertReleaseEvents(t *testing.T, events <-chan model.ReleaseEvent, wantCou
 	for event := range events {
 		gotCount++
 		if wantTag != "" && event.Tag != wantTag {
-			t.Fatalf("expected event tag to be %s, got %s", wantTag, event.Tag)
+			t.Fatalf("got event tag %q, want %q", event.Tag, wantTag)
 		}
 	}
 
 	if gotCount != wantCount {
-		t.Fatalf("expected %d events, got %d", wantCount, gotCount)
+		t.Fatalf("got %d events, want %d", gotCount, wantCount)
 	}
 }
 

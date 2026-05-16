@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 	}))
 }
 
-func TestGRPCSubscribe_CreatesPendingSubscription_Integration(t *testing.T) {
+func TestGRPCSubscribe_CreatesPendingSubscription(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	client, events, cleanup := newGRPCTestClient(t)
@@ -44,10 +44,10 @@ func TestGRPCSubscribe_CreatesPendingSubscription_Integration(t *testing.T) {
 
 	event := receiveSubscriptionEvent(t, events)
 	if event.Email != "user@example.com" {
-		t.Fatalf("expected subscription event email user@example.com, got %s", event.Email)
+		t.Fatalf("got subscription event email %q, want %q", event.Email, "user@example.com")
 	}
 	if event.Token == "" {
-		t.Fatal("expected subscription event token to be set")
+		t.Fatal("want subscription event token to be set")
 	}
 
 	resp, err := client.GetSubscriptions(context.Background(), &pb.GetSubscriptionsRequest{
@@ -55,11 +55,11 @@ func TestGRPCSubscribe_CreatesPendingSubscription_Integration(t *testing.T) {
 	})
 	assertGRPCCode(t, err, codes.OK)
 	if len(resp.GetSubscriptions()) != 0 {
-		t.Fatalf("expected created subscription to stay pending, got %d active subscriptions", len(resp.GetSubscriptions()))
+		t.Fatalf("got %d active subscriptions before confirmation, want 0", len(resp.GetSubscriptions()))
 	}
 }
 
-func TestGRPCGetSubscriptions_ReturnsActiveSubscription_Integration(t *testing.T) {
+func TestGRPCGetSubscriptions_ReturnsActiveSubscription(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	client, events, cleanup := newGRPCTestClient(t)
@@ -80,25 +80,25 @@ func TestGRPCGetSubscriptions_ReturnsActiveSubscription_Integration(t *testing.T
 	})
 	assertGRPCCode(t, err, codes.OK)
 	if len(resp.GetSubscriptions()) != 1 {
-		t.Fatalf("expected 1 active subscription, got %d", len(resp.GetSubscriptions()))
+		t.Fatalf("got %d active subscriptions, want 1", len(resp.GetSubscriptions()))
 	}
 
 	sub := resp.GetSubscriptions()[0]
 	if sub.GetEmail() != "user@example.com" {
-		t.Fatalf("expected email user@example.com, got %s", sub.GetEmail())
+		t.Fatalf("got email %q, want %q", sub.GetEmail(), "user@example.com")
 	}
 	if sub.GetRepo() != "owner/repo" {
-		t.Fatalf("expected repo owner/repo, got %s", sub.GetRepo())
+		t.Fatalf("got repo %q, want %q", sub.GetRepo(), "owner/repo")
 	}
 	if !sub.GetConfirmed() {
-		t.Fatal("expected subscription to be confirmed")
+		t.Fatal("want subscription to be confirmed")
 	}
 	if sub.GetLastSeenTag() != "v1.0.0" {
-		t.Fatalf("expected last seen tag v1.0.0, got %s", sub.GetLastSeenTag())
+		t.Fatalf("got last seen tag %q, want %q", sub.GetLastSeenTag(), "v1.0.0")
 	}
 }
 
-func TestGRPCUnsubscribe_RemovesSubscription_Integration(t *testing.T) {
+func TestGRPCUnsubscribe_RemovesSubscription(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	client, events, cleanup := newGRPCTestClient(t)
@@ -119,11 +119,11 @@ func TestGRPCUnsubscribe_RemovesSubscription_Integration(t *testing.T) {
 	})
 	assertGRPCCode(t, err, codes.OK)
 	if len(afterUnsubscribe.GetSubscriptions()) != 0 {
-		t.Fatalf("expected no active subscriptions after unsubscribe, got %d", len(afterUnsubscribe.GetSubscriptions()))
+		t.Fatalf("got %d active subscriptions after unsubscribe, want 0", len(afterUnsubscribe.GetSubscriptions()))
 	}
 }
 
-func TestGRPCSubscribe_ReturnsTransportErrors_Integration(t *testing.T) {
+func TestGRPCSubscribe_ReturnsTransportErrors(t *testing.T) {
 	tests := []struct {
 		name      string
 		mutateApp func(*testkit.FakeGithubClient)
@@ -170,7 +170,7 @@ func TestGRPCSubscribe_ReturnsTransportErrors_Integration(t *testing.T) {
 	}
 }
 
-func TestGRPCConfirm_ReturnsNotFoundForMissingToken_Integration(t *testing.T) {
+func TestGRPCConfirm_ReturnsNotFoundForMissingToken(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	client, _, cleanup := newGRPCTestClient(t)
@@ -188,7 +188,7 @@ func receiveSubscriptionEvent(t *testing.T, events <-chan model.SubscriptionEven
 	case event := <-events:
 		return event
 	default:
-		t.Fatal("expected subscription event to be queued")
+		t.Fatal("want subscription event to be queued")
 	}
 
 	return model.SubscriptionEvent{}
@@ -199,7 +199,7 @@ func receiveSubscriptionToken(t *testing.T, events <-chan model.SubscriptionEven
 
 	event := receiveSubscriptionEvent(t, events)
 	if event.Token == "" {
-		t.Fatal("expected subscription event token to be set")
+		t.Fatal("want subscription event token to be set")
 	}
 	return event.Token
 }
@@ -261,16 +261,16 @@ func newGRPCTestClientFull(t *testing.T) (
 	return pb.NewReleaseNotifierClient(conn), githubClient, events, cleanup
 }
 
-func assertGRPCCode(t *testing.T, err error, want codes.Code) {
+func assertGRPCCode(t *testing.T, gotErr error, wantCode codes.Code) {
 	t.Helper()
 
-	if want == codes.OK {
-		if err != nil {
-			t.Fatalf("expected no gRPC error, got %v", err)
+	if wantCode == codes.OK {
+		if gotErr != nil {
+			t.Fatalf("got gRPC error %v, want nil", gotErr)
 		}
 		return
 	}
-	if status.Code(err) != want {
-		t.Fatalf("expected gRPC code %s, got %s with error %v", want, status.Code(err), err)
+	if gotCode := status.Code(gotErr); gotCode != wantCode {
+		t.Fatalf("got gRPC code %s, want %s with error %v", gotCode, wantCode, gotErr)
 	}
 }

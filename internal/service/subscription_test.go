@@ -207,7 +207,7 @@ func TestSubscriptionService_GetSubscriptions(t *testing.T) {
 
 			assertErrorIs(t, err, tt.wantErr)
 			if len(subs) != tt.wantLen {
-				t.Errorf("expected %d subscriptions, got %d", tt.wantLen, len(subs))
+				t.Errorf("got %d subscriptions, want %d", len(subs), tt.wantLen)
 			}
 		})
 	}
@@ -217,7 +217,7 @@ func assertErrorIs(t *testing.T, got error, want error) {
 	t.Helper()
 
 	if !errors.Is(got, want) {
-		t.Fatalf("expected error %v, got %v", want, got)
+		t.Fatalf("got error %v, want %v", got, want)
 	}
 }
 
@@ -227,13 +227,13 @@ func assertSubscriptionEvent(t *testing.T, events <-chan model.SubscriptionEvent
 	select {
 	case event := <-events:
 		if event.Email != wantEmail {
-			t.Fatalf("expected subscription event email %s, got %s", wantEmail, event.Email)
+			t.Fatalf("got subscription event email %q, want %q", event.Email, wantEmail)
 		}
 		if event.Token == "" {
-			t.Fatal("expected subscription event token to be set")
+			t.Fatal("want subscription event token to be set")
 		}
 	default:
-		t.Fatal("expected subscription event to be queued")
+		t.Fatal("want subscription event to be queued")
 	}
 }
 

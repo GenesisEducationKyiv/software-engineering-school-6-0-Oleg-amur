@@ -42,3 +42,30 @@ sh -c 'docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abo
 ```
 
 E2E tests live under `test/e2e`. Docker Compose starts PostgreSQL, Mailpit, a controlled fake GitHub HTTP service, the application, and a Playwright runner.
+
+## Naming Conventions
+
+Go test functions use the `TestType_Method` pattern for unit tests, for example `TestRepositoryService_GetOrCreate`. More specific scenarios can append behavior after another underscore, for example `TestNotificationService_ProcessReleaseEvent_BuildsReleaseMessage`.
+
+Integration tests live under `test/integration` and use the `integration` build tag, so test names do not repeat `Integration`. Prefer names like `TestHTTPSubscriptionFlow`, `TestGRPCSubscribe_CreatesPendingSubscription`, and `TestSubscriptionRepository`.
+
+Table-driven tests use `name` for the case description and `want*` fields for expected values:
+
+```go
+tests := []struct {
+	name    string
+	input   string
+	want    string
+	wantErr error
+}{}
+```
+
+Assertions use Go-style `got`/`want` wording, with the actual value first:
+
+```go
+if got != want {
+	t.Fatalf("got %q, want %q", got, want)
+}
+```
+
+Use `mock*` for small unit-test doubles and `Fake*` for reusable integration-test fakes.

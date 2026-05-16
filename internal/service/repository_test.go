@@ -103,12 +103,12 @@ func TestRepositoryService_GetOrCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repositoryRepo := &mockRepositoryRepoForService{
+			repositoryRepo := &mockRepositoryRepo{
 				repository: tt.repository,
 				getErr:     tt.getErr,
 				createErr:  tt.createErr,
 			}
-			ghClient := &mockGithubClientForService{
+			ghClient := &mockGithubClient{
 				exists:   tt.ghExists,
 				checkErr: tt.ghCheckErr,
 				tag:      tt.ghTag,
@@ -123,23 +123,23 @@ func TestRepositoryService_GetOrCreate(t *testing.T) {
 				return
 			}
 			if repository.Name != tt.repoName {
-				t.Errorf("expected name %s, got %s", tt.repoName, repository.Name)
+				t.Errorf("got repository name %q, want %q", repository.Name, tt.repoName)
 			}
 		})
 	}
 }
 
-type mockRepositoryRepoForService struct {
+type mockRepositoryRepo struct {
 	repository *model.Repository
 	getErr     error
 	createErr  error
 }
 
-func (f *mockRepositoryRepoForService) GetByName(ctx context.Context, name string) (*model.Repository, error) {
+func (f *mockRepositoryRepo) GetByName(ctx context.Context, name string) (*model.Repository, error) {
 	return f.repository, f.getErr
 }
 
-func (f *mockRepositoryRepoForService) Create(
+func (f *mockRepositoryRepo) Create(
 	ctx context.Context,
 	name string,
 	tag string,
@@ -147,17 +147,17 @@ func (f *mockRepositoryRepoForService) Create(
 	return f.repository, f.createErr
 }
 
-type mockGithubClientForService struct {
+type mockGithubClient struct {
 	exists   bool
 	checkErr error
 	tag      string
 	tagErr   error
 }
 
-func (f *mockGithubClientForService) CheckIfRepoExists(ctx context.Context, repo string) (bool, error) {
+func (f *mockGithubClient) CheckIfRepoExists(ctx context.Context, repo string) (bool, error) {
 	return f.exists, f.checkErr
 }
 
-func (f *mockGithubClientForService) GetRepositoryLatestTag(ctx context.Context, repo string) (string, error) {
+func (f *mockGithubClient) GetRepositoryLatestTag(ctx context.Context, repo string) (string, error) {
 	return f.tag, f.tagErr
 }

@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	}))
 }
 
-func TestRepositoryRepository_Integration(t *testing.T) {
+func TestRepositoryRepository(t *testing.T) {
 	suite.ResetDatabase(t)
 	ctx := context.Background()
 	repo := postgresql.NewRepositoryRepository(suite.DB)
@@ -32,13 +32,13 @@ func TestRepositoryRepository_Integration(t *testing.T) {
 		t.Fatalf("create repository: %v", err)
 	}
 	if created.ID == 0 {
-		t.Fatal("expected created repository to have an id")
+		t.Fatal("want created repository to have an id")
 	}
 	if created.Name != "owner/repo" {
-		t.Fatalf("expected repository name owner/repo, got %s", created.Name)
+		t.Fatalf("got repository name %q, want %q", created.Name, "owner/repo")
 	}
 	if created.LastSeenTag != "v1.0.0" {
-		t.Fatalf("expected last seen tag v1.0.0, got %s", created.LastSeenTag)
+		t.Fatalf("got last seen tag %q, want %q", created.LastSeenTag, "v1.0.0")
 	}
 
 	got, err := repo.GetByName(ctx, "owner/repo")
@@ -46,7 +46,7 @@ func TestRepositoryRepository_Integration(t *testing.T) {
 		t.Fatalf("get repository by name: %v", err)
 	}
 	if got.ID != created.ID {
-		t.Fatalf("expected repository id %d, got %d", created.ID, got.ID)
+		t.Fatalf("got repository id %d, want %d", got.ID, created.ID)
 	}
 
 	if err := repo.UpdateTag(ctx, created.ID, "v2.0.0"); err != nil {
@@ -57,7 +57,7 @@ func TestRepositoryRepository_Integration(t *testing.T) {
 		t.Fatalf("get updated repository by name: %v", err)
 	}
 	if updated.LastSeenTag != "v2.0.0" {
-		t.Fatalf("expected updated tag v2.0.0, got %s", updated.LastSeenTag)
+		t.Fatalf("got updated tag %q, want %q", updated.LastSeenTag, "v2.0.0")
 	}
 
 	all, err := repo.GetAll(ctx)
@@ -65,16 +65,16 @@ func TestRepositoryRepository_Integration(t *testing.T) {
 		t.Fatalf("get all repositories: %v", err)
 	}
 	if len(all) != 1 {
-		t.Fatalf("expected 1 repository, got %d", len(all))
+		t.Fatalf("got %d repositories, want 1", len(all))
 	}
 
 	_, err = repo.GetByName(ctx, "missing/repo")
 	if !errors.Is(err, apperr.ErrNotFound) {
-		t.Fatalf("expected ErrNotFound for missing repository, got %v", err)
+		t.Fatalf("got error %v, want %v", err, apperr.ErrNotFound)
 	}
 }
 
-func TestSubscriberRepository_Integration(t *testing.T) {
+func TestSubscriberRepository(t *testing.T) {
 	suite.ResetDatabase(t)
 	ctx := context.Background()
 	repo := postgresql.NewSubscriberRepository(suite.DB)
@@ -84,10 +84,10 @@ func TestSubscriberRepository_Integration(t *testing.T) {
 		t.Fatalf("create subscriber: %v", err)
 	}
 	if created.ID == 0 {
-		t.Fatal("expected created subscriber to have an id")
+		t.Fatal("want created subscriber to have an id")
 	}
 	if created.Email != "user@example.com" {
-		t.Fatalf("expected email user@example.com, got %s", created.Email)
+		t.Fatalf("got email %q, want %q", created.Email, "user@example.com")
 	}
 
 	got, err := repo.GetByEmail(ctx, "user@example.com")
@@ -95,16 +95,16 @@ func TestSubscriberRepository_Integration(t *testing.T) {
 		t.Fatalf("get subscriber by email: %v", err)
 	}
 	if got.ID != created.ID {
-		t.Fatalf("expected subscriber id %d, got %d", created.ID, got.ID)
+		t.Fatalf("got subscriber id %d, want %d", got.ID, created.ID)
 	}
 
 	_, err = repo.GetByEmail(ctx, "missing@example.com")
 	if !errors.Is(err, apperr.ErrNotFound) {
-		t.Fatalf("expected ErrNotFound for missing subscriber, got %v", err)
+		t.Fatalf("got error %v, want %v", err, apperr.ErrNotFound)
 	}
 }
 
-func TestSubscriptionRepository_Integration(t *testing.T) {
+func TestSubscriptionRepository(t *testing.T) {
 	suite.ResetDatabase(t)
 	ctx := context.Background()
 
@@ -126,7 +126,7 @@ func TestSubscriptionRepository_Integration(t *testing.T) {
 	}
 
 	if err := subscriptionRepo.Create(ctx, subscriber.ID, repository.ID, "token-2"); !errors.Is(err, apperr.ErrAlreadyExists) {
-		t.Fatalf("expected ErrAlreadyExists for duplicate subscription, got %v", err)
+		t.Fatalf("got error %v, want %v", err, apperr.ErrAlreadyExists)
 	}
 
 	byToken, err := subscriptionRepo.GetByToken(ctx, "token-1")
@@ -135,7 +135,7 @@ func TestSubscriptionRepository_Integration(t *testing.T) {
 	}
 	assertSubscriptionJoin(t, byToken, subscriber.ID, repository.ID, "user@example.com", "owner/repo", "v1.0.0")
 	if byToken.SubscriptionStatus != model.StatusPending {
-		t.Fatalf("expected pending subscription status, got %d", byToken.SubscriptionStatus)
+		t.Fatalf("got subscription status %d, want %d", byToken.SubscriptionStatus, model.StatusPending)
 	}
 
 	activeByEmail, err := subscriptionRepo.GetActiveByEmail(ctx, "user@example.com")
@@ -143,7 +143,7 @@ func TestSubscriptionRepository_Integration(t *testing.T) {
 		t.Fatalf("get active subscriptions before activation: %v", err)
 	}
 	if len(activeByEmail) != 0 {
-		t.Fatalf("expected no active subscriptions before activation, got %d", len(activeByEmail))
+		t.Fatalf("got %d active subscriptions before activation, want 0", len(activeByEmail))
 	}
 
 	if err := subscriptionRepo.Activate(ctx, "token-1"); err != nil {
@@ -155,10 +155,10 @@ func TestSubscriptionRepository_Integration(t *testing.T) {
 		t.Fatalf("get active subscriptions by email: %v", err)
 	}
 	if len(activeByEmail) != 1 {
-		t.Fatalf("expected 1 active subscription by email, got %d", len(activeByEmail))
+		t.Fatalf("got %d active subscriptions by email, want 1", len(activeByEmail))
 	}
 	if activeByEmail[0].Repository.Name != "owner/repo" {
-		t.Fatalf("expected repository owner/repo, got %s", activeByEmail[0].Repository.Name)
+		t.Fatalf("got repository %q, want %q", activeByEmail[0].Repository.Name, "owner/repo")
 	}
 
 	activeByRepo, err := subscriptionRepo.GetActiveByRepoID(ctx, repository.ID)
@@ -166,14 +166,14 @@ func TestSubscriptionRepository_Integration(t *testing.T) {
 		t.Fatalf("get active subscriptions by repository id: %v", err)
 	}
 	if len(activeByRepo) != 1 {
-		t.Fatalf("expected 1 active subscription by repository id, got %d", len(activeByRepo))
+		t.Fatalf("got %d active subscriptions by repository id, want 1", len(activeByRepo))
 	}
 	if activeByRepo[0].Subscriber.Email != "user@example.com" {
-		t.Fatalf("expected subscriber email user@example.com, got %s", activeByRepo[0].Subscriber.Email)
+		t.Fatalf("got subscriber email %q, want %q", activeByRepo[0].Subscriber.Email, "user@example.com")
 	}
 
 	if err := subscriptionRepo.Activate(ctx, "missing-token"); !errors.Is(err, apperr.ErrNotFound) {
-		t.Fatalf("expected ErrNotFound for missing token activation, got %v", err)
+		t.Fatalf("got error %v, want %v", err, apperr.ErrNotFound)
 	}
 
 	if err := subscriptionRepo.DeleteByToken(ctx, "token-1"); err != nil {
@@ -181,7 +181,7 @@ func TestSubscriptionRepository_Integration(t *testing.T) {
 	}
 	_, err = subscriptionRepo.GetByToken(ctx, "token-1")
 	if !errors.Is(err, apperr.ErrNotFound) {
-		t.Fatalf("expected ErrNotFound after deleting subscription, got %v", err)
+		t.Fatalf("got error %v after deleting subscription, want %v", err, apperr.ErrNotFound)
 	}
 }
 
@@ -197,24 +197,24 @@ func assertSubscriptionJoin(
 	t.Helper()
 
 	if sub.SubscriberID != subscriberID {
-		t.Fatalf("expected subscriber id %d, got %d", subscriberID, sub.SubscriberID)
+		t.Fatalf("got subscriber id %d, want %d", sub.SubscriberID, subscriberID)
 	}
 	if sub.RepositoryID != repositoryID {
-		t.Fatalf("expected repository id %d, got %d", repositoryID, sub.RepositoryID)
+		t.Fatalf("got repository id %d, want %d", sub.RepositoryID, repositoryID)
 	}
 	if sub.Subscriber == nil {
-		t.Fatal("expected subscription subscriber to be populated")
+		t.Fatal("want subscription subscriber to be populated")
 	}
 	if sub.Subscriber.Email != email {
-		t.Fatalf("expected subscriber email %s, got %s", email, sub.Subscriber.Email)
+		t.Fatalf("got subscriber email %q, want %q", sub.Subscriber.Email, email)
 	}
 	if sub.Repository == nil {
-		t.Fatal("expected subscription repository to be populated")
+		t.Fatal("want subscription repository to be populated")
 	}
 	if sub.Repository.Name != repoName {
-		t.Fatalf("expected repository name %s, got %s", repoName, sub.Repository.Name)
+		t.Fatalf("got repository name %q, want %q", sub.Repository.Name, repoName)
 	}
 	if sub.Repository.LastSeenTag != lastSeenTag {
-		t.Fatalf("expected repository last seen tag %s, got %s", lastSeenTag, sub.Repository.LastSeenTag)
+		t.Fatalf("got repository last seen tag %q, want %q", sub.Repository.LastSeenTag, lastSeenTag)
 	}
 }

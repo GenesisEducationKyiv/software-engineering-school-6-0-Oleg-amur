@@ -55,10 +55,10 @@ func TestClient_CheckIfRepoExists(t *testing.T) {
 			gotExists, err := client.CheckIfRepoExists(context.Background(), "owner/repo")
 
 			if gotPath != "/repos/owner/repo" {
-				t.Fatalf("expected path /repos/owner/repo, got %s", gotPath)
+				t.Fatalf("got path %q, want %q", gotPath, "/repos/owner/repo")
 			}
 			if gotExists != tt.wantExists {
-				t.Fatalf("expected exists %v, got %v", tt.wantExists, gotExists)
+				t.Fatalf("got exists %v, want %v", gotExists, tt.wantExists)
 			}
 			assertError(t, err, tt.wantErr)
 		})
@@ -117,10 +117,10 @@ func TestClient_GetRepositoryLatestTag(t *testing.T) {
 			gotTag, err := client.GetRepositoryLatestTag(context.Background(), "owner/repo")
 
 			if gotPath != "/repos/owner/repo/releases/latest" {
-				t.Fatalf("expected path /repos/owner/repo/releases/latest, got %s", gotPath)
+				t.Fatalf("got path %q, want %q", gotPath, "/repos/owner/repo/releases/latest")
 			}
 			if gotTag != tt.wantTag {
-				t.Fatalf("expected tag %q, got %q", tt.wantTag, gotTag)
+				t.Fatalf("got tag %q, want %q", gotTag, tt.wantTag)
 			}
 			assertError(t, err, tt.wantErr)
 		})
@@ -131,17 +131,17 @@ func assertGithubHeaders(t *testing.T, r *http.Request) {
 	t.Helper()
 
 	if r.Header.Get(headerAccept) != acceptValue {
-		t.Fatalf("expected Accept header %q, got %q", acceptValue, r.Header.Get(headerAccept))
+		t.Fatalf("got Accept header %q, want %q", r.Header.Get(headerAccept), acceptValue)
 	}
 	if r.Header.Get(headerGitHubApiVersion) != apiVersionValue {
 		t.Fatalf(
-			"expected GitHub API version header %q, got %q",
-			apiVersionValue,
+			"got GitHub API version header %q, want %q",
 			r.Header.Get(headerGitHubApiVersion),
+			apiVersionValue,
 		)
 	}
 	if r.Header.Get(headerAuthorization) != "Bearer token" {
-		t.Fatalf("expected Authorization bearer token, got %q", r.Header.Get(headerAuthorization))
+		t.Fatalf("got Authorization header %q, want %q", r.Header.Get(headerAuthorization), "Bearer token")
 	}
 }
 
@@ -151,22 +151,22 @@ func testLogger() *slog.Logger {
 
 var errAny = errors.New("any error")
 
-func assertError(t *testing.T, err error, want error) {
+func assertError(t *testing.T, got error, want error) {
 	t.Helper()
 
 	if want == nil {
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
+		if got != nil {
+			t.Fatalf("got error %v, want nil", got)
 		}
 		return
 	}
 	if errors.Is(want, errAny) {
-		if err == nil {
-			t.Fatal("expected an error")
+		if got == nil {
+			t.Fatal("got nil error, want non-nil error")
 		}
 		return
 	}
-	if !errors.Is(err, want) {
-		t.Fatalf("expected error %v, got %v", want, err)
+	if !errors.Is(got, want) {
+		t.Fatalf("got error %v, want %v", got, want)
 	}
 }

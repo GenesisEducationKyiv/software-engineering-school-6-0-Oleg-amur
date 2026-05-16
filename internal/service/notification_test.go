@@ -8,7 +8,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
-func TestNotificationService_processReleaseEvent(t *testing.T) {
+func TestNotificationService_ProcessReleaseEvent(t *testing.T) {
 	tests := []struct {
 		name       string
 		event      model.ReleaseEvent
@@ -74,7 +74,7 @@ func TestNotificationService_processReleaseEvent(t *testing.T) {
 	}
 }
 
-func TestNotificationService_processReleaseEvent_BuildsReleaseMessage(t *testing.T) {
+func TestNotificationService_ProcessReleaseEvent_BuildsReleaseMessage(t *testing.T) {
 	repo := &mockNotificationSubRepo{
 		subs: []model.Subscription{
 			{Subscriber: &model.Subscriber{Email: "user@example.com"}, Token: "unsubscribe-token"},
@@ -91,24 +91,24 @@ func TestNotificationService_processReleaseEvent_BuildsReleaseMessage(t *testing
 	})
 
 	if builder.releaseRepo != "owner/repo" {
-		t.Fatalf("expected release repo owner/repo, got %s", builder.releaseRepo)
+		t.Fatalf("got release repo %q, want %q", builder.releaseRepo, "owner/repo")
 	}
 	if builder.releaseTag != "v1.0.0" {
-		t.Fatalf("expected release tag v1.0.0, got %s", builder.releaseTag)
+		t.Fatalf("got release tag %q, want %q", builder.releaseTag, "v1.0.0")
 	}
 	if builder.releaseToken != "unsubscribe-token" {
-		t.Fatalf("expected release token unsubscribe-token, got %s", builder.releaseToken)
+		t.Fatalf("got release token %q, want %q", builder.releaseToken, "unsubscribe-token")
 	}
 	assertSentEmailsLen(t, sender, 1)
 	if sender.sentEmails[0].to != "user@example.com" {
-		t.Fatalf("expected email to user@example.com, got %s", sender.sentEmails[0].to)
+		t.Fatalf("got email recipient %q, want %q", sender.sentEmails[0].to, "user@example.com")
 	}
 	if sender.sentEmails[0].subject != "Release Subject" {
-		t.Fatalf("expected release subject, got %s", sender.sentEmails[0].subject)
+		t.Fatalf("got release subject %q, want %q", sender.sentEmails[0].subject, "Release Subject")
 	}
 }
 
-func TestNotificationService_processSubscriptionEvent(t *testing.T) {
+func TestNotificationService_ProcessSubscriptionEvent(t *testing.T) {
 	repo := &mockNotificationSubRepo{}
 	sender := &mockEmailSender{}
 	builder := &mockMessageBuilder{}
@@ -120,14 +120,14 @@ func TestNotificationService_processSubscriptionEvent(t *testing.T) {
 	})
 
 	if builder.confirmationToken != "confirm-token" {
-		t.Fatalf("expected confirmation token confirm-token, got %s", builder.confirmationToken)
+		t.Fatalf("got confirmation token %q, want %q", builder.confirmationToken, "confirm-token")
 	}
 	assertSentEmailsLen(t, sender, 1)
 	if sender.sentEmails[0].to != "user@example.com" {
-		t.Fatalf("expected email to user@example.com, got %s", sender.sentEmails[0].to)
+		t.Fatalf("got email recipient %q, want %q", sender.sentEmails[0].to, "user@example.com")
 	}
 	if sender.sentEmails[0].subject != "Confirm Subject" {
-		t.Fatalf("expected confirmation subject, got %s", sender.sentEmails[0].subject)
+		t.Fatalf("got confirmation subject %q, want %q", sender.sentEmails[0].subject, "Confirm Subject")
 	}
 }
 
@@ -135,7 +135,7 @@ func assertSentEmailsLen(t *testing.T, sender *mockEmailSender, want int) {
 	t.Helper()
 
 	if len(sender.sentEmails) != want {
-		t.Fatalf("expected %d sent emails, got %d", want, len(sender.sentEmails))
+		t.Fatalf("got %d sent emails, want %d", len(sender.sentEmails), want)
 	}
 }
 

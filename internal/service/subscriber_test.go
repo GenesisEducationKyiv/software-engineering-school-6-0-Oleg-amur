@@ -52,7 +52,7 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &mockSubscriberRepoForService{
+			repo := &mockSubscriberRepo{
 				subscriber: tt.subscriber,
 				getErr:     tt.getErr,
 				createErr:  tt.createErr,
@@ -63,28 +63,28 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 
 			assertErrorIs(t, err, tt.wantErr)
 			if tt.wantErr == nil && subscriber.ID != tt.subscriber.ID {
-				t.Errorf("expected ID %d, got %d", tt.subscriber.ID, subscriber.ID)
+				t.Errorf("got subscriber ID %d, want %d", subscriber.ID, tt.subscriber.ID)
 			}
 
 			if tt.wantCreate && !repo.createCalled {
-				t.Error("expected Create to be called")
+				t.Error("want Create to be called")
 			}
 		})
 	}
 }
 
-type mockSubscriberRepoForService struct {
+type mockSubscriberRepo struct {
 	subscriber   *model.Subscriber
 	getErr       error
 	createErr    error
 	createCalled bool
 }
 
-func (f *mockSubscriberRepoForService) GetByEmail(ctx context.Context, email string) (*model.Subscriber, error) {
+func (f *mockSubscriberRepo) GetByEmail(ctx context.Context, email string) (*model.Subscriber, error) {
 	return f.subscriber, f.getErr
 }
 
-func (f *mockSubscriberRepoForService) Create(ctx context.Context, email string) (*model.Subscriber, error) {
+func (f *mockSubscriberRepo) Create(ctx context.Context, email string) (*model.Subscriber, error) {
 	f.createCalled = true
 	return f.subscriber, f.createErr
 }

@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 	}))
 }
 
-func TestHTTPSubscriptionFlow_Integration(t *testing.T) {
+func TestHTTPSubscriptionFlow(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	app := newHTTPTestApp()
@@ -45,7 +45,7 @@ func TestHTTPSubscriptionFlow_Integration(t *testing.T) {
 			t.Fatalf("decode subscriptions response: %v", err)
 		}
 		if len(response) != 0 {
-			t.Fatalf("expected no active subscriptions before confirmation, got %d", len(response))
+			t.Fatalf("got %d active subscriptions before confirmation, want 0", len(response))
 		}
 	})
 
@@ -59,19 +59,19 @@ func TestHTTPSubscriptionFlow_Integration(t *testing.T) {
 			t.Fatalf("decode subscriptions response: %v", err)
 		}
 		if len(response) != 1 {
-			t.Fatalf("expected 1 active subscription after confirmation, got %d", len(response))
+			t.Fatalf("got %d active subscriptions after confirmation, want 1", len(response))
 		}
 		if response[0].Email != "user@example.com" {
-			t.Fatalf("expected email user@example.com, got %s", response[0].Email)
+			t.Fatalf("got email %q, want %q", response[0].Email, "user@example.com")
 		}
 		if response[0].Repo != "owner/repo" {
-			t.Fatalf("expected repo owner/repo, got %s", response[0].Repo)
+			t.Fatalf("got repo %q, want %q", response[0].Repo, "owner/repo")
 		}
 		if !response[0].Confirmed {
-			t.Fatal("expected subscription to be confirmed")
+			t.Fatal("want subscription to be confirmed")
 		}
 		if response[0].LastSeenTag != "v1.0.0" {
-			t.Fatalf("expected last seen tag v1.0.0, got %s", response[0].LastSeenTag)
+			t.Fatalf("got last seen tag %q, want %q", response[0].LastSeenTag, "v1.0.0")
 		}
 	})
 
@@ -90,12 +90,12 @@ func TestHTTPSubscriptionFlow_Integration(t *testing.T) {
 			t.Fatalf("decode subscriptions response: %v", err)
 		}
 		if len(response) != 0 {
-			t.Fatalf("expected no active subscriptions after unsubscribe, got %d", len(response))
+			t.Fatalf("got %d active subscriptions after unsubscribe, want 0", len(response))
 		}
 	})
 }
 
-func TestHTTPSubscribe_ReturnsNotFoundForMissingGitHubRepository_Integration(t *testing.T) {
+func TestHTTPSubscribe_ReturnsNotFoundForMissingGitHubRepository(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	app := newHTTPTestApp()
@@ -107,7 +107,7 @@ func TestHTTPSubscribe_ReturnsNotFoundForMissingGitHubRepository_Integration(t *
 	}, http.StatusNotFound)
 }
 
-func TestHTTPSubscribe_ReturnsTooManyRequestsForGitHubRateLimit_Integration(t *testing.T) {
+func TestHTTPSubscribe_ReturnsTooManyRequestsForGitHubRateLimit(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	app := newHTTPTestApp()
@@ -119,7 +119,7 @@ func TestHTTPSubscribe_ReturnsTooManyRequestsForGitHubRateLimit_Integration(t *t
 	}, http.StatusTooManyRequests)
 }
 
-func TestHTTPSubscribe_ReturnsBadRequestForInvalidInput_Integration(t *testing.T) {
+func TestHTTPSubscribe_ReturnsBadRequestForInvalidInput(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	app := newHTTPTestApp()
@@ -146,7 +146,7 @@ func newHTTPTestApp() *httpTestApp {
 	}
 }
 
-func postJSON(t *testing.T, handler http.Handler, path string, body any, expectedStatus int) []byte {
+func postJSON(t *testing.T, handler http.Handler, path string, body any, wantStatus int) []byte {
 	t.Helper()
 
 	payload, err := json.Marshal(body)
@@ -160,8 +160,8 @@ func postJSON(t *testing.T, handler http.Handler, path string, body any, expecte
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != expectedStatus {
-		t.Fatalf("expected status %d, got %d with body %s", expectedStatus, rec.Code, rec.Body.String())
+	if rec.Code != wantStatus {
+		t.Fatalf("got status %d, want %d with body %s", rec.Code, wantStatus, rec.Body.String())
 	}
 
 	return rec.Body.Bytes()
@@ -171,7 +171,7 @@ func get(
 	t *testing.T,
 	handler http.Handler,
 	path string,
-	expectedStatus int,
+	wantStatus int,
 	assertBody func(*testing.T, []byte),
 ) []byte {
 	t.Helper()
@@ -181,8 +181,8 @@ func get(
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != expectedStatus {
-		t.Fatalf("expected status %d, got %d with body %s", expectedStatus, rec.Code, rec.Body.String())
+	if rec.Code != wantStatus {
+		t.Fatalf("got status %d, want %d with body %s", rec.Code, wantStatus, rec.Body.String())
 	}
 
 	body := rec.Body.Bytes()
@@ -198,11 +198,11 @@ func receiveSubscriptionToken(t *testing.T, events <-chan model.SubscriptionEven
 	select {
 	case event := <-events:
 		if event.Token == "" {
-			t.Fatal("expected subscription event token to be set")
+			t.Fatal("want subscription event token to be set")
 		}
 		return event.Token
 	default:
-		t.Fatal("expected subscription event to be queued")
+		t.Fatal("want subscription event to be queued")
 	}
 
 	return ""

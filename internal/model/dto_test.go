@@ -81,6 +81,6 @@ func assertErrorIs(t *testing.T, got error, want error) {
 	t.Helper()
 
 	if !errors.Is(got, want) {
-		t.Fatalf("expected error %v, got %v", want, got)
+		t.Fatalf("got error %v, want %v", got, want)
 	}
 }
