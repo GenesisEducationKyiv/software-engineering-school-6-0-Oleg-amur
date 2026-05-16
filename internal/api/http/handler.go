@@ -145,7 +145,7 @@ func (h *Handler) GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response []dto.Subscription
+	response := make([]dto.Subscription, 0, len(subs))
 	for _, s := range subs {
 		response = append(response, dto.Subscription{
 			Email:       s.Email,

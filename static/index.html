@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Release Notifier</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel" aria-labelledby="subscribe-title">
+        <div class="heading">
+          <p class="eyebrow">Release Notifier</p>
+          <h1 id="subscribe-title">Track GitHub releases by email</h1>
+        </div>
+
+        <form id="subscribe-form" class="form">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="user@example.com">
+
+          <label for="repo">Repository</label>
+          <input id="repo" name="repo" type="text" required placeholder="owner/repo">
+
+          <button type="submit">Subscribe</button>
+        </form>
+
+        <div id="status" class="status" data-testid="status" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="subscriptions-title">
+        <div class="heading">
+          <p class="eyebrow">Subscriptions</p>
+          <h2 id="subscriptions-title">Active subscriptions</h2>
+        </div>
+
+        <form id="lookup-form" class="lookup">
+          <label for="lookup-email">Email</label>
+          <div class="inline">
+            <input id="lookup-email" name="lookup-email" type="email" autocomplete="email" required placeholder="user@example.com">
+            <button type="submit">Load</button>
+          </div>
+        </form>
+
+        <ul id="subscriptions" class="subscriptions" data-testid="subscriptions"></ul>
+        <p id="empty-subscriptions" class="empty" data-testid="empty-subscriptions"></p>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
