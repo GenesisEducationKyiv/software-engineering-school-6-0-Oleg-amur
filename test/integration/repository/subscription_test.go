@@ -21,7 +21,13 @@ func (s *RepositorySuite) TestSubscriptionRepository_GetByTokenReturnsJoinedData
 	got, err := s.subscriptionRepo.GetByToken(s.ctx, fixture.token)
 	s.Require().NoError(err, "get subscription by token")
 
-	s.assertSubscriptionJoin(got, fixture)
+	s.Equal(fixture.subscriber.ID, got.SubscriberID)
+	s.Equal(fixture.repository.ID, got.RepositoryID)
+	s.Require().NotNil(got.Subscriber, "subscription subscriber")
+	s.Equal(fixture.subscriber.Email, got.Subscriber.Email)
+	s.Require().NotNil(got.Repository, "subscription repository")
+	s.Equal(fixture.repository.Name, got.Repository.Name)
+	s.Equal(fixture.repository.LastSeenTag, got.Repository.LastSeenTag)
 	s.Equal(model.StatusPending, got.SubscriptionStatus)
 }
 
@@ -56,16 +62,19 @@ func (s *RepositorySuite) TestSubscriptionRepository_ActivateReturnsNotFound() {
 
 func (s *RepositorySuite) TestSubscriptionRepository_GetActiveByRepoIDReturnsOnlyActiveSubscribers() {
 	activeFixture := s.createSubscriptionFixture("active@example.com", "owner/repo", "v1.0.0", "active-token")
-	pendingFixture := s.createSubscriptionForRepository(activeFixture.repository, "pending@example.com", "pending-token")
+	pendingSubscriber, err := s.subscriberRepo.Create(s.ctx, "pending@example.com")
+	s.Require().NoError(err, "create pending subscriber")
+	err = s.subscriptionRepo.Create(s.ctx, pendingSubscriber.ID, activeFixture.repository.ID, "pending-token")
+	s.Require().NoError(err, "create pending subscription")
 
-	err := s.subscriptionRepo.Activate(s.ctx, activeFixture.token)
+	err = s.subscriptionRepo.Activate(s.ctx, activeFixture.token)
 	s.Require().NoError(err, "activate subscription")
 
 	active, err := s.subscriptionRepo.GetActiveByRepoID(s.ctx, activeFixture.repository.ID)
 	s.Require().NoError(err, "get active subscriptions by repository id")
 	s.Require().Len(active, 1, "active subscriptions by repository id")
 	s.Equal(activeFixture.subscriber.Email, active[0].Subscriber.Email)
-	s.NotEqual(pendingFixture.subscriber.Email, active[0].Subscriber.Email)
+	s.NotEqual(pendingSubscriber.Email, active[0].Subscriber.Email)
 }
 
 func (s *RepositorySuite) TestSubscriptionRepository_DeleteByTokenRemovesSubscription() {
