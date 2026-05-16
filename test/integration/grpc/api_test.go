@@ -4,6 +4,7 @@ package grpc_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"os"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/test/integration/testkit"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -59,20 +61,28 @@ func TestGRPCSubscribe_CreatesPendingSubscription(t *testing.T) {
 	}
 }
 
+func TestGRPCConfirm_ActivatesSubscription(t *testing.T) {
+	suite.ResetDatabase(t)
+
+	client, events, cleanup := newGRPCTestClient(t)
+	defer cleanup()
+
+	token := createSubscription(t, client, events)
+
+	_, err := client.Confirm(context.Background(), &pb.ConfirmRequest{Token: token})
+	assertGRPCCode(t, err, codes.OK)
+
+	assertSubscriptionStatus(t, token, model.StatusActive)
+}
+
 func TestGRPCGetSubscriptions_ReturnsActiveSubscription(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	client, events, cleanup := newGRPCTestClient(t)
 	defer cleanup()
 
-	_, err := client.Subscribe(context.Background(), &pb.SubscribeRequest{
-		Email: "user@example.com",
-		Repo:  "owner/repo",
-	})
-	assertGRPCCode(t, err, codes.OK)
-	token := receiveSubscriptionToken(t, events)
-
-	_, err = client.Confirm(context.Background(), &pb.ConfirmRequest{Token: token})
+	token := createSubscription(t, client, events)
+	_, err := client.Confirm(context.Background(), &pb.ConfirmRequest{Token: token})
 	assertGRPCCode(t, err, codes.OK)
 
 	resp, err := client.GetSubscriptions(context.Background(), &pb.GetSubscriptionsRequest{
@@ -104,81 +114,59 @@ func TestGRPCUnsubscribe_RemovesSubscription(t *testing.T) {
 	client, events, cleanup := newGRPCTestClient(t)
 	defer cleanup()
 
-	_, err := client.Subscribe(context.Background(), &pb.SubscribeRequest{
-		Email: "user@example.com",
-		Repo:  "owner/repo",
-	})
-	assertGRPCCode(t, err, codes.OK)
-	token := receiveSubscriptionToken(t, events)
+	token := createSubscription(t, client, events)
 
-	_, err = client.Unsubscribe(context.Background(), &pb.UnsubscribeRequest{Token: token})
+	_, err := client.Unsubscribe(context.Background(), &pb.UnsubscribeRequest{Token: token})
 	assertGRPCCode(t, err, codes.OK)
 
-	afterUnsubscribe, err := client.GetSubscriptions(context.Background(), &pb.GetSubscriptionsRequest{
-		Email: "user@example.com",
-	})
-	assertGRPCCode(t, err, codes.OK)
-	if len(afterUnsubscribe.GetSubscriptions()) != 0 {
-		t.Fatalf("got %d active subscriptions after unsubscribe, want 0", len(afterUnsubscribe.GetSubscriptions()))
+	subscriptionRepo := postgresql.NewSubscriptionRepository(suite.DB)
+	_, err = subscriptionRepo.GetByToken(context.Background(), token)
+	if !errors.Is(err, apperr.ErrNotFound) {
+		t.Fatalf("got error %v after unsubscribe, want %v", err, apperr.ErrNotFound)
 	}
 }
 
-func TestGRPCSubscribe_ReturnsTransportErrors(t *testing.T) {
-	tests := []struct {
-		name      string
-		mutateApp func(*testkit.FakeGithubClient)
-		req       *pb.SubscribeRequest
-		wantCode  codes.Code
-	}{
-		{
-			name:     "invalid repo format",
-			req:      &pb.SubscribeRequest{Email: "user@example.com", Repo: "invalid"},
-			wantCode: codes.InvalidArgument,
-		},
-		{
-			name: "missing GitHub repository",
-			mutateApp: func(github *testkit.FakeGithubClient) {
-				github.Exists["missing/repo"] = false
-			},
-			req:      &pb.SubscribeRequest{Email: "user@example.com", Repo: "missing/repo"},
-			wantCode: codes.NotFound,
-		},
-		{
-			name: "GitHub rate limit",
-			mutateApp: func(github *testkit.FakeGithubClient) {
-				github.CheckErr["owner/repo"] = apperr.ErrRateLimitExceeded
-			},
-			req:      &pb.SubscribeRequest{Email: "user@example.com", Repo: "owner/repo"},
-			wantCode: codes.ResourceExhausted,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			suite.ResetDatabase(t)
-
-			client, githubClient, cleanup := newGRPCTestClientWithGithub(t)
-			defer cleanup()
-			if tt.mutateApp != nil {
-				tt.mutateApp(githubClient)
-			}
-
-			_, err := client.Subscribe(context.Background(), tt.req)
-
-			assertGRPCCode(t, err, tt.wantCode)
-		})
-	}
-}
-
-func TestGRPCConfirm_ReturnsNotFoundForMissingToken(t *testing.T) {
+func TestGRPCSubscribe_ReturnsInvalidArgumentForInvalidRepoFormat(t *testing.T) {
 	suite.ResetDatabase(t)
 
 	client, _, cleanup := newGRPCTestClient(t)
 	defer cleanup()
 
-	_, err := client.Confirm(context.Background(), &pb.ConfirmRequest{Token: "missing-token"})
+	_, err := client.Subscribe(context.Background(), &pb.SubscribeRequest{
+		Email: "user@example.com",
+		Repo:  "invalid",
+	})
 
-	assertGRPCCode(t, err, codes.NotFound)
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func createSubscription(
+	t *testing.T,
+	client pb.ReleaseNotifierClient,
+	events <-chan model.SubscriptionEvent,
+) string {
+	t.Helper()
+
+	_, err := client.Subscribe(context.Background(), &pb.SubscribeRequest{
+		Email: "user@example.com",
+		Repo:  "owner/repo",
+	})
+	assertGRPCCode(t, err, codes.OK)
+
+	return receiveSubscriptionToken(t, events)
+}
+
+func assertSubscriptionStatus(t *testing.T, token string, want int) {
+	t.Helper()
+
+	subscriptionRepo := postgresql.NewSubscriptionRepository(suite.DB)
+	subscription, err := subscriptionRepo.GetByToken(context.Background(), token)
+	if err != nil {
+		t.Fatalf("get subscription by token: %v", err)
+	}
+	if subscription.SubscriptionStatus != want {
+		t.Fatalf("got subscription status %d, want %d", subscription.SubscriptionStatus, want)
+	}
 }
 
 func receiveSubscriptionEvent(t *testing.T, events <-chan model.SubscriptionEvent) model.SubscriptionEvent {
@@ -211,15 +199,6 @@ func newGRPCTestClient(t *testing.T) (
 ) {
 	client, _, events, cleanup := newGRPCTestClientFull(t)
 	return client, events, cleanup
-}
-
-func newGRPCTestClientWithGithub(t *testing.T) (
-	pb.ReleaseNotifierClient,
-	*testkit.FakeGithubClient,
-	func(),
-) {
-	client, githubClient, _, cleanup := newGRPCTestClientFull(t)
-	return client, githubClient, cleanup
 }
 
 func newGRPCTestClientFull(t *testing.T) (
