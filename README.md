@@ -127,7 +127,4 @@ The service maintains a `last_seen_tag` for every tracked repository:
 
 ## Testing
 
-Run unit tests:
-```bash
-go test ./...
-```
+To read more about tests and how to run them go to [testing.md](testing.md)
