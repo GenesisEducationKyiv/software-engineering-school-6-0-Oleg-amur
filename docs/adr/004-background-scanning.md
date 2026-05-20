@@ -19,11 +19,6 @@ Using the system's cron daemon to trigger periodic scanning operation.
 - **Pros:** Standardized OS-level scheduling.
 - **Cons:** Harder to manage within a containerized environment; splits application logic between the binary and the OS.
 
-### Option 3: Task Queues
-Using a message broker to distribute and manage scanning tasks.
-- **Pros:** Highly scalable, built-in persistence, and robust retry logic.
-- **Cons:** Adds significant operational complexity and external infrastructure dependencies.
-
 ## Decision
 We chose **Option 1: Timer-based Internal Scanner** for its simplicity and alignment with the monolith architecture. It keeps the service self-contained and easy to deploy. 
 
