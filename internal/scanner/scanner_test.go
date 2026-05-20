@@ -175,7 +175,7 @@ func assertUpdatedTag(t *testing.T, repo *mockRepositoryRepo, want string) {
 	t.Helper()
 
 	if repo.updateArgs[0].tag != want {
-		t.Fatalf("got updated database tag %q, want %q", repo.updateArgs[0].tag, want)
+		t.Errorf("got updated database tag %q, want %q", repo.updateArgs[0].tag, want)
 	}
 }
 
