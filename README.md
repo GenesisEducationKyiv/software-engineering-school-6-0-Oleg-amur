@@ -13,6 +13,11 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 - **Monitoring**: Includes Prometheus metrics for service observability.
 - **Dockerized**: Ready to run with Docker and Docker Compose.
 
+## Documentation
+
+- **[System Design](docs/system-design.md)**: High-level overview of the service architecture, C4 diagrams, and core workflows.
+- **[Architectural Decision Records (ADR)](docs/adr/adr-summary.md)**: Detailed rationale for key technical choices.
+
 ## Tech Stack
 
 - **Language**: [Go](https://go.dev/) (1.25+)
@@ -105,15 +110,8 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 │   ├── scanner/       # Release monitoring logic
 │   └── service/       # Business logic layer
 ├── migrations/        # SQL migration files
-└── docs/              # Additional documentation
+└── docs/              # System design, C4 diagrams, and ADRs
 ```
-
-## Architecture & Design Decisions
-
-- **Web Framework**: Built using standard `net/http` for the REST API to keep dependencies "thin" and leverage Go's powerful standard library.
-- **Database Schema**: Uses a normalized structure with separate tables for `Subscribers`, `Repositories`, and `Subscriptions`. This allows for efficient data management and prevents duplication (e.g., one repository being scanned once even if it has multiple subscribers).
-- **GitHub Client**: Custom implementation of the GitHub API client to handle rate limiting (429 Too Many Requests) and provide specific functionality needed for release monitoring without the overhead of larger libraries.
-- **Background Scanner**: Uses a Go-native `time.Timer` for periodic scanning, avoiding external cron dependencies and ensuring a self-contained monolith.
 
 ## Release Detection Logic
 
@@ -125,7 +123,7 @@ The service maintains a `last_seen_tag` for every tracked repository:
 
 ## Technical Considerations
 
-- **Releases vs. Tags**: Currently, the service monitors the GitHub "Releases" endpoint. Some repositories (like `golang/go`) primarily use git tags rather than official GitHub Releases. Future improvements could include fallback logic to monitor tags via Atom feeds or GraphQL if no releases are found.
+- **Releases vs Tags**: Currently, the service monitors the GitHub "Releases" endpoint. Some repositories (like `golang/go`) primarily use git tags rather than official GitHub Releases. Future improvements could include fallback logic to monitor tags via Atom feeds or GraphQL if no releases are found.
 - **Rate Limiting**: To avoid hitting GitHub's public API limits (60 req/hour), it is highly recommended to provide a `GITHUB_TOKEN`. This increases the limit to 5,000 requests per hour.
 
 ## Testing
