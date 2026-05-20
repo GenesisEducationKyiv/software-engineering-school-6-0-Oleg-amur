@@ -227,10 +227,10 @@ func assertSubscriptionEvent(t *testing.T, events <-chan model.SubscriptionEvent
 	select {
 	case event := <-events:
 		if event.Email != wantEmail {
-			t.Fatalf("got subscription event email %q, want %q", event.Email, wantEmail)
+			t.Errorf("got subscription event email %q, want %q", event.Email, wantEmail)
 		}
 		if event.Token == "" {
-			t.Fatal("want subscription event token to be set")
+			t.Error("want subscription event token to be set")
 		}
 	default:
 		t.Fatal("want subscription event to be queued")

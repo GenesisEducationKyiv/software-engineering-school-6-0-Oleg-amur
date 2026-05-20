@@ -91,20 +91,20 @@ func TestNotificationService_ProcessReleaseEvent_BuildsReleaseMessage(t *testing
 	})
 
 	if builder.releaseRepo != "owner/repo" {
-		t.Fatalf("got release repo %q, want %q", builder.releaseRepo, "owner/repo")
+		t.Errorf("got release repo %q, want %q", builder.releaseRepo, "owner/repo")
 	}
 	if builder.releaseTag != "v1.0.0" {
-		t.Fatalf("got release tag %q, want %q", builder.releaseTag, "v1.0.0")
+		t.Errorf("got release tag %q, want %q", builder.releaseTag, "v1.0.0")
 	}
 	if builder.releaseToken != "unsubscribe-token" {
-		t.Fatalf("got release token %q, want %q", builder.releaseToken, "unsubscribe-token")
+		t.Errorf("got release token %q, want %q", builder.releaseToken, "unsubscribe-token")
 	}
 	assertSentEmailsLen(t, sender, 1)
 	if sender.sentEmails[0].to != "user@example.com" {
-		t.Fatalf("got email recipient %q, want %q", sender.sentEmails[0].to, "user@example.com")
+		t.Errorf("got email recipient %q, want %q", sender.sentEmails[0].to, "user@example.com")
 	}
 	if sender.sentEmails[0].subject != "Release Subject" {
-		t.Fatalf("got release subject %q, want %q", sender.sentEmails[0].subject, "Release Subject")
+		t.Errorf("got release subject %q, want %q", sender.sentEmails[0].subject, "Release Subject")
 	}
 }
 
@@ -120,14 +120,14 @@ func TestNotificationService_ProcessSubscriptionEvent(t *testing.T) {
 	})
 
 	if builder.confirmationToken != "confirm-token" {
-		t.Fatalf("got confirmation token %q, want %q", builder.confirmationToken, "confirm-token")
+		t.Errorf("got confirmation token %q, want %q", builder.confirmationToken, "confirm-token")
 	}
 	assertSentEmailsLen(t, sender, 1)
 	if sender.sentEmails[0].to != "user@example.com" {
-		t.Fatalf("got email recipient %q, want %q", sender.sentEmails[0].to, "user@example.com")
+		t.Errorf("got email recipient %q, want %q", sender.sentEmails[0].to, "user@example.com")
 	}
 	if sender.sentEmails[0].subject != "Confirm Subject" {
-		t.Fatalf("got confirmation subject %q, want %q", sender.sentEmails[0].subject, "Confirm Subject")
+		t.Errorf("got confirmation subject %q, want %q", sender.sentEmails[0].subject, "Confirm Subject")
 	}
 }
 

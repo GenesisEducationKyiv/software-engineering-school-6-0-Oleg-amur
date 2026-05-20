@@ -55,10 +55,10 @@ func TestClient_CheckIfRepoExists(t *testing.T) {
 			gotExists, err := client.CheckIfRepoExists(context.Background(), "owner/repo")
 
 			if gotPath != "/repos/owner/repo" {
-				t.Fatalf("got path %q, want %q", gotPath, "/repos/owner/repo")
+				t.Errorf("got path %q, want %q", gotPath, "/repos/owner/repo")
 			}
 			if gotExists != tt.wantExists {
-				t.Fatalf("got exists %v, want %v", gotExists, tt.wantExists)
+				t.Errorf("got exists %v, want %v", gotExists, tt.wantExists)
 			}
 			assertError(t, err, tt.wantErr)
 		})
@@ -117,10 +117,10 @@ func TestClient_GetRepositoryLatestTag(t *testing.T) {
 			gotTag, err := client.GetRepositoryLatestTag(context.Background(), "owner/repo")
 
 			if gotPath != "/repos/owner/repo/releases/latest" {
-				t.Fatalf("got path %q, want %q", gotPath, "/repos/owner/repo/releases/latest")
+				t.Errorf("got path %q, want %q", gotPath, "/repos/owner/repo/releases/latest")
 			}
 			if gotTag != tt.wantTag {
-				t.Fatalf("got tag %q, want %q", gotTag, tt.wantTag)
+				t.Errorf("got tag %q, want %q", gotTag, tt.wantTag)
 			}
 			assertError(t, err, tt.wantErr)
 		})
@@ -131,17 +131,17 @@ func assertGithubHeaders(t *testing.T, r *http.Request) {
 	t.Helper()
 
 	if r.Header.Get(headerAccept) != acceptValue {
-		t.Fatalf("got Accept header %q, want %q", r.Header.Get(headerAccept), acceptValue)
+		t.Errorf("got Accept header %q, want %q", r.Header.Get(headerAccept), acceptValue)
 	}
 	if r.Header.Get(headerGitHubApiVersion) != apiVersionValue {
-		t.Fatalf(
+		t.Errorf(
 			"got GitHub API version header %q, want %q",
 			r.Header.Get(headerGitHubApiVersion),
 			apiVersionValue,
 		)
 	}
 	if r.Header.Get(headerAuthorization) != "Bearer token" {
-		t.Fatalf("got Authorization header %q, want %q", r.Header.Get(headerAuthorization), "Bearer token")
+		t.Errorf("got Authorization header %q, want %q", r.Header.Get(headerAuthorization), "Bearer token")
 	}
 }
 
@@ -156,17 +156,17 @@ func assertError(t *testing.T, got error, want error) {
 
 	if want == nil {
 		if got != nil {
-			t.Fatalf("got error %v, want nil", got)
+			t.Errorf("got error %v, want nil", got)
 		}
 		return
 	}
 	if errors.Is(want, errAny) {
 		if got == nil {
-			t.Fatal("got nil error, want non-nil error")
+			t.Error("got nil error, want non-nil error")
 		}
 		return
 	}
 	if !errors.Is(got, want) {
-		t.Fatalf("got error %v, want %v", got, want)
+		t.Errorf("got error %v, want %v", got, want)
 	}
 }

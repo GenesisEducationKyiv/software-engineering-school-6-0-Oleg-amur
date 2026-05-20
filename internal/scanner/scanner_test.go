@@ -81,7 +81,7 @@ func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 0)
 	if len(releasesChan) != 0 {
-		t.Fatalf("got %d release events, want 0", len(releasesChan))
+		t.Errorf("got %d release events, want 0", len(releasesChan))
 	}
 }
 
@@ -107,7 +107,7 @@ func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 0)
 	if len(releasesChan) != 0 {
-		t.Fatalf("got %d release events, want 0", len(releasesChan))
+		t.Errorf("got %d release events, want 0", len(releasesChan))
 	}
 }
 
@@ -133,10 +133,10 @@ func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 1)
 	if repoRepo.updateArgs[0].id != 2 {
-		t.Fatalf("got updated repo id %d, want 2", repoRepo.updateArgs[0].id)
+		t.Errorf("got updated repo id %d, want 2", repoRepo.updateArgs[0].id)
 	}
 	if len(releasesChan) != 1 {
-		t.Fatalf("got %d release events, want 1", len(releasesChan))
+		t.Errorf("got %d release events, want 1", len(releasesChan))
 	}
 }
 
@@ -159,7 +159,7 @@ func TestScanner_Scan_UpdateErrorDoesNotEmitEvent(t *testing.T) {
 
 	assertUpdatesLen(t, repoRepo, 1)
 	if len(releasesChan) != 0 {
-		t.Fatalf("got %d release events after update error, want 0", len(releasesChan))
+		t.Errorf("got %d release events after update error, want 0", len(releasesChan))
 	}
 }
 
@@ -186,12 +186,12 @@ func assertReleaseEvents(t *testing.T, events <-chan model.ReleaseEvent, wantCou
 	for event := range events {
 		gotCount++
 		if wantTag != "" && event.Tag != wantTag {
-			t.Fatalf("got event tag %q, want %q", event.Tag, wantTag)
+			t.Errorf("got event tag %q, want %q", event.Tag, wantTag)
 		}
 	}
 
 	if gotCount != wantCount {
-		t.Fatalf("got %d events, want %d", gotCount, wantCount)
+		t.Errorf("got %d events, want %d", gotCount, wantCount)
 	}
 }
 
