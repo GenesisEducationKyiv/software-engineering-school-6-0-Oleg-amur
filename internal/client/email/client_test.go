@@ -8,11 +8,14 @@ import (
 )
 
 func TestClientSendTimesOutWhenSMTPServerDoesNotRespond(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	var listenConfig net.ListenConfig
+	listener, err := listenConfig.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer listener.Close()
+	defer func() {
+		_ = listener.Close()
+	}()
 
 	done := make(chan struct{})
 	defer close(done)
@@ -24,7 +27,9 @@ func TestClientSendTimesOutWhenSMTPServerDoesNotRespond(t *testing.T) {
 			return
 		}
 		close(accepted)
-		defer conn.Close()
+		defer func() {
+			_ = conn.Close()
+		}()
 		<-done
 	}()
 

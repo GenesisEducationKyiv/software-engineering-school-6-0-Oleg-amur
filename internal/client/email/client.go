@@ -45,7 +45,9 @@ func (c *Client) Send(ctx context.Context, to, subject, body string) error {
 	if err != nil {
 		return fmt.Errorf("connect to smtp server: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	if deadline, ok := sendCtx.Deadline(); ok {
 		if err := conn.SetDeadline(deadline); err != nil {
@@ -61,7 +63,9 @@ func sendMail(conn net.Conn, host, from string, to []string, msg []byte) error {
 	if err != nil {
 		return fmt.Errorf("create smtp client: %w", err)
 	}
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("set smtp sender: %w", err)
