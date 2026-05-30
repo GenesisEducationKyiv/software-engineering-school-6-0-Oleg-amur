@@ -25,8 +25,8 @@ type checkState struct {
 	Error      string `json:"error,omitempty"`
 }
 
-func healthHandler(log *slog.Logger, db HealthChecker) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func NewHealthHandler(log *slog.Logger, db HealthChecker) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -61,5 +61,5 @@ func healthHandler(log *slog.Logger, db HealthChecker) http.HandlerFunc {
 		}); err != nil {
 			log.Error("failed to encode health response", "err", err)
 		}
-	}
+	})
 }

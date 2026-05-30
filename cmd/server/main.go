@@ -125,7 +125,8 @@ func runApp(log *slog.Logger) error {
 	go scheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")
-	router := httpapi.NewRouter(log, subscriptionSvc, db)
+	healthHandler := httpapi.NewHealthHandler(log, db)
+	router := httpapi.NewRouter(log, subscriptionSvc, healthHandler)
 	httpServer := setupHttpServer(cfg.Server, router)
 
 	grpcHandler := grpcapi.NewGrpcHandler(log, subscriptionSvc)
