@@ -10,7 +10,7 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
   - **REST API**: Standard HTTP endpoints for subscription management.
   - **gRPC API**: High-performance interface for service-to-service communication.
 - **Persistence**: Uses PostgreSQL to store subscribers, repositories, and subscription states.
-- **Monitoring**: Includes Prometheus metrics for service observability.
+- **Monitoring**: Includes structured JSON logs, Elasticsearch/Kibana log search, Prometheus RED metrics, and a Grafana dashboard.
 - **Dockerized**: Ready to run with Docker and Docker Compose.
 
 ## Documentation
@@ -25,6 +25,8 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 - **Communication**: [gRPC](https://grpc.io/), [net/http](https://pkg.go.dev/net/http)
 - **Configuration**: [cleanenv](https://github.com/ilyakaznacheev/cleanenv)
 - **Metrics**: [Prometheus](https://prometheus.io/)
+- **Logs**: [Elasticsearch](https://www.elastic.co/elasticsearch), [Kibana](https://www.elastic.co/kibana), [Filebeat](https://www.elastic.co/beats/filebeat)
+- **Dashboards**: [Grafana](https://grafana.com/)
 - **Containerization**: [Docker](https://www.docker.com/)
 
 ## Getting Started
@@ -69,6 +71,28 @@ The service will be available at:
 - gRPC API: `localhost:50051`
 - Mailpit UI (Email testing): `http://localhost:8025`
 - Prometheus Metrics: `http://localhost:8080/metrics`
+- Prometheus UI: `http://localhost:9090`
+- Grafana UI: `http://localhost:3000` (`admin` / `admin`)
+- Elasticsearch: `http://localhost:9200`
+- Kibana UI: `http://localhost:5601`
+
+## Logging and Metrics
+
+The application writes structured JSON logs to stdout. Docker Compose runs Filebeat, which tails the `release-notifier` container logs, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch under daily indices named `release-notifier-logs-*`. Docker Compose also creates an initial Elasticsearch index and Kibana data view for `release-notifier-logs-*`, so Discover is ready after the stack starts.
+
+If Kibana shows thousands of empty ECS fields after changing Filebeat settings, delete the old `release-notifier-logs-*` index and recreate the Kibana data view. Existing indices keep their old mappings.
+
+Prometheus scrapes `release-notifier:8080/metrics` every 15 seconds. The application exposes RED metrics for both HTTP and gRPC traffic:
+- `release_notifier_http_requests_total`
+- `release_notifier_http_request_errors_total`
+- `release_notifier_http_request_duration_seconds`
+- `release_notifier_grpc_requests_total`
+- `release_notifier_grpc_request_errors_total`
+- `release_notifier_grpc_request_duration_seconds`
+
+The same endpoint also exposes default Go runtime and process metrics, including CPU, RAM usage, heap usage, goroutines, and GC pauses. Grafana is provisioned automatically with Prometheus as the default datasource and a `Release Notifier Metrics` dashboard. The dashboard has an editable `rate_window` variable at the top for rate and percentile queries.
+
+The `/health` endpoint checks database connectivity and returns `200 OK` when PostgreSQL is reachable or `503 Service Unavailable` when the database ping fails. Prometheus also exposes `release_notifier_database_up` and `release_notifier_database_ping_duration_seconds`; the dashboard shows the database up/down state.
 
 ## API Documentation
 

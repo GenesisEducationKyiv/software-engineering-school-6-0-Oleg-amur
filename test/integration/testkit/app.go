@@ -63,7 +63,7 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	return &App{
 		DB:          cfg.DB,
 		Logger:      cfg.Logger,
-		HTTPHandler: httpapi.NewRouter(cfg.Logger, subscriptionService),
+		HTTPHandler: httpapi.NewRouter(cfg.Logger, subscriptionService, cfg.DB),
 		GRPCHandler: grpcapi.NewGrpcHandler(cfg.Logger, subscriptionService),
 		Events:      subscriptionEvents,
 	}
