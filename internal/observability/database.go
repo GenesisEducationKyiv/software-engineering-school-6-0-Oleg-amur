@@ -16,11 +16,11 @@ type DatabasePinger interface {
 }
 
 type databaseCollector struct {
-	db             DatabasePinger
-	log            *slog.Logger
-	up             *prometheus.Desc
-	pingDuration   *prometheus.Desc
-	pingTimeoutSec time.Duration
+	db           DatabasePinger
+	log          *slog.Logger
+	up           *prometheus.Desc
+	pingDuration *prometheus.Desc
+	pingTimeout  time.Duration
 }
 
 func RegisterDatabaseMetrics(db DatabasePinger, log *slog.Logger) error {
@@ -39,7 +39,7 @@ func RegisterDatabaseMetrics(db DatabasePinger, log *slog.Logger) error {
 			nil,
 			nil,
 		),
-		pingTimeoutSec: databasePingTimeout,
+		pingTimeout: databasePingTimeout,
 	}
 
 	if err := prometheus.Register(collector); err != nil {
@@ -60,7 +60,7 @@ func (c *databaseCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *databaseCollector) Collect(ch chan<- prometheus.Metric) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.pingTimeoutSec)
+	ctx, cancel := context.WithTimeout(context.Background(), c.pingTimeout)
 	defer cancel()
 
 	start := time.Now()
