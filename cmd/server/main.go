@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -61,7 +62,7 @@ func runApp(log *slog.Logger) error {
 		return err
 	}
 	if err := observability.RegisterDatabaseMetrics(db, log); err != nil {
-		return fmt.Errorf("failed to register database metrics: %w", err)
+		log.Error("failed to register database metrics; continuing without database metrics", "error", err)
 	}
 	defer func(db *sql.DB) {
 		log.Debug("closing database connection")
@@ -139,7 +140,7 @@ func runApp(log *slog.Logger) error {
 
 	go func() {
 		log.Info("HTTP server starting", "addr", httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
