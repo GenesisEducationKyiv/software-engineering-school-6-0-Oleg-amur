@@ -75,7 +75,7 @@ The service will be available at:
 To start the full observability stack as well:
 
 ```bash
-docker compose -f docker-compose.yaml -f observability/docker-compose.yaml up -d
+docker compose --profile observability up -d
 ```
 
 Additional observability services will be available at:
@@ -86,7 +86,7 @@ Additional observability services will be available at:
 
 ## Logging and Metrics
 
-The application writes structured JSON logs to stdout. The observability Compose file runs Filebeat, which tails Docker logs for the `release-notifier` Compose service, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch using Filebeat-managed storage.
+The application writes structured JSON logs to stdout. The `observability` Compose profile runs Filebeat, which tails Docker logs for the `release-notifier` Compose service, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch using Filebeat-managed storage.
 
 The Kibana init container creates a `filebeat-*` data view and imports a `Release Notifier Logs` dashboard with recent structured log events filtered to `service.name: "release-notifier"`.
 
