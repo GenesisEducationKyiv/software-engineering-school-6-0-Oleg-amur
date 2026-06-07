@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/contracts/events"
 )
 
 func (s *HTTPSuite) postJSON(path string, body any, wantStatus int) []byte {
@@ -94,7 +94,7 @@ func (s *HTTPSuite) getSubscriptionsWithoutEmail(wantStatus int) []byte {
 	return s.get("/api/v1/subscriptions", wantStatus, nil)
 }
 
-func (s *HTTPSuite) receiveSubscriptionEvent() model.SubscriptionEvent {
+func (s *HTTPSuite) receiveSubscriptionEvent() events.SubscriptionConfirmationRequested {
 	s.T().Helper()
 
 	select {
@@ -104,7 +104,7 @@ func (s *HTTPSuite) receiveSubscriptionEvent() model.SubscriptionEvent {
 		s.T().Fatal("want subscription event to be queued")
 	}
 
-	return model.SubscriptionEvent{}
+	return events.SubscriptionConfirmationRequested{}
 }
 
 func (s *HTTPSuite) receiveSubscriptionToken() string {

@@ -5,120 +5,85 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/contracts/events"
 )
 
-func TestNotificationService_ProcessReleaseEvent(t *testing.T) {
+func TestNotificationService_HandleReleaseNotificationRequested(t *testing.T) {
 	tests := []struct {
-		name       string
-		event      model.ReleaseEvent
-		subs       []model.Subscription
-		repoErr    error
-		senderErr  error
-		wantEmails int
+		name      string
+		event     events.ReleaseNotificationRequested
+		senderErr error
+		wantErr   error
 	}{
 		{
-			name: "sends release email to each active subscriber",
-			event: model.ReleaseEvent{
-				RepoID:   1,
-				RepoName: "owner/repo",
-				Tag:      "v1.0.0",
+			name: "sends release email",
+			event: events.ReleaseNotificationRequested{
+				Email:            "user@example.com",
+				Repo:             "owner/repo",
+				Tag:              "v1.0.0",
+				UnsubscribeToken: "unsubscribe-token",
 			},
-			subs: []model.Subscription{
-				{Subscriber: &model.Subscriber{Email: "user1@example.com"}, Token: "token-1"},
-				{Subscriber: &model.Subscriber{Email: "user2@example.com"}, Token: "token-2"},
-			},
-			wantEmails: 2,
 		},
 		{
-			name: "skips sending when repository lookup fails",
-			event: model.ReleaseEvent{
-				RepoID:   1,
-				RepoName: "owner/repo",
-				Tag:      "v1.0.0",
+			name: "returns sender error",
+			event: events.ReleaseNotificationRequested{
+				Email:            "user@example.com",
+				Repo:             "owner/repo",
+				Tag:              "v1.0.0",
+				UnsubscribeToken: "unsubscribe-token",
 			},
-			repoErr: errors.New("db error"),
-		},
-		{
-			name: "attempts all emails when sender returns errors",
-			event: model.ReleaseEvent{
-				RepoID:   1,
-				RepoName: "owner/repo",
-				Tag:      "v1.0.0",
-			},
-			subs: []model.Subscription{
-				{Subscriber: &model.Subscriber{Email: "user1@example.com"}, Token: "token-1"},
-				{Subscriber: &model.Subscriber{Email: "user2@example.com"}, Token: "token-2"},
-			},
-			senderErr:  errors.New("smtp error"),
-			wantEmails: 2,
+			senderErr: errors.New("smtp error"),
+			wantErr:   errors.New("smtp error"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &mockNotificationSubRepo{
-				subs: tt.subs,
-				err:  tt.repoErr,
-			}
-			sender := &mockEmailSender{
-				err: tt.senderErr,
-			}
+			sender := &mockEmailSender{err: tt.senderErr}
 			builder := &mockMessageBuilder{}
+			svc := NewNotificationService(testLogger(), sender, builder)
 
-			svc := NewNotificationService(testLogger(), repo, sender, builder)
-			svc.processReleaseEvent(context.Background(), tt.event)
+			err := svc.HandleReleaseNotificationRequested(context.Background(), tt.event)
 
-			assertSentEmailsLen(t, sender, tt.wantEmails)
+			if tt.wantErr == nil && err != nil {
+				t.Fatalf("got error %v, want nil", err)
+			}
+			if tt.wantErr != nil && err == nil {
+				t.Fatal("got nil error, want sender error")
+			}
+			assertSentEmailsLen(t, sender, 1)
+			if builder.releaseRepo != tt.event.Repo {
+				t.Errorf("got release repo %q, want %q", builder.releaseRepo, tt.event.Repo)
+			}
+			if builder.releaseTag != tt.event.Tag {
+				t.Errorf("got release tag %q, want %q", builder.releaseTag, tt.event.Tag)
+			}
+			if builder.releaseToken != tt.event.UnsubscribeToken {
+				t.Errorf("got release token %q, want %q", builder.releaseToken, tt.event.UnsubscribeToken)
+			}
+			if sender.sentEmails[0].to != tt.event.Email {
+				t.Errorf("got email recipient %q, want %q", sender.sentEmails[0].to, tt.event.Email)
+			}
+			if sender.sentEmails[0].subject != "Release Subject" {
+				t.Errorf("got release subject %q, want %q", sender.sentEmails[0].subject, "Release Subject")
+			}
 		})
 	}
 }
 
-func TestNotificationService_ProcessReleaseEvent_BuildsReleaseMessage(t *testing.T) {
-	repo := &mockNotificationSubRepo{
-		subs: []model.Subscription{
-			{Subscriber: &model.Subscriber{Email: "user@example.com"}, Token: "unsubscribe-token"},
-		},
-	}
+func TestNotificationService_HandleSubscriptionConfirmationRequested(t *testing.T) {
 	sender := &mockEmailSender{}
 	builder := &mockMessageBuilder{}
-	svc := NewNotificationService(testLogger(), repo, sender, builder)
+	svc := NewNotificationService(testLogger(), sender, builder)
 
-	svc.processReleaseEvent(context.Background(), model.ReleaseEvent{
-		RepoID:   1,
-		RepoName: "owner/repo",
-		Tag:      "v1.0.0",
-	})
-
-	if builder.releaseRepo != "owner/repo" {
-		t.Errorf("got release repo %q, want %q", builder.releaseRepo, "owner/repo")
-	}
-	if builder.releaseTag != "v1.0.0" {
-		t.Errorf("got release tag %q, want %q", builder.releaseTag, "v1.0.0")
-	}
-	if builder.releaseToken != "unsubscribe-token" {
-		t.Errorf("got release token %q, want %q", builder.releaseToken, "unsubscribe-token")
-	}
-	assertSentEmailsLen(t, sender, 1)
-	if sender.sentEmails[0].to != "user@example.com" {
-		t.Errorf("got email recipient %q, want %q", sender.sentEmails[0].to, "user@example.com")
-	}
-	if sender.sentEmails[0].subject != "Release Subject" {
-		t.Errorf("got release subject %q, want %q", sender.sentEmails[0].subject, "Release Subject")
-	}
-}
-
-func TestNotificationService_ProcessSubscriptionEvent(t *testing.T) {
-	repo := &mockNotificationSubRepo{}
-	sender := &mockEmailSender{}
-	builder := &mockMessageBuilder{}
-	svc := NewNotificationService(testLogger(), repo, sender, builder)
-
-	svc.processSubscriptionEvent(context.Background(), model.SubscriptionEvent{
+	err := svc.HandleSubscriptionConfirmationRequested(context.Background(), events.SubscriptionConfirmationRequested{
 		Email: "user@example.com",
 		Token: "confirm-token",
 	})
 
+	if err != nil {
+		t.Fatalf("got error %v, want nil", err)
+	}
 	if builder.confirmationToken != "confirm-token" {
 		t.Errorf("got confirmation token %q, want %q", builder.confirmationToken, "confirm-token")
 	}
@@ -129,6 +94,23 @@ func TestNotificationService_ProcessSubscriptionEvent(t *testing.T) {
 	if sender.sentEmails[0].subject != "Confirm Subject" {
 		t.Errorf("got confirmation subject %q, want %q", sender.sentEmails[0].subject, "Confirm Subject")
 	}
+}
+
+func TestNotificationService_HandleSubscriptionConfirmationRequested_ReturnsSenderError(t *testing.T) {
+	senderErr := errors.New("smtp error")
+	sender := &mockEmailSender{err: senderErr}
+	builder := &mockMessageBuilder{}
+	svc := NewNotificationService(testLogger(), sender, builder)
+
+	err := svc.HandleSubscriptionConfirmationRequested(context.Background(), events.SubscriptionConfirmationRequested{
+		Email: "user@example.com",
+		Token: "confirm-token",
+	})
+
+	if !errors.Is(err, senderErr) {
+		t.Fatalf("got error %v, want %v", err, senderErr)
+	}
+	assertSentEmailsLen(t, sender, 1)
 }
 
 func assertSentEmailsLen(t *testing.T, sender *mockEmailSender, want int) {
@@ -143,15 +125,6 @@ type sentEmail struct {
 	to      string
 	subject string
 	body    string
-}
-
-type mockNotificationSubRepo struct {
-	subs []model.Subscription
-	err  error
-}
-
-func (f *mockNotificationSubRepo) GetActiveByRepoID(ctx context.Context, repoID int) ([]model.Subscription, error) {
-	return f.subs, f.err
 }
 
 type mockEmailSender struct {

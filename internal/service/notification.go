@@ -4,12 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/contracts/events"
 )
-
-type subscriptionRepoForNotifications interface {
-	GetActiveByRepoID(ctx context.Context, repoID int) ([]model.Subscription, error)
-}
 
 type EmailSender interface {
 	Send(ctx context.Context, to, subject, body string) error
@@ -21,70 +17,51 @@ type MessageBuilder interface {
 }
 
 type NotificationService struct {
-	log              *slog.Logger
-	subscriptionRepo subscriptionRepoForNotifications
-	emailSender      EmailSender
-	messageBuilder   MessageBuilder
+	log            *slog.Logger
+	emailSender    EmailSender
+	messageBuilder MessageBuilder
 }
 
 func NewNotificationService(
 	log *slog.Logger,
-	subscriptionRepo subscriptionRepoForNotifications,
 	emailSender EmailSender,
 	messageBuilder MessageBuilder,
 ) *NotificationService {
 	return &NotificationService{
-		log:              log,
-		subscriptionRepo: subscriptionRepo,
-		emailSender:      emailSender,
-		messageBuilder:   messageBuilder,
+		log:            log,
+		emailSender:    emailSender,
+		messageBuilder: messageBuilder,
 	}
 }
 
-func (s *NotificationService) Start(
+func (s *NotificationService) HandleReleaseNotificationRequested(
 	ctx context.Context,
-	releaseEvents <-chan model.ReleaseEvent,
-	subscriptionEvents <-chan model.SubscriptionEvent,
-) {
-	s.log.Info("background notification service started")
+	event events.ReleaseNotificationRequested,
+) error {
+	s.log.Info("sending release notification", "email", event.Email, "repo", event.Repo, "tag", event.Tag)
 
-	for {
-		select {
-		case <-ctx.Done():
-			s.log.Info("background notification service stopping")
-			return
-		case event := <-releaseEvents:
-			s.processReleaseEvent(ctx, event)
-		case event := <-subscriptionEvents:
-			s.processSubscriptionEvent(ctx, event)
-		}
+	subject, body := s.messageBuilder.BuildReleaseMessage(event.Repo, event.Tag, event.UnsubscribeToken)
+
+	if err := s.emailSender.Send(ctx, event.Email, subject, body); err != nil {
+		s.log.Error("failed to send release notification", "email", event.Email, "err", err)
+		return err
 	}
+
+	return nil
 }
 
-func (s *NotificationService) processReleaseEvent(ctx context.Context, event model.ReleaseEvent) {
-	subs, err := s.subscriptionRepo.GetActiveByRepoID(ctx, event.RepoID)
-	if err != nil {
-		s.log.Error("failed to fetch subscribers for notification", "repo", event.RepoName, "err", err)
-		return
-	}
-
-	for _, sub := range subs {
-		s.log.Info("sending notification", "email", sub.Subscriber.Email, "repo", event.RepoName, "tag", event.Tag)
-
-		subject, body := s.messageBuilder.BuildReleaseMessage(event.RepoName, event.Tag, sub.Token)
-
-		if err := s.emailSender.Send(ctx, sub.Subscriber.Email, subject, body); err != nil {
-			s.log.Error("failed to send notification", "email", sub.Subscriber.Email, "err", err)
-		}
-	}
-}
-
-func (s *NotificationService) processSubscriptionEvent(ctx context.Context, event model.SubscriptionEvent) {
+func (s *NotificationService) HandleSubscriptionConfirmationRequested(
+	ctx context.Context,
+	event events.SubscriptionConfirmationRequested,
+) error {
 	s.log.Info("sending confirmation email", "email", event.Email)
 
 	subject, body := s.messageBuilder.BuildConfirmationMessage(event.Token)
 
 	if err := s.emailSender.Send(ctx, event.Email, subject, body); err != nil {
 		s.log.Error("failed to send confirmation", "email", event.Email, "err", err)
+		return err
 	}
+
+	return nil
 }

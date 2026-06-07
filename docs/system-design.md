@@ -17,7 +17,7 @@
 - **Scalability**: The design should handle up to 10,000 active subscribers and 1,000 unique repositories without significant architectural changes.
 
 ### Constraints
-- **Monolith Architecture**: The service must be delivered as a single Go binary for deployment simplicity.
+- **Modular Service Architecture**: The system is split into a core API/scanner service and a notification worker while keeping module boundaries explicit in code.
 - **GitHub API Limits**: The system must operate within GitHub's rate limits (60/hr for unauthenticated, 5,000/hr for authenticated requests).
 - **Environment**: Must be containerized and with ability to run whole system using Docker Compose.
 
@@ -38,7 +38,7 @@
 
 ## 3. High Level Architecture
 
-The system follows a monolith architecture to minimize operational complexity. Internally, it is organized into layers (API, Service, Repository) to maintain a clean separation of concerns.
+The system follows a modular service architecture. The core service owns subscriptions, repository tracking, API endpoints, and release scanning. A separate notification worker owns email delivery. The services communicate through an event bus port implemented by RabbitMQ.
 
 ### 3.1 C4 Diagrams
 
@@ -110,7 +110,18 @@ An abstraction for the PostgreSQL database, providing a clean data access interf
 Adapters that handle protocol-specific logic and resilience patterns for 3rd-party services.
 
 - **GitHub Client**: Manages REST API communication with rate-limit awareness.
-- **Notifier (SMTP)**: Handles email template rendering and SMTP delivery.
+- **Event Bus Adapter**: Publishes notification jobs to RabbitMQ through an application-facing port.
+- **Notifier (SMTP)**: Runs in the notification worker and handles email template rendering and SMTP delivery.
+
+### 4.5 Notification Worker
+
+#### Responsibility
+Consumes durable notification jobs from RabbitMQ and delivers them through SMTP.
+
+- **Message Consumption**: Reads subscription confirmation and release notification jobs.
+- **Delivery**: Builds email subjects/bodies and sends messages through SMTP.
+- **Acknowledgement**: Acknowledges RabbitMQ messages only after successful SMTP delivery.
+- **Failure Handling**: Failed messages are rejected into a dead-letter queue for inspection.
 
 
 ## 5. Core Workflows
@@ -122,7 +133,8 @@ Adapters that handle protocol-specific logic and resilience patterns for 3rd-par
     - Subscriber record created (if new).
     - Repository record created with the `latest_tag` (if new).
     - Pending Subscription created with a random 32-character token.
-4. **Notify**: Confirmation email sent via the Notifier.
+4. **Publish**: The core service publishes a `SubscriptionConfirmationRequested` event to RabbitMQ.
+5. **Notify**: The notification worker consumes the event and sends a confirmation email.
 
 ### 5.2 Notification Flow (Scanner)
 1. **Wake**: Scanner ticker triggers every `X` minutes.
@@ -130,10 +142,12 @@ Adapters that handle protocol-specific logic and resilience patterns for 3rd-par
     - Fetches all repositories with active subscribers.
     - Queries GitHub API for each repository's latest release.
     - Compares `latest_tag` with database `last_seen_tag`.
-3. **Update & Notify**:
-    - If a delta is found, update `last_seen_tag` in the DB.
-    - Fetch all active subscribers for that repo.
-    - Send release alerts via the Notifier.
+3. **Plan & Publish**:
+    - If a delta is found, fetch all active subscribers for that repo.
+    - Publish one `ReleaseNotificationRequested` job per subscriber.
+    - Update `last_seen_tag` after notification jobs have been published.
+4. **Notify**:
+    - The notification worker consumes the jobs and sends release alerts through SMTP.
 
 ## 6. Observability
 - **Logging**: Structured JSON logging (via `slog`) for easy ingestion into ELK/Loki.

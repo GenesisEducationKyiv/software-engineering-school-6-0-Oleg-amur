@@ -3,12 +3,12 @@
 package grpc_test
 
 import (
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/contracts/events"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func (s *GRPCSuite) receiveSubscriptionEvent() model.SubscriptionEvent {
+func (s *GRPCSuite) receiveSubscriptionEvent() events.SubscriptionConfirmationRequested {
 	s.T().Helper()
 
 	select {
@@ -18,7 +18,7 @@ func (s *GRPCSuite) receiveSubscriptionEvent() model.SubscriptionEvent {
 		s.T().Fatal("want subscription event to be queued")
 	}
 
-	return model.SubscriptionEvent{}
+	return events.SubscriptionConfirmationRequested{}
 }
 
 func (s *GRPCSuite) receiveSubscriptionToken() string {

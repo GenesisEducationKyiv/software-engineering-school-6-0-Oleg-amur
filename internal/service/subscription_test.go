@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/contracts/events"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
@@ -23,6 +24,7 @@ func TestSubscriptionService_Subscribe(t *testing.T) {
 		repository    *model.Repository
 		repositoryErr error
 		createErr     error
+		publishErr    error
 		wantErr       error
 	}{
 		{
@@ -52,24 +54,34 @@ func TestSubscriptionService_Subscribe(t *testing.T) {
 			subscriber: &model.Subscriber{ID: 1},
 			repository: &model.Repository{ID: 1},
 		},
+		{
+			name:       "returns publish error after successful subscription",
+			req:        model.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
+			subscriber: &model.Subscriber{ID: 1},
+			repository: &model.Repository{ID: 1},
+			publishErr: errors.New("broker down"),
+			wantErr:    errors.New("broker down"),
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			events := make(chan model.SubscriptionEvent, 10)
+			publisher := &mockNotificationPublisher{confirmationErr: tt.publishErr}
 			svc := NewSubscriptionService(
 				testLogger(),
 				&mockSubscriberService{subscriber: tt.subscriber, err: tt.subscriberErr},
 				&mockRepositoryService{repository: tt.repository, err: tt.repositoryErr},
 				&mockSubscriptionRepo{createErr: tt.createErr},
-				events,
+				publisher,
 			)
 
 			err := svc.Subscribe(context.Background(), tt.req)
 
-			assertErrorIs(t, err, tt.wantErr)
 			if tt.wantErr == nil {
-				assertSubscriptionEvent(t, events, tt.req.Email)
+				assertErrorIs(t, err, nil)
+				assertSubscriptionEvent(t, publisher, tt.req.Email)
+			} else if err == nil {
+				t.Fatalf("got nil error, want %v", tt.wantErr)
 			}
 		})
 	}
@@ -101,7 +113,7 @@ func TestSubscriptionService_Confirm(t *testing.T) {
 				&mockSubscriberService{},
 				&mockRepositoryService{},
 				&mockSubscriptionRepo{activateErr: tt.activateErr},
-				make(chan model.SubscriptionEvent, 10),
+				&mockNotificationPublisher{},
 			)
 
 			err := svc.Confirm(context.Background(), tt.token)
@@ -137,7 +149,7 @@ func TestSubscriptionService_Unsubscribe(t *testing.T) {
 				&mockSubscriberService{},
 				&mockRepositoryService{},
 				&mockSubscriptionRepo{deleteErr: tt.deleteErr},
-				make(chan model.SubscriptionEvent, 10),
+				&mockNotificationPublisher{},
 			)
 
 			err := svc.Unsubscribe(context.Background(), tt.token)
@@ -200,7 +212,7 @@ func TestSubscriptionService_GetSubscriptions(t *testing.T) {
 					getActiveByEmailSubs: tt.subs,
 					getActiveByEmailErr:  tt.repoErr,
 				},
-				make(chan model.SubscriptionEvent, 10),
+				&mockNotificationPublisher{},
 			)
 
 			subs, err := svc.GetSubscriptions(context.Background(), tt.email)
@@ -221,19 +233,21 @@ func assertErrorIs(t *testing.T, got error, want error) {
 	}
 }
 
-func assertSubscriptionEvent(t *testing.T, events <-chan model.SubscriptionEvent, wantEmail string) {
+func assertSubscriptionEvent(t *testing.T, publisher *mockNotificationPublisher, wantEmail string) {
 	t.Helper()
 
-	select {
-	case event := <-events:
-		if event.Email != wantEmail {
-			t.Errorf("got subscription event email %q, want %q", event.Email, wantEmail)
-		}
-		if event.Token == "" {
-			t.Error("want subscription event token to be set")
-		}
-	default:
-		t.Fatal("want subscription event to be queued")
+	if len(publisher.confirmations) != 1 {
+		t.Fatalf("got %d subscription events, want 1", len(publisher.confirmations))
+	}
+	event := publisher.confirmations[0]
+	if event.Email != wantEmail {
+		t.Errorf("got subscription event email %q, want %q", event.Email, wantEmail)
+	}
+	if event.Token == "" {
+		t.Error("want subscription event token to be set")
+	}
+	if event.EventID == "" {
+		t.Error("want subscription event id to be set")
 	}
 }
 
@@ -257,6 +271,29 @@ type mockRepositoryService struct {
 
 func (f *mockRepositoryService) GetOrCreate(ctx context.Context, repoName string) (*model.Repository, error) {
 	return f.repository, f.err
+}
+
+type mockNotificationPublisher struct {
+	confirmations   []events.SubscriptionConfirmationRequested
+	releases        []events.ReleaseNotificationRequested
+	confirmationErr error
+	releaseErr      error
+}
+
+func (f *mockNotificationPublisher) PublishSubscriptionConfirmation(
+	ctx context.Context,
+	event events.SubscriptionConfirmationRequested,
+) error {
+	f.confirmations = append(f.confirmations, event)
+	return f.confirmationErr
+}
+
+func (f *mockNotificationPublisher) PublishReleaseNotification(
+	ctx context.Context,
+	event events.ReleaseNotificationRequested,
+) error {
+	f.releases = append(f.releases, event)
+	return f.releaseErr
 }
 
 type mockSubscriptionRepo struct {

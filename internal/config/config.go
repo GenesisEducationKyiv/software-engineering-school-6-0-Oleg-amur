@@ -9,6 +9,7 @@ type Config struct {
 	Server       Server       `yaml:"server"`
 	Scanner      Scanner      `yaml:"scanner"`
 	Notifier     Notifier     `yaml:"notifier"`
+	EventBus     EventBus     `yaml:"eventBus"`
 	GithubClient GithubClient `yaml:"github"`
 }
 
@@ -31,6 +32,13 @@ type Notifier struct {
 	SMTPPort  string `yaml:"smtpPort"  env:"SMTP_PORT"`
 	FromEmail string `yaml:"fromEmail" env:"FROM_EMAIL"`
 	BaseUrl   string `yaml:"baseUrl"   env:"BASE_URL"`
+}
+
+type EventBus struct {
+	URL                  string `yaml:"url"                  env:"EVENT_BUS_URL"                  env-default:"amqp://guest:guest@localhost:5672/"`
+	NotificationExchange string `yaml:"notificationExchange" env:"NOTIFICATION_EXCHANGE"         env-default:"notifications"`
+	NotificationQueue    string `yaml:"notificationQueue"    env:"NOTIFICATION_QUEUE"            env-default:"notification-worker"`
+	NotificationDLQ      string `yaml:"notificationDLQ"      env:"NOTIFICATION_DEAD_LETTER_QUEUE" env-default:"notification-worker.dlq"`
 }
 
 type GithubClient struct {

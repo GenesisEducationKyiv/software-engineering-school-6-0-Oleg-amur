@@ -26,11 +26,24 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   release-notifier:
     build: .
     image: release-notifier:latest
     depends_on:
       postgresql:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -44,10 +57,27 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       FROM_EMAIL: ${FROM_EMAIL}
       BASE_URL: ${BASE_URL}
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: ${SCAN_INTERVAL}
       GITHUB_TIMEOUT: ${GITHUB_TIMEOUT}
       GITHUB_URL: ${GITHUB_URL}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
+
+  notification-worker:
+    build: .
+    image: release-notifier:latest
+    command: ["./notification-worker"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      FROM_EMAIL: ${FROM_EMAIL}
+      BASE_URL: ${BASE_URL}
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
 
 # Observability profile
   elasticsearch:

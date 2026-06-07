@@ -14,7 +14,7 @@ type Scanner struct {
 	log            *slog.Logger
 	repoRepository RepositoryRepo
 	githubClient   GithubClient
-	releasesChan   chan<- model.ReleaseEvent
+	releaseHandler ReleaseDetectedHandler
 }
 
 type RepositoryRepo interface {
@@ -26,17 +26,21 @@ type GithubClient interface {
 	GetRepositoryLatestTag(ctx context.Context, repoAddr string) (string, error)
 }
 
+type ReleaseDetectedHandler interface {
+	HandleReleaseDetected(ctx context.Context, event model.ReleaseEvent) error
+}
+
 func NewScanner(
 	log *slog.Logger,
 	repo RepositoryRepo,
 	gh GithubClient,
-	releasesChan chan<- model.ReleaseEvent,
+	releaseHandler ReleaseDetectedHandler,
 ) *Scanner {
 	return &Scanner{
 		log:            log,
 		repoRepository: repo,
 		githubClient:   gh,
-		releasesChan:   releasesChan,
+		releaseHandler: releaseHandler,
 	}
 }
 
@@ -73,14 +77,17 @@ func (s *Scanner) processRepo(ctx context.Context, repo model.Repository) error 
 
 	s.log.Info("new release found", "repo", repo.Name, "old", repo.LastSeenTag, "new", latestTag)
 
-	if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
-		return fmt.Errorf("failed to update tag: %w", err)
-	}
-
-	s.releasesChan <- model.ReleaseEvent{
+	event := model.ReleaseEvent{
 		RepoID:   repo.ID,
 		RepoName: repo.Name,
 		Tag:      latestTag,
+	}
+	if err := s.releaseHandler.HandleReleaseDetected(ctx, event); err != nil {
+		return fmt.Errorf("failed to handle release notification: %w", err)
+	}
+
+	if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
+		return fmt.Errorf("failed to update tag: %w", err)
 	}
 
 	return nil

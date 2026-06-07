@@ -52,17 +52,16 @@ func TestScanner_Scan(t *testing.T) {
 				tags: tt.githubTags,
 			}
 
-			releasesChan := make(chan model.ReleaseEvent, 10)
+			handler := &mockReleaseDetectedHandler{}
 
-			scanner := NewScanner(testLogger(), repoRepo, ghClient, releasesChan)
+			scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
 			scanner.Scan(context.Background())
-			close(releasesChan)
 
 			assertUpdatesLen(t, repoRepo, tt.wantUpdates)
 			if tt.wantUpdates > 0 {
 				assertUpdatedTag(t, repoRepo, tt.wantTag)
 			}
-			assertReleaseEvents(t, releasesChan, tt.wantEvents, tt.wantTag)
+			assertReleaseEvents(t, handler.events, tt.wantEvents, tt.wantTag)
 		})
 	}
 }
@@ -74,14 +73,14 @@ func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
 	ghClient := &mockGithubClient{
 		tags: map[string]string{},
 	}
-	releasesChan := make(chan model.ReleaseEvent, 10)
+	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, releasesChan)
+	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)
-	if len(releasesChan) != 0 {
-		t.Errorf("got %d release events, want 0", len(releasesChan))
+	if len(handler.events) != 0 {
+		t.Errorf("got %d release events, want 0", len(handler.events))
 	}
 }
 
@@ -100,14 +99,14 @@ func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 			"owner/rate-limited": apperr.ErrRateLimitExceeded,
 		},
 	}
-	releasesChan := make(chan model.ReleaseEvent, 10)
+	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, releasesChan)
+	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)
-	if len(releasesChan) != 0 {
-		t.Errorf("got %d release events, want 0", len(releasesChan))
+	if len(handler.events) != 0 {
+		t.Errorf("got %d release events, want 0", len(handler.events))
 	}
 }
 
@@ -126,21 +125,21 @@ func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 			"owner/fails": errors.New("github down"),
 		},
 	}
-	releasesChan := make(chan model.ReleaseEvent, 10)
+	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, releasesChan)
+	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 1)
 	if repoRepo.updateArgs[0].id != 2 {
 		t.Errorf("got updated repo id %d, want 2", repoRepo.updateArgs[0].id)
 	}
-	if len(releasesChan) != 1 {
-		t.Errorf("got %d release events, want 1", len(releasesChan))
+	if len(handler.events) != 1 {
+		t.Errorf("got %d release events, want 1", len(handler.events))
 	}
 }
 
-func TestScanner_Scan_UpdateErrorDoesNotEmitEvent(t *testing.T) {
+func TestScanner_Scan_UpdateErrorKeepsPublishedEvent(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
 		repos: []model.Repository{
 			{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
@@ -152,14 +151,36 @@ func TestScanner_Scan_UpdateErrorDoesNotEmitEvent(t *testing.T) {
 			"owner/repo": "v2.0.0",
 		},
 	}
-	releasesChan := make(chan model.ReleaseEvent, 10)
+	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, releasesChan)
+	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 1)
-	if len(releasesChan) != 0 {
-		t.Errorf("got %d release events after update error, want 0", len(releasesChan))
+	if len(handler.events) != 1 {
+		t.Errorf("got %d release events after update error, want 1", len(handler.events))
+	}
+}
+
+func TestScanner_Scan_ReleaseHandlerErrorDoesNotUpdateTag(t *testing.T) {
+	repoRepo := &mockRepositoryRepo{
+		repos: []model.Repository{
+			{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
+		},
+	}
+	ghClient := &mockGithubClient{
+		tags: map[string]string{
+			"owner/repo": "v2.0.0",
+		},
+	}
+	handler := &mockReleaseDetectedHandler{err: errors.New("broker down")}
+
+	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
+	scanner.Scan(context.Background())
+
+	assertUpdatesLen(t, repoRepo, 0)
+	if len(handler.events) != 1 {
+		t.Errorf("got %d release events, want 1", len(handler.events))
 	}
 }
 
@@ -179,19 +200,17 @@ func assertUpdatedTag(t *testing.T, repo *mockRepositoryRepo, want string) {
 	}
 }
 
-func assertReleaseEvents(t *testing.T, events <-chan model.ReleaseEvent, wantCount int, wantTag string) {
+func assertReleaseEvents(t *testing.T, events []model.ReleaseEvent, wantCount int, wantTag string) {
 	t.Helper()
 
-	var gotCount int
-	for event := range events {
-		gotCount++
+	for _, event := range events {
 		if wantTag != "" && event.Tag != wantTag {
 			t.Errorf("got event tag %q, want %q", event.Tag, wantTag)
 		}
 	}
 
-	if gotCount != wantCount {
-		t.Errorf("got %d events, want %d", gotCount, wantCount)
+	if len(events) != wantCount {
+		t.Errorf("got %d events, want %d", len(events), wantCount)
 	}
 }
 
@@ -239,4 +258,14 @@ func (f *mockGithubClient) GetRepositoryLatestTag(
 		return "", err
 	}
 	return f.tags[repoAddr], nil
+}
+
+type mockReleaseDetectedHandler struct {
+	events []model.ReleaseEvent
+	err    error
+}
+
+func (f *mockReleaseDetectedHandler) HandleReleaseDetected(ctx context.Context, event model.ReleaseEvent) error {
+	f.events = append(f.events, event)
+	return f.err
 }

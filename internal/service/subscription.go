@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/contracts/events"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 	"github.com/google/uuid"
 )
@@ -31,7 +32,11 @@ type SubscriptionService struct {
 	subscriberService subscriberService
 	repositoryService repositoryService
 	subscriptionRepo  SubscriptionRepo
-	subsChan          chan<- model.SubscriptionEvent
+	events            notificationPublisher
+}
+
+type notificationPublisher interface {
+	PublishSubscriptionConfirmation(ctx context.Context, event events.SubscriptionConfirmationRequested) error
 }
 
 func NewSubscriptionService(
@@ -39,14 +44,14 @@ func NewSubscriptionService(
 	sub subscriberService,
 	repo repositoryService,
 	subscription SubscriptionRepo,
-	subsChan chan<- model.SubscriptionEvent,
+	events notificationPublisher,
 ) *SubscriptionService {
 	return &SubscriptionService{
 		log:               log,
 		subscriberService: sub,
 		repositoryService: repo,
 		subscriptionRepo:  subscription,
-		subsChan:          subsChan,
+		events:            events,
 	}
 }
 
@@ -70,10 +75,14 @@ func (s *SubscriptionService) Subscribe(ctx context.Context, req model.Subscribe
 		return fmt.Errorf("subscription error: %w", err)
 	}
 
-	select {
-	case s.subsChan <- model.SubscriptionEvent{Email: req.Email, Token: token}:
-	default:
-		s.log.Error("failed to enqueue subscription event, channel full", "email", req.Email)
+	event := events.SubscriptionConfirmationRequested{
+		EventID: uuid.New().String(),
+		Email:   req.Email,
+		Token:   token,
+	}
+	if err := s.events.PublishSubscriptionConfirmation(ctx, event); err != nil {
+		s.log.Error("failed to publish subscription confirmation event", "email", req.Email, "err", err)
+		return fmt.Errorf("publish subscription confirmation event: %w", err)
 	}
 
 	return nil

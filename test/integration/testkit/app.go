@@ -13,7 +13,8 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http"
 	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/client/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/contracts/events"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/eventbus/inmemory"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,7 @@ type App struct {
 	Logger      *slog.Logger
 	HTTPHandler http.Handler
 	GRPCHandler pb.ReleaseNotifierServer
-	Events      chan model.SubscriptionEvent
+	Events      chan events.SubscriptionConfirmationRequested
 }
 
 func NewApp(t testing.TB, cfg AppConfig) *App {
@@ -51,13 +52,15 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 
 	subscriberService := service.NewSubscriberService(cfg.Logger, subscriberRepo)
 	repositoryService := service.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
-	subscriptionEvents := make(chan model.SubscriptionEvent, 10)
+	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
+	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
+	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
 	subscriptionService := service.NewSubscriptionService(
 		cfg.Logger,
 		subscriberService,
 		repositoryService,
 		subscriptionRepo,
-		subscriptionEvents,
+		eventPublisher,
 	)
 
 	return &App{

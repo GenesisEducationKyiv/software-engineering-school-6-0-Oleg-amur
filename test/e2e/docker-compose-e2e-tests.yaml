@@ -23,6 +23,14 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
   fake-github:
     build:
       context: ../..
@@ -45,6 +53,7 @@ services:
       SMTP_PORT: 1025
       FROM_EMAIL: no-reply@test.com
       BASE_URL: http://release-notifier:8080
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: 2s
       GITHUB_TIMEOUT: 10s
       GITHUB_URL: http://fake-github:8081
@@ -56,13 +65,29 @@ services:
         condition: service_healthy
       fake-github:
         condition: service_healthy
-      mailpit:
-        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
       interval: 2s
       timeout: 5s
       retries: 20
+
+  notification-worker:
+    build:
+      context: ../..
+    command: ["./notification-worker"]
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      FROM_EMAIL: no-reply@test.com
+      BASE_URL: http://release-notifier:8080
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      mailpit:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   playwright:
     image: mcr.microsoft.com/playwright:v1.59.1-noble
