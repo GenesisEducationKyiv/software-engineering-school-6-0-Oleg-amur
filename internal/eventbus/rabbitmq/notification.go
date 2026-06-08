@@ -162,7 +162,8 @@ func NewNotificationConsumer(log *slog.Logger, cfg Config) (*Consumer, error) {
 func (c *Consumer) Subscribe(ctx context.Context, handler interface {
 	HandleSubscriptionConfirmationRequested(context.Context, events.SubscriptionConfirmationRequested) error
 	HandleReleaseNotificationRequested(context.Context, events.ReleaseNotificationRequested) error
-}) error {
+},
+) error {
 	deliveries, err := c.ch.Consume(
 		c.cfg.Queue,
 		"",
@@ -194,9 +195,18 @@ func (c *Consumer) Subscribe(ctx context.Context, handler interface {
 func (c *Consumer) handleDelivery(ctx context.Context, handler interface {
 	HandleSubscriptionConfirmationRequested(context.Context, events.SubscriptionConfirmationRequested) error
 	HandleReleaseNotificationRequested(context.Context, events.ReleaseNotificationRequested) error
-}, delivery amqp.Delivery) {
+}, delivery amqp.Delivery,
+) {
 	if err := c.dispatch(ctx, handler, delivery); err != nil {
-		c.log.Error("notification event failed", "type", delivery.RoutingKey, "message_id", delivery.MessageId, "error", err)
+		c.log.Error(
+			"notification event failed",
+			"type",
+			delivery.RoutingKey,
+			"message_id",
+			delivery.MessageId,
+			"error",
+			err,
+		)
 		if nackErr := delivery.Nack(false, false); nackErr != nil {
 			c.log.Error("failed to nack notification event", "message_id", delivery.MessageId, "error", nackErr)
 		}
@@ -211,7 +221,8 @@ func (c *Consumer) handleDelivery(ctx context.Context, handler interface {
 func (c *Consumer) dispatch(ctx context.Context, handler interface {
 	HandleSubscriptionConfirmationRequested(context.Context, events.SubscriptionConfirmationRequested) error
 	HandleReleaseNotificationRequested(context.Context, events.ReleaseNotificationRequested) error
-}, delivery amqp.Delivery) error {
+}, delivery amqp.Delivery,
+) error {
 	switch delivery.RoutingKey {
 	case events.SubscriptionConfirmationRequestedType:
 		var event events.SubscriptionConfirmationRequested

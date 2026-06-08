@@ -23,7 +23,6 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected(t *testing.T) {
 		RepoName: "owner/repo",
 		Tag:      "v1.2.3",
 	})
-
 	if err != nil {
 		t.Fatalf("got error %v, want nil", err)
 	}

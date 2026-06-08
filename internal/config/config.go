@@ -36,8 +36,8 @@ type Notifier struct {
 
 type EventBus struct {
 	URL                  string `yaml:"url"                  env:"EVENT_BUS_URL"                  env-default:"amqp://guest:guest@localhost:5672/"`
-	NotificationExchange string `yaml:"notificationExchange" env:"NOTIFICATION_EXCHANGE"         env-default:"notifications"`
-	NotificationQueue    string `yaml:"notificationQueue"    env:"NOTIFICATION_QUEUE"            env-default:"notification-worker"`
+	NotificationExchange string `yaml:"notificationExchange" env:"NOTIFICATION_EXCHANGE"          env-default:"notifications"`
+	NotificationQueue    string `yaml:"notificationQueue"    env:"NOTIFICATION_QUEUE"             env-default:"notification-worker"`
 	NotificationDLQ      string `yaml:"notificationDLQ"      env:"NOTIFICATION_DEAD_LETTER_QUEUE" env-default:"notification-worker.dlq"`
 }
 
