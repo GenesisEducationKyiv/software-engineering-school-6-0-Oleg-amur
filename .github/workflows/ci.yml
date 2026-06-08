@@ -23,25 +23,29 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.1
-          args: ./shared/contracts/...
+          working-directory: shared/contracts
+          args: --config=../../.golangci.yml ./...
 
       - name: lint release notifier
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.1
-          args: ./services/release-notifier/...
+          working-directory: services/release-notifier
+          args: --config=../../.golangci.yml ./...
 
       - name: lint notification worker
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.1
-          args: ./services/notification-worker/...
+          working-directory: services/notification-worker
+          args: --config=../../.golangci.yml ./...
 
       - name: lint e2e fake github
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.1
-          args: ./test/e2e/fakes/github/...
+          working-directory: test/e2e/fakes/github
+          args: --config=../../../../.golangci.yml ./...
 
   unit-tests:
     runs-on: ubuntu-latest
