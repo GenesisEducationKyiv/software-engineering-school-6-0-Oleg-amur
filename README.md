@@ -131,22 +131,14 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 ## Project Structure
 
 ```text
-├── api/               # API definitions (Swagger/Proto)
-├── cmd/               # Service entry points
-├── configs/           # Configuration files
-├── internal/          # Private application code
-│   ├── api/           # Transport layers (HTTP/gRPC)
-│   ├── apperr/        # Domain errors
-│   ├── config/        # Configuration loading
-│   ├── database/      # DB initialization and migrations
-│   ├── client/        # External clients integration 
-│   ├── model/         # Domain entities
-│   ├── repository/    # Database persistence
-│   ├── scanner/       # Release monitoring logic
-│   └── service/       # Business logic layer
-├── migrations/        # SQL migration files
-├── observability/     # Prometheus, Grafana, Filebeat, Elasticsearch, and Kibana assets
-└── docs/              # System design, C4 diagrams, and ADRs
+├── shared/
+│   └── contracts/             # Shared event contracts module
+├── services/
+│   ├── release-notifier/      # Main API/scanner service module
+│   └── notification-worker/   # RabbitMQ consumer and SMTP delivery module
+├── docs/                      # System design, C4 diagrams, and ADRs
+├── test/e2e/                  # Whole-system Playwright tests
+└── docker-compose.yaml        # Local runtime stack
 ```
 
 ## Release Detection Logic
@@ -154,7 +146,7 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 The service maintains a `last_seen_tag` for every tracked repository:
 1. It fetches all active repositories from the database.
 2. For each, it queries the GitHub API for the latest release.
-3. If a new version is detected (different from `last_seen_tag`), it triggers email notifications to all confirmed subscribers of that repository.
+3. If a new version is detected (different from `last_seen_tag`), it publishes notification jobs to RabbitMQ for all confirmed subscribers of that repository.
 4. If rate limits are hit, the scanner gracefully skips the current cycle to wait for the window reset.
 
 ## Technical Considerations

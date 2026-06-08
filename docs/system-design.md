@@ -40,6 +40,8 @@
 
 The system follows a modular service architecture. The core service owns subscriptions, repository tracking, API endpoints, and release scanning. A separate notification worker owns email delivery. The services communicate through an event bus port implemented by RabbitMQ.
 
+The production codebase mirrors those boundaries with three Go modules: `shared/contracts`, `services/release-notifier`, and `services/notification-worker`. Packages under each service's `internal/` directory are private to that service. The root e2e fake GitHub service is a separate test-only module.
+
 ### 3.1 C4 Diagrams
 
 #### Level 1: System Context Diagram
@@ -59,7 +61,7 @@ Shows the shows the high-level shape of the software architecture and how respon
 > The diagram above is an "Editable PNG". To modify it, download the file and drag it into [drawio](https://drawio.com/).
 
 #### Level 3: Component Diagram
-Shows the internal structure of the Go monolith and its interactions.
+Shows the internal structure of the Go workspace and its interactions.
 
 ![Container Diagram](diagrams/component.drawio.png)
 

@@ -38,7 +38,9 @@ services:
       retries: 12
 
   release-notifier:
-    build: .
+    build:
+      context: .
+      dockerfile: services/release-notifier/Dockerfile
     image: release-notifier:latest
     depends_on:
       postgresql:
@@ -53,10 +55,6 @@ services:
       SERVER_PORT: ${SERVER_PORT}
       GRPC_PORT: ${GRPC_PORT}
       DATABASE_URL: ${DATABASE_URL}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      FROM_EMAIL: ${FROM_EMAIL}
-      BASE_URL: ${BASE_URL}
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: ${SCAN_INTERVAL}
       GITHUB_TIMEOUT: ${GITHUB_TIMEOUT}
@@ -64,9 +62,11 @@ services:
       GITHUB_TOKEN: ${GITHUB_TOKEN}
 
   notification-worker:
-    build: .
-    image: release-notifier:latest
-    command: ["./notification-worker"]
+    build:
+      context: .
+      dockerfile: services/notification-worker/Dockerfile
+    image: notification-worker:latest
+    restart: unless-stopped
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -78,6 +78,11 @@ services:
       FROM_EMAIL: ${FROM_EMAIL}
       BASE_URL: ${BASE_URL}
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+    healthcheck:
+      test: ["CMD-SHELL", "pidof notification-worker"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
 # Observability profile
   elasticsearch:
@@ -119,8 +124,8 @@ services:
       KIBANA_URL: http://kibana:5601
     command: ["/usr/local/bin/init-kibana.sh"]
     volumes:
-      - ./observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
-      - ./observability/kibana/release-notifier-logs.ndjson:/usr/local/share/kibana/release-notifier-logs.ndjson:ro
+      - ./services/release-notifier/observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
+      - ./services/release-notifier/observability/kibana/release-notifier-logs.ndjson:/usr/local/share/kibana/release-notifier-logs.ndjson:ro
 
   filebeat:
     image: elastic/filebeat:8.15.3
@@ -131,9 +136,11 @@ services:
         condition: service_healthy
       release-notifier:
         condition: service_started
+      notification-worker:
+        condition: service_healthy
     command: ["--strict.perms=false"]
     volumes:
-      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./services/release-notifier/observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
@@ -147,7 +154,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
     volumes:
-      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/release-notifier/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
@@ -163,8 +170,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_DEFAULT_THEME: light
     volumes:
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./services/release-notifier/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./services/release-notifier/observability/grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
       - "3000:3000"

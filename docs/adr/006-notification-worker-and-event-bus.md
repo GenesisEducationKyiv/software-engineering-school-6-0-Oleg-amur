@@ -38,8 +38,9 @@ The core application depends on `NotificationPublisher`, not on RabbitMQ. Rabbit
 A future Kafka adapter can implement the same application-facing port without changing subscription, scanner, or notification delivery logic.
 
 The notification module is split into:
-- `release-notifier`: HTTP/gRPC API, subscription management, repository scanning, and notification planning.
-- `notification-worker`: RabbitMQ consumer and SMTP email delivery.
+- `services/release-notifier`: HTTP/gRPC API, subscription management, repository scanning, and notification planning.
+- `services/notification-worker`: RabbitMQ consumer and SMTP email delivery.
+- `shared/contracts`: shared event payloads and event type constants used by both services.
 
 Release notifications are planned in the core service, not in the worker. The worker receives one ready-to-send notification job per recipient and does not read the subscription database.
 
