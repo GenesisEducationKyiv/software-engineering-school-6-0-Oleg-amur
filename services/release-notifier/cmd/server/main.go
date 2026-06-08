@@ -84,7 +84,7 @@ func runApp(log *slog.Logger) error {
 	repositoryRepo := postgresql.NewRepositoryRepository(db)
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
-	notificationPublisher, err := rabbitmq.NewNotificationPublisher(rabbitMQConfig(cfg.EventBus))
+	notificationPublisher, err := rabbitmq.NewNotificationPublisher(cfg.EventBus.RabbitMQConfig())
 	if err != nil {
 		return err
 	}
@@ -170,15 +170,6 @@ func runApp(log *slog.Logger) error {
 	log.Info("graceful shutdown complete")
 
 	return nil
-}
-
-func rabbitMQConfig(cfg config.EventBus) rabbitmq.Config {
-	return rabbitmq.Config{
-		URL:      cfg.URL,
-		Exchange: cfg.NotificationExchange,
-		Queue:    cfg.NotificationQueue,
-		DLQ:      cfg.NotificationDLQ,
-	}
 }
 
 func setupGithubClient(cfg config.GithubClient, log *slog.Logger) (*github.Client, error) {

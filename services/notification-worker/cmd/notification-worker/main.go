@@ -39,7 +39,7 @@ func runWorker(log *slog.Logger) error {
 	msgBuilder := email.NewSimpleMessageBuilder(cfg.Notifier.BaseUrl)
 	notificationService := service.NewNotificationService(log, emailClient, msgBuilder)
 
-	consumer, err := rabbitmq.NewNotificationConsumer(log, rabbitMQConfig(cfg.EventBus))
+	consumer, err := rabbitmq.NewNotificationConsumer(log, cfg.EventBus.RabbitMQConfig())
 	if err != nil {
 		return err
 	}
@@ -50,13 +50,4 @@ func runWorker(log *slog.Logger) error {
 	}()
 
 	return consumer.Subscribe(ctx, notificationService)
-}
-
-func rabbitMQConfig(cfg config.EventBus) rabbitmq.Config {
-	return rabbitmq.Config{
-		URL:      cfg.URL,
-		Exchange: cfg.NotificationExchange,
-		Queue:    cfg.NotificationQueue,
-		DLQ:      cfg.NotificationDLQ,
-	}
 }

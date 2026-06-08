@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/eventbus/rabbitmq"
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
@@ -31,6 +32,15 @@ type EventBus struct {
 	NotificationExchange string `yaml:"notificationExchange" env:"NOTIFICATION_EXCHANGE"          env-default:"notifications"`
 	NotificationQueue    string `yaml:"notificationQueue"    env:"NOTIFICATION_QUEUE"             env-default:"notification-worker"`
 	NotificationDLQ      string `yaml:"notificationDLQ"      env:"NOTIFICATION_DEAD_LETTER_QUEUE" env-default:"notification-worker.dlq"`
+}
+
+func (cfg EventBus) RabbitMQConfig() rabbitmq.Config {
+	return rabbitmq.Config{
+		URL:      cfg.URL,
+		Exchange: cfg.NotificationExchange,
+		Queue:    cfg.NotificationQueue,
+		DLQ:      cfg.NotificationDLQ,
+	}
 }
 
 type GithubClient struct {
