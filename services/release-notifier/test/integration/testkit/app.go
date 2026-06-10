@@ -3,22 +3,45 @@
 package testkit
 
 import (
+	"context"
 	"database/sql"
 	"io"
 	"log/slog"
 	"net/http"
 	"testing"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/inmemory"
+	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
-	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/client/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/eventbus/inmemory"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/repository/postgresql"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/service"
+	releasewatchservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/services"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+	subscriptionservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/services"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/stretchr/testify/require"
 )
+
+type repositoryTracker struct {
+	service *releasewatchservices.RepositoryService
+}
+
+func (t repositoryTracker) EnsureTracked(
+	ctx context.Context,
+	repoName string,
+) (*subscriptionmodels.TrackedRepositoryRef, error) {
+	repo, err := t.service.EnsureTracked(ctx, repoName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &subscriptionmodels.TrackedRepositoryRef{
+		ID:          repo.ID,
+		Name:        repo.Name,
+		LastSeenTag: repo.LastSeenTag,
+	}, nil
+}
 
 type AppConfig struct {
 	DB        *sql.DB
@@ -50,15 +73,15 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	subscriptionRepo := postgresql.NewSubscriptionRepository(cfg.DB)
 	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
 
-	subscriberService := service.NewSubscriberService(cfg.Logger, subscriberRepo)
-	repositoryService := service.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
+	subscriberService := subscriptionservices.NewSubscriberService(cfg.Logger, subscriberRepo)
+	releasewatchService := releasewatchservices.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
-	subscriptionService := service.NewSubscriptionService(
+	subscriptionService := subscriptionservices.NewSubscriptionService(
 		cfg.Logger,
 		subscriberService,
-		repositoryService,
+		repositoryTracker{service: releasewatchService},
 		subscriptionRepo,
 		eventPublisher,
 	)

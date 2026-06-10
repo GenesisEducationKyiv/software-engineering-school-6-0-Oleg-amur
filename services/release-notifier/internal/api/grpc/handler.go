@@ -7,16 +7,16 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/model"
+	subscriptiondto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/dto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type SubscriptionService interface {
-	Subscribe(context.Context, model.SubscribeRequest) error
+	Subscribe(context.Context, subscriptiondto.SubscribeRequest) error
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
-	GetSubscriptions(context.Context, string) ([]model.SubscriptionDTO, error)
+	GetSubscriptions(context.Context, string) ([]subscriptiondto.SubscriptionDTO, error)
 }
 
 type GrpcHandler struct {
@@ -36,7 +36,7 @@ func (h *GrpcHandler) Subscribe(
 	ctx context.Context,
 	req *pb.SubscribeRequest,
 ) (*pb.SubscribeResponse, error) {
-	subReq := model.SubscribeRequest{
+	subReq := subscriptiondto.SubscribeRequest{
 		Email: req.GetEmail(),
 		Repo:  req.GetRepo(),
 	}

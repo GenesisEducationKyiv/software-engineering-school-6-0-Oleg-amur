@@ -9,14 +9,14 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/model"
+	subscriptiondto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/dto"
 )
 
 type SubscriptionService interface {
-	Subscribe(context.Context, model.SubscribeRequest) error
+	Subscribe(context.Context, subscriptiondto.SubscribeRequest) error
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
-	GetSubscriptions(context.Context, string) ([]model.SubscriptionDTO, error)
+	GetSubscriptions(context.Context, string) ([]subscriptiondto.SubscriptionDTO, error)
 }
 
 type Handler struct {
@@ -43,7 +43,7 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subReq := model.SubscribeRequest{
+	subReq := subscriptiondto.SubscribeRequest{
 		Email: req.Email,
 		Repo:  req.Repo,
 	}

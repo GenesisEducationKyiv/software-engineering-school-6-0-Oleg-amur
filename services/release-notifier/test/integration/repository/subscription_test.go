@@ -4,7 +4,7 @@ package repository_test
 
 import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/model"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
 )
 
 func (s *RepositorySuite) TestSubscriptionRepository_CreateRejectsDuplicateSubscriberRepository() {
@@ -28,7 +28,7 @@ func (s *RepositorySuite) TestSubscriptionRepository_GetByTokenReturnsJoinedData
 	s.Require().NotNil(got.Repository, "subscription repository")
 	s.Equal(subscription.repository.Name, got.Repository.Name)
 	s.Equal(subscription.repository.LastSeenTag, got.Repository.LastSeenTag)
-	s.Equal(model.StatusPending, got.SubscriptionStatus)
+	s.Equal(subscriptionmodels.StatusPending, got.SubscriptionStatus)
 }
 
 func (s *RepositorySuite) TestSubscriptionRepository_GetByTokenReturnsNotFound() {
@@ -70,11 +70,11 @@ func (s *RepositorySuite) TestSubscriptionRepository_GetActiveByRepoIDReturnsOnl
 	err = s.subscriptionRepo.Activate(s.ctx, activeSubscription.token)
 	s.Require().NoError(err, "activate subscription")
 
-	active, err := s.subscriptionRepo.GetActiveByRepoID(s.ctx, activeSubscription.repository.ID)
+	active, err := s.subscriptionRepo.GetActiveRecipientsByRepoID(s.ctx, activeSubscription.repository.ID)
 	s.Require().NoError(err, "get active subscriptions by repository id")
 	s.Require().Len(active, 1, "active subscriptions by repository id")
-	s.Equal(activeSubscription.subscriber.Email, active[0].Subscriber.Email)
-	s.NotEqual(pendingSubscriber.Email, active[0].Subscriber.Email)
+	s.Equal(activeSubscription.subscriber.Email, active[0].Email)
+	s.NotEqual(pendingSubscriber.Email, active[0].Email)
 }
 
 func (s *RepositorySuite) TestSubscriptionRepository_DeleteByTokenRemovesSubscription() {

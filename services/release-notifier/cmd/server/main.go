@@ -13,17 +13,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/rabbitmq"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/client/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/database"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/eventbus/rabbitmq"
+	releasewatchservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/services"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+	subscriptionservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/services"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/observability"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/repository/postgresql"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/scanner"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/service"
 	"google.golang.org/grpc"
 )
 
@@ -31,6 +32,26 @@ const (
 	configPath             = "configs/config.yaml"
 	errorChannelBufferSize = 2
 )
+
+type repositoryTracker struct {
+	service *releasewatchservices.RepositoryService
+}
+
+func (t repositoryTracker) EnsureTracked(
+	ctx context.Context,
+	repoName string,
+) (*subscriptionmodels.TrackedRepositoryRef, error) {
+	repo, err := t.service.EnsureTracked(ctx, repoName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &subscriptionmodels.TrackedRepositoryRef{
+		ID:          repo.ID,
+		Name:        repo.Name,
+		LastSeenTag: repo.LastSeenTag,
+	}, nil
+}
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "release-notifier")
@@ -99,34 +120,34 @@ func runApp(log *slog.Logger) error {
 		}
 	}()
 
-	subscriberService := service.NewSubscriberService(
+	subscriberService := subscriptionservices.NewSubscriberService(
 		log,
 		subscriberRepo,
 	)
 
-	repositoryService := service.NewRepositoryService(
+	releasewatchService := releasewatchservices.NewRepositoryService(
 		log,
 		repositoryRepo,
 		githubClient,
 	)
 
-	subscriptionSvc := service.NewSubscriptionService(
+	subscriptionSvc := subscriptionservices.NewSubscriptionService(
 		log,
 		subscriberService,
-		repositoryService,
+		repositoryTracker{service: releasewatchService},
 		subscriptionRepo,
 		notificationPublisher,
 	)
 
-	releaseNotificationPlanner := service.NewReleaseNotificationPlanner(log, subscriptionRepo, notificationPublisher)
-	releaseScanner := scanner.NewScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
+	releaseNotificationPlanner := releasewatchservices.NewReleaseNotificationPlanner(log, subscriptionRepo, notificationPublisher)
+	releaseScanner := releasewatchservices.NewScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
 
 	scanInterval, err := time.ParseDuration(cfg.Scanner.Interval)
 	if err != nil {
 		log.Error("failed to parse scanner interval", "val", cfg.Scanner.Interval, "err", err)
 		scanInterval = time.Hour
 	}
-	scheduler := scanner.NewScheduler(log, releaseScanner, scanInterval)
+	scheduler := releasewatchservices.NewScheduler(log, releaseScanner, scanInterval)
 	go scheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")

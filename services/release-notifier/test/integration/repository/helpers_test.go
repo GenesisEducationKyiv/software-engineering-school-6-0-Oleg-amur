@@ -2,11 +2,14 @@
 
 package repository_test
 
-import "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/model"
+import (
+	releasewatchmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+)
 
 type createdSubscription struct {
-	subscriber *model.Subscriber
-	repository *model.Repository
+	subscriber *subscriptionmodels.Subscriber
+	repository *releasewatchmodels.TrackedRepository
 	token      string
 }
 
