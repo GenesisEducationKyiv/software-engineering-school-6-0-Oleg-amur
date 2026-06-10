@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
 )
@@ -20,8 +19,12 @@ const (
 	apiVersionValue = "2026-03-10"
 )
 
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 type Client struct {
-	httpClient *http.Client
+	httpClient HTTPClient
 	baseUrl    string
 	apiToken   string
 	log        *slog.Logger
@@ -31,9 +34,9 @@ type ReleaseResponse struct {
 	TagName string `json:"tag_name"`
 }
 
-func NewClient(url string, token string, timeout time.Duration, log *slog.Logger) *Client {
+func NewClient(httpClient HTTPClient, url string, token string, log *slog.Logger) *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: timeout},
+		httpClient: httpClient,
 		baseUrl:    url,
 		apiToken:   token,
 		log:        log,

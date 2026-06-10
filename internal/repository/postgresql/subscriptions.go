@@ -6,14 +6,14 @@ import (
 	"errors"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type SubscriptionRepository struct {
-	db *sql.DB
+	db Queryable
 }
 
-func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepository {
+func NewSubscriptionRepository(db Queryable) *SubscriptionRepository {
 	return &SubscriptionRepository{db: db}
 }
 
@@ -27,7 +27,7 @@ func (r *SubscriptionRepository) Create(
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (subscriber_id, repository_id) DO NOTHING`
 
-	res, err := r.db.ExecContext(ctx, query, subID, repoID, models.StatusPending, token)
+	res, err := r.db.ExecContext(ctx, query, subID, repoID, model.StatusPending, token)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (r *SubscriptionRepository) Create(
 func (r *SubscriptionRepository) GetByToken(
 	ctx context.Context,
 	token string,
-) (*models.Subscription, error) {
+) (*model.Subscription, error) {
 	query := `
 		SELECT s.id, s.subscriber_id, s.repository_id, s.subscription_status, s.token, s.created_at, sub.email, repo.name, repo.last_seen_tag
 		FROM subscriptions s
@@ -54,15 +54,18 @@ func (r *SubscriptionRepository) GetByToken(
 		JOIN repositories repo ON s.repository_id = repo.id
 		WHERE s.token = $1`
 
-	var s models.Subscription
-	s.Subscriber = &models.Subscriber{}
-	s.Repository = &models.Repository{}
+	var s model.Subscription
+	s.Subscriber = &model.Subscriber{}
+	s.Repository = &model.Repository{}
 
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
 		&s.ID, &s.SubscriberID, &s.RepositoryID, &s.SubscriptionStatus, &s.Token, &s.CreatedAt,
 		&s.Subscriber.Email, &s.Repository.Name, &s.Repository.LastSeenTag,
 	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperr.ErrNotFound
+		}
 		return nil, err
 	}
 	return &s, nil
@@ -70,13 +73,16 @@ func (r *SubscriptionRepository) GetByToken(
 
 func (r *SubscriptionRepository) Activate(ctx context.Context, token string) error {
 	query := `UPDATE subscriptions SET subscription_status = $1 WHERE token = $2`
-	result, err := r.db.ExecContext(ctx, query, models.StatusActive, token)
+	result, err := r.db.ExecContext(ctx, query, model.StatusActive, token)
 	if err != nil {
 		return err
 	}
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
 	if rows == 0 {
-		return sql.ErrNoRows
+		return apperr.ErrNotFound
 	}
 	return nil
 }
@@ -90,7 +96,7 @@ func (r *SubscriptionRepository) DeleteByToken(ctx context.Context, token string
 func (r *SubscriptionRepository) GetActiveByEmail(
 	ctx context.Context,
 	email string,
-) ([]models.Subscription, error) {
+) ([]model.Subscription, error) {
 	query := `
 		SELECT s.id, s.token, s.subscription_status, sub.email, repo.name, repo.last_seen_tag
 		FROM subscriptions s
@@ -98,7 +104,7 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 		JOIN repositories repo ON s.repository_id = repo.id
 		WHERE sub.email = $1 AND s.subscription_status = $2`
 
-	rows, err := r.db.QueryContext(ctx, query, email, models.StatusActive)
+	rows, err := r.db.QueryContext(ctx, query, email, model.StatusActive)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +113,11 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 		err = errors.Join(err, clErr)
 	}()
 
-	var subs []models.Subscription
+	var subs []model.Subscription
 	for rows.Next() {
-		var s models.Subscription
-		s.Subscriber = &models.Subscriber{}
-		s.Repository = &models.Repository{}
+		var s model.Subscription
+		s.Subscriber = &model.Subscriber{}
+		s.Repository = &model.Repository{}
 
 		err := rows.Scan(
 			&s.ID,
@@ -136,14 +142,14 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 func (r *SubscriptionRepository) GetActiveByRepoID(
 	ctx context.Context,
 	repoID int,
-) ([]models.Subscription, error) {
+) ([]model.Subscription, error) {
 	query := `
 		SELECT s.id, s.token, s.subscription_status, sub.email
 		FROM subscriptions s
 		JOIN subscribers sub ON s.subscriber_id = sub.id
 		WHERE s.repository_id = $1 AND s.subscription_status = $2`
 
-	rows, err := r.db.QueryContext(ctx, query, repoID, models.StatusActive)
+	rows, err := r.db.QueryContext(ctx, query, repoID, model.StatusActive)
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +158,10 @@ func (r *SubscriptionRepository) GetActiveByRepoID(
 		err = errors.Join(err, clErr)
 	}()
 
-	var subs []models.Subscription
+	var subs []model.Subscription
 	for rows.Next() {
-		var s models.Subscription
-		s.Subscriber = &models.Subscriber{}
+		var s model.Subscription
+		s.Subscriber = &model.Subscriber{}
 
 		if err := rows.Scan(
 			&s.ID,

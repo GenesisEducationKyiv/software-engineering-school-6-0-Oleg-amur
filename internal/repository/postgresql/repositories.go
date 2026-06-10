@@ -6,14 +6,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type RepositoryRepository struct {
-	db *sql.DB
+	db Queryable
 }
 
-func NewRepositoryRepository(db *sql.DB) *RepositoryRepository {
+func NewRepositoryRepository(db Queryable) *RepositoryRepository {
 	return &RepositoryRepository{db: db}
 }
 
@@ -21,13 +22,13 @@ func (r *RepositoryRepository) Create(
 	ctx context.Context,
 	name string,
 	lastSeenTag string,
-) (*models.Repository, error) {
+) (*model.Repository, error) {
 	query := `
 		INSERT INTO repositories (name, last_seen_tag) 
 		VALUES ($1, $2) 
 		RETURNING id, name, last_seen_tag, created_at`
 
-	var repo models.Repository
+	var repo model.Repository
 	err := r.db.QueryRowContext(ctx, query, name, lastSeenTag).
 		Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
 	if err != nil {
@@ -39,12 +40,15 @@ func (r *RepositoryRepository) Create(
 func (r *RepositoryRepository) GetByName(
 	ctx context.Context,
 	name string,
-) (*models.Repository, error) {
+) (*model.Repository, error) {
 	query := `SELECT id, name, last_seen_tag, created_at FROM repositories WHERE name = $1`
-	var repo models.Repository
+	var repo model.Repository
 	err := r.db.QueryRowContext(ctx, query, name).
 		Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperr.ErrNotFound
+		}
 		return nil, err
 	}
 	return &repo, nil
@@ -56,7 +60,7 @@ func (r *RepositoryRepository) UpdateTag(ctx context.Context, id int, tag string
 	return err
 }
 
-func (r *RepositoryRepository) GetAll(ctx context.Context) ([]models.Repository, error) {
+func (r *RepositoryRepository) GetAll(ctx context.Context) ([]model.Repository, error) {
 	query := `SELECT id, name, last_seen_tag, created_at FROM repositories`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -67,9 +71,9 @@ func (r *RepositoryRepository) GetAll(ctx context.Context) ([]models.Repository,
 		err = errors.Join(err, clErr)
 	}()
 
-	var repos []models.Repository
+	var repos []model.Repository
 	for rows.Next() {
-		var repo models.Repository
+		var repo model.Repository
 		if err := rows.Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt); err != nil {
 			return nil, err
 		}

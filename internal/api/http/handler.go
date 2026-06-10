@@ -1,24 +1,30 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
+
+type SubscriptionService interface {
+	Subscribe(context.Context, model.SubscribeRequest) error
+	Confirm(context.Context, string) error
+	Unsubscribe(context.Context, string) error
+	GetSubscriptions(context.Context, string) ([]model.SubscriptionDTO, error)
+}
 
 type Handler struct {
 	log     *slog.Logger
-	service *service.SubscriptionService
+	service SubscriptionService
 }
 
-func NewHandler(log *slog.Logger, svc *service.SubscriptionService) *Handler {
+func NewHandler(log *slog.Logger, svc SubscriptionService) *Handler {
 	return &Handler{
 		log:     log,
 		service: svc,
@@ -37,10 +43,17 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Subscribe(r.Context(), models.SubscribeRequest{
+	subReq := model.SubscribeRequest{
 		Email: req.Email,
 		Repo:  req.Repo,
-	})
+	}
+
+	if err := subReq.Validate(); err != nil {
+		h.sendError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err := h.service.Subscribe(r.Context(), subReq)
 	if err != nil {
 		if errors.Is(err, apperr.ErrInvalidFormat) {
 			h.sendError(w, err.Error(), http.StatusBadRequest)
@@ -72,7 +85,7 @@ func (h *Handler) Confirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := strings.TrimPrefix(r.URL.Path, "/api/confirm/")
+	token := r.PathValue("token")
 	if token == "" {
 		h.sendError(w, "Missing token", http.StatusBadRequest)
 		return
@@ -97,7 +110,8 @@ func (h *Handler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	token := strings.TrimPrefix(r.URL.Path, "/api/unsubscribe/")
+
+	token := r.PathValue("token")
 	if token == "" {
 		h.sendError(w, "Missing token", http.StatusBadRequest)
 		return

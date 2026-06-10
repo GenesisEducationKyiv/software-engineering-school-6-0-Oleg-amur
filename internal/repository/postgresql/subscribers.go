@@ -3,29 +3,31 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type SubscriberRepository struct {
-	db *sql.DB
+	db Queryable
 }
 
-func NewSubscriberRepository(db *sql.DB) *SubscriberRepository {
+func NewSubscriberRepository(db Queryable) *SubscriberRepository {
 	return &SubscriberRepository{db: db}
 }
 
 func (r *SubscriberRepository) Create(
 	ctx context.Context,
 	email string,
-) (*models.Subscriber, error) {
+) (*model.Subscriber, error) {
 	query := `
 		INSERT INTO subscribers (email) 
 		VALUES ($1) 
 		RETURNING id, email, created_at`
 
-	var s models.Subscriber
+	var s model.Subscriber
 	err := r.db.QueryRowContext(ctx, query, email).Scan(&s.ID, &s.Email, &s.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subscriber: %w", err)
@@ -36,11 +38,14 @@ func (r *SubscriberRepository) Create(
 func (r *SubscriberRepository) GetByEmail(
 	ctx context.Context,
 	email string,
-) (*models.Subscriber, error) {
+) (*model.Subscriber, error) {
 	query := `SELECT id, email, created_at FROM subscribers WHERE email = $1`
-	var s models.Subscriber
+	var s model.Subscriber
 	err := r.db.QueryRowContext(ctx, query, email).Scan(&s.ID, &s.Email, &s.CreatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperr.ErrNotFound
+		}
 		return nil, err
 	}
 	return &s, nil

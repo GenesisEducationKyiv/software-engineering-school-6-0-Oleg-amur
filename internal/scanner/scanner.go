@@ -5,32 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
 
 type Scanner struct {
-	log              *slog.Logger
-	repoRepository   RepositoryRepo
-	subscriptionRepo SubscriptionRepo
-	githubClient     GithubClient
-	notifier         Notifier
-	interval         time.Duration
+	log            *slog.Logger
+	repoRepository RepositoryRepo
+	githubClient   GithubClient
+	releasesChan   chan<- model.ReleaseEvent
 }
 
 type RepositoryRepo interface {
-	GetAll(ctx context.Context) ([]models.Repository, error)
+	GetAll(ctx context.Context) ([]model.Repository, error)
 	UpdateTag(ctx context.Context, id int, tag string) error
-}
-
-type SubscriptionRepo interface {
-	GetActiveByRepoID(ctx context.Context, repoID int) ([]models.Subscription, error)
-}
-
-type Notifier interface {
-	SendReleaseNotification(ctx context.Context, email, repo, tag string) error
 }
 
 type GithubClient interface {
@@ -40,36 +29,14 @@ type GithubClient interface {
 func NewScanner(
 	log *slog.Logger,
 	repo RepositoryRepo,
-	subscription SubscriptionRepo,
 	gh GithubClient,
-	notifier Notifier,
-	interval time.Duration,
+	releasesChan chan<- model.ReleaseEvent,
 ) *Scanner {
 	return &Scanner{
-		log:              log,
-		repoRepository:   repo,
-		subscriptionRepo: subscription,
-		githubClient:     gh,
-		notifier:         notifier,
-		interval:         interval,
-	}
-}
-
-func (s *Scanner) Start(ctx context.Context) {
-	s.log.Info("background scanner started", "interval", s.interval)
-	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop()
-
-	s.Scan(ctx)
-
-	for {
-		select {
-		case <-ctx.Done():
-			s.log.Info("background scanner stopping")
-			return
-		case <-ticker.C:
-			s.Scan(ctx)
-		}
+		log:            log,
+		repoRepository: repo,
+		githubClient:   gh,
+		releasesChan:   releasesChan,
 	}
 }
 
@@ -83,50 +50,44 @@ func (s *Scanner) Scan(ctx context.Context) {
 	}
 
 	for _, repo := range repos {
-		stopScan, err := s.processRepo(ctx, repo)
+		err := s.processRepo(ctx, repo)
 		if err != nil {
+			if errors.Is(err, apperr.ErrRateLimitExceeded) {
+				s.log.Warn("rate limit reached, stopping scan", "error", err)
+				break
+			}
 			s.log.Error("failed to process repository", "repo", repo.Name, "err", err)
-		}
-		if stopScan {
-			break
 		}
 	}
 }
 
-func (s *Scanner) processRepo(ctx context.Context, repo models.Repository) (bool, error) {
+func (s *Scanner) processRepo(ctx context.Context, repo model.Repository) error {
 	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name)
 	if err != nil {
-		if errors.Is(err, apperr.ErrRateLimitExceeded) {
-			s.log.Warn("rate limit reached", "error", err)
-			return true, nil
-		}
-		return false, err
+		return err
 	}
 
 	if latestTag == "" || repo.LastSeenTag == latestTag {
-		return false, nil
+		return nil
 	}
 
 	s.log.Info("new release found", "repo", repo.Name, "old", repo.LastSeenTag, "new", latestTag)
 
 	if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
-		return false, fmt.Errorf("failed to update tag: %w", err)
+		return fmt.Errorf("failed to update tag: %w", err)
 	}
 
-	subs, err := s.subscriptionRepo.GetActiveByRepoID(ctx, repo.ID)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch subscribers: %w", err)
+	event := model.ReleaseEvent{
+		RepoID:   repo.ID,
+		RepoName: repo.Name,
+		Tag:      latestTag,
 	}
 
-	s.notifySubscribers(ctx, repo.Name, latestTag, subs)
-	return false, nil
-}
-
-func (s *Scanner) notifySubscribers(ctx context.Context, repo, tag string, subs []models.Subscription) {
-	for _, sub := range subs {
-		s.log.Info("sending notification", "email", sub.Subscriber.Email, "repo", repo, "tag", tag)
-		if err := s.notifier.SendReleaseNotification(ctx, sub.Subscriber.Email, repo, tag); err != nil {
-			s.log.Error("failed to send notification", "email", sub.Subscriber.Email, "err", err)
-		}
+	select {
+	case s.releasesChan <- event:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+
+	return nil
 }

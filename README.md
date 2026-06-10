@@ -42,7 +42,7 @@ Key configuration options:
 - `DATABASE_URL`: PostgreSQL connection string.
 - `SCAN_INTERVAL`: How often to check for new releases (e.g., `1m`, `1h`).
 - `GITHUB_TOKEN`: GitHub Personal Access Token (optional, but recommended to avoid rate limits).
-- `SMTP_HOST`/`SMTP_PORT`: Email server configuration.
+- `SMTP_HOST`/`SMTP_PORT`/`SMTP_TIMEOUT`: Email server configuration.
 
 ### Running with Docker Compose
 
@@ -103,9 +103,8 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 │   ├── apperr/        # Domain errors
 │   ├── config/        # Configuration loading
 │   ├── database/      # DB initialization and migrations
-│   ├── github/        # GitHub API client
-│   ├── models/        # Domain entities
-│   ├── notifier/      # Email notification logic
+│   ├── client/        # External clients integration 
+│   ├── model/         # Domain entities
 │   ├── repository/    # Database persistence
 │   ├── scanner/       # Release monitoring logic
 │   └── service/       # Business logic layer

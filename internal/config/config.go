@@ -27,10 +27,11 @@ type Scanner struct {
 }
 
 type Notifier struct {
-	SMTPHost        string `yaml:"smtpHost"        env:"SMTP_HOST"`
-	SMTPPort        string `yaml:"smtpPort"        env:"SMTP_PORT"`
-	FromEmail       string `yaml:"fromEmail"       env:"FROM_EMAIL"`
-	ConfirmationUrl string `yaml:"confirmationUrl" env:"CONFIRMATION_URL"`
+	SMTPHost  string `yaml:"smtpHost"  env:"SMTP_HOST"`
+	SMTPPort  string `yaml:"smtpPort"  env:"SMTP_PORT"`
+	FromEmail string `yaml:"fromEmail" env:"FROM_EMAIL"`
+	BaseUrl   string `yaml:"baseUrl"   env:"BASE_URL"`
+	Timeout   string `yaml:"timeout"   env:"SMTP_TIMEOUT" env-default:"10s"`
 }
 
 type GithubClient struct {
