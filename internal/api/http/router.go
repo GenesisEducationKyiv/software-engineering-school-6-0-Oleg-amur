@@ -35,12 +35,3 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 
 	http.ServeFileFS(w, r, webstatic.Files, "index.html")
 }
-
-func serveIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	http.ServeFileFS(w, r, webstatic.Files, "index.html")
-}
