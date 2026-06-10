@@ -81,7 +81,10 @@ func runApp(log *slog.Logger) error {
 	repositoryRepo := postgresql.NewRepositoryRepository(db)
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
-	emailClient := email.NewClient(cfg.Notifier.SMTPHost, cfg.Notifier.SMTPPort, cfg.Notifier.FromEmail)
+	emailClient, err := setupEmailClient(cfg.Notifier)
+	if err != nil {
+		return err
+	}
 	msgBuilder := email.NewSimpleMessageBuilder(cfg.Notifier.BaseUrl)
 
 	subscriberService := service.NewSubscriberService(
@@ -175,6 +178,18 @@ func setupGithubClient(cfg config.GithubClient, log *slog.Logger) (*github.Clien
 	httpClient := &http.Client{Timeout: timeout}
 
 	return github.NewClient(httpClient, cfg.Url, cfg.ApiToken, log), nil
+}
+
+func setupEmailClient(cfg config.Notifier) (*email.Client, error) {
+	timeout, err := time.ParseDuration(cfg.Timeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse smtp timeout: %w", err)
+	}
+	if timeout <= 0 {
+		return nil, fmt.Errorf("smtp timeout must be positive")
+	}
+
+	return email.NewClient(cfg.SMTPHost, cfg.SMTPPort, cfg.FromEmail, timeout), nil
 }
 
 func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {

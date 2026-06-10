@@ -77,10 +77,16 @@ func (s *Scanner) processRepo(ctx context.Context, repo model.Repository) error 
 		return fmt.Errorf("failed to update tag: %w", err)
 	}
 
-	s.releasesChan <- model.ReleaseEvent{
+	event := model.ReleaseEvent{
 		RepoID:   repo.ID,
 		RepoName: repo.Name,
 		Tag:      latestTag,
+	}
+
+	select {
+	case s.releasesChan <- event:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
 	return nil
