@@ -6,8 +6,8 @@ COPY shared/contracts ./shared/contracts
 COPY services/notification-worker ./services/notification-worker
 
 WORKDIR /workspace/services/notification-worker
-RUN GOWORK=off go mod download
-RUN GOWORK=off go build -o /app/notification-worker ./cmd/notification-worker
+RUN go mod download
+RUN go build -o /app/notification-worker ./cmd/notification-worker
 
 FROM alpine:latest
 COPY --from=builder /app/notification-worker .

@@ -6,8 +6,8 @@ COPY shared/contracts ./shared/contracts
 COPY services/release-notifier ./services/release-notifier
 
 WORKDIR /workspace/services/release-notifier
-RUN GOWORK=off go mod download
-RUN GOWORK=off go build -o /app/server ./cmd/server
+RUN go mod download
+RUN go build -o /app/server ./cmd/server
 
 FROM alpine:latest
 COPY --from=builder /app/server .
