@@ -11,6 +11,7 @@ notifier:
   smtpPort: "1025"
   fromEmail: "noreply@release-notifier.com"
   baseUrl: "http://localhost:8080"
+  timeout: "10s"
 github:
   url: "https://api.github.com"
   apiToken: ""

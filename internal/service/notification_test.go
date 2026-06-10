@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
 )
@@ -128,6 +129,41 @@ func TestNotificationService_ProcessSubscriptionEvent(t *testing.T) {
 	}
 	if sender.sentEmails[0].subject != "Confirm Subject" {
 		t.Errorf("got confirmation subject %q, want %q", sender.sentEmails[0].subject, "Confirm Subject")
+	}
+}
+
+func TestNotificationService_StartAndStop(t *testing.T) {
+	repo := &mockNotificationSubRepo{
+		subs: []model.Subscription{
+			{Subscriber: &model.Subscriber{Email: "user@example.com"}, Token: "token"},
+		},
+	}
+	sender := &mockEmailSender{}
+	builder := &mockMessageBuilder{}
+	svc := NewNotificationService(testLogger(), repo, sender, builder)
+
+	eventsChan := make(chan model.ReleaseEvent)
+	subsChan := make(chan model.SubscriptionEvent)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svc.Start(ctx, eventsChan, subsChan)
+	}()
+
+	eventsChan <- model.ReleaseEvent{
+		RepoID:   1,
+		RepoName: "owner/test",
+		Tag:      "v1",
+	}
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("notification service did not stop")
 	}
 }
 
