@@ -1,9 +1,6 @@
 package config
 
-import (
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/eventbus/rabbitmq"
-	"github.com/ilyakaznacheev/cleanenv"
-)
+import "github.com/ilyakaznacheev/cleanenv"
 
 type Config struct {
 	Database     Database     `yaml:"database"`
@@ -28,19 +25,10 @@ type Scanner struct {
 }
 
 type EventBus struct {
-	URL                  string `yaml:"url"                  env:"EVENT_BUS_URL"                  env-default:"amqp://guest:guest@localhost:5672/"`
-	NotificationExchange string `yaml:"notificationExchange" env:"NOTIFICATION_EXCHANGE"          env-default:"notifications"`
-	NotificationQueue    string `yaml:"notificationQueue"    env:"NOTIFICATION_QUEUE"             env-default:"notification-worker"`
-	NotificationDLQ      string `yaml:"notificationDLQ"      env:"NOTIFICATION_DEAD_LETTER_QUEUE" env-default:"notification-worker.dlq"`
-}
-
-func (cfg EventBus) RabbitMQConfig() rabbitmq.Config {
-	return rabbitmq.Config{
-		URL:      cfg.URL,
-		Exchange: cfg.NotificationExchange,
-		Queue:    cfg.NotificationQueue,
-		DLQ:      cfg.NotificationDLQ,
-	}
+	URL                  string `yaml:"url"                  env:"EVENT_BUS_URL"`
+	NotificationExchange string `yaml:"notificationExchange" env:"NOTIFICATION_EXCHANGE"`
+	NotificationQueue    string `yaml:"notificationQueue"    env:"NOTIFICATION_QUEUE"`
+	NotificationDLQ      string `yaml:"notificationDLQ"      env:"NOTIFICATION_DEAD_LETTER_QUEUE"`
 }
 
 type GithubClient struct {

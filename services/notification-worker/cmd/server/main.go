@@ -43,7 +43,12 @@ func runWorker(log *slog.Logger) error {
 	msgBuilder := email.NewSimpleMessageBuilder(cfg.Notifier.BaseUrl)
 	notificationService := service.NewNotificationService(log, emailClient, msgBuilder)
 
-	consumer, err := rabbitmq.NewNotificationConsumer(log, cfg.EventBus.RabbitMQConfig())
+	consumer, err := rabbitmq.NewNotificationConsumer(log, rabbitmq.Config{
+		URL:      cfg.EventBus.URL,
+		Exchange: cfg.EventBus.NotificationExchange,
+		Queue:    cfg.EventBus.NotificationQueue,
+		DLQ:      cfg.EventBus.NotificationDLQ,
+	})
 	if err != nil {
 		return err
 	}

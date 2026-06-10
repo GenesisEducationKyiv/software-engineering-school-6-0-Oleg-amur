@@ -84,7 +84,12 @@ func runApp(log *slog.Logger) error {
 	repositoryRepo := postgresql.NewRepositoryRepository(db)
 	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
 
-	notificationPublisher, err := rabbitmq.NewNotificationPublisher(cfg.EventBus.RabbitMQConfig())
+	notificationPublisher, err := rabbitmq.NewNotificationPublisher(rabbitmq.Config{
+		URL:      cfg.EventBus.URL,
+		Exchange: cfg.EventBus.NotificationExchange,
+		Queue:    cfg.EventBus.NotificationQueue,
+		DLQ:      cfg.EventBus.NotificationDLQ,
+	})
 	if err != nil {
 		return err
 	}
