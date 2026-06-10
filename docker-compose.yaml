@@ -75,6 +75,7 @@ services:
     environment:
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT}
       FROM_EMAIL: ${FROM_EMAIL}
       BASE_URL: ${BASE_URL}
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/

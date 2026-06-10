@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/client/email"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/config"
@@ -35,7 +36,10 @@ func runWorker(log *slog.Logger) error {
 		return fmt.Errorf("failed to load config from %s: %w", configPath, err)
 	}
 
-	emailClient := email.NewClient(cfg.Notifier.SMTPHost, cfg.Notifier.SMTPPort, cfg.Notifier.FromEmail)
+	emailClient, err := setupEmailClient(cfg.Notifier)
+	if err != nil {
+		return err
+	}
 	msgBuilder := email.NewSimpleMessageBuilder(cfg.Notifier.BaseUrl)
 	notificationService := service.NewNotificationService(log, emailClient, msgBuilder)
 
@@ -50,4 +54,16 @@ func runWorker(log *slog.Logger) error {
 	}()
 
 	return consumer.Subscribe(ctx, notificationService)
+}
+
+func setupEmailClient(cfg config.Notifier) (*email.Client, error) {
+	timeout, err := time.ParseDuration(cfg.Timeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse smtp timeout: %w", err)
+	}
+	if timeout <= 0 {
+		return nil, fmt.Errorf("smtp timeout must be positive")
+	}
+
+	return email.NewClient(cfg.SMTPHost, cfg.SMTPPort, cfg.FromEmail, timeout), nil
 }

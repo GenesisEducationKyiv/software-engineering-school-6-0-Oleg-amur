@@ -44,7 +44,7 @@ Key configuration options:
 - `DATABASE_URL`: PostgreSQL connection string.
 - `SCAN_INTERVAL`: How often to check for new releases (e.g., `1m`, `1h`).
 - `GITHUB_TOKEN`: GitHub Personal Access Token (optional, but recommended to avoid rate limits).
-- `SMTP_HOST`/`SMTP_PORT`: Email server configuration.
+- `SMTP_HOST`/`SMTP_PORT`/`SMTP_TIMEOUT`: Email server configuration.
 
 ### Running with Docker Compose
 
@@ -156,4 +156,4 @@ The service maintains a `last_seen_tag` for every tracked repository:
 
 ## Testing
 
-To read more about tests and how to run them go to [testing.md](testing.md)
+To read more about tests and how to run them go to [testing.md](docs/testing.md)
