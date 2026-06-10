@@ -7,7 +7,7 @@ COPY services/notification-worker ./services/notification-worker
 
 WORKDIR /workspace/services/notification-worker
 RUN go mod download
-RUN go build -o /app/notification-worker ./cmd/notification-worker
+RUN go build -o /app/notification-worker ./cmd/server
 
 FROM alpine:latest
 COPY --from=builder /app/notification-worker .
