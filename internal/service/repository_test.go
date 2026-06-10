@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/apperr"
@@ -12,112 +10,154 @@ import (
 )
 
 func TestRepositoryService_GetOrCreate(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	errRepository := errors.New("repository query error")
+	errCreate := errors.New("repository create error")
+	errGithub := errors.New("github error")
 
 	tests := []struct {
-		name          string
-		repoName      string
-		mockRepo      *model.Repository
-		getErr        error
-		ghExists      bool
-		ghCheckErr    error
-		ghTag         string
-		ghTagErr      error
-		createErr     error
-		expectedError error
+		name       string
+		repoName   string
+		repository *model.Repository
+		getErr     error
+		ghExists   bool
+		ghCheckErr error
+		ghTag      string
+		ghTagErr   error
+		createErr  error
+		wantErr    error
 	}{
 		{
-			name:     "Exists in DB",
+			name:       "returns repository when it already exists",
+			repoName:   "owner/repo",
+			repository: &model.Repository{ID: 1, Name: "owner/repo"},
+		},
+		{
+			name:     "returns wrapped repository error",
 			repoName: "owner/repo",
-			mockRepo: &model.Repository{ID: 1, Name: "owner/repo"},
-			getErr:   nil,
+			getErr:   errRepository,
+			wantErr:  errRepository,
 		},
 		{
-			name:          "GitHub rate limit",
-			repoName:      "owner/repo",
-			getErr:        apperr.ErrNotFound,
-			ghCheckErr:    apperr.ErrRateLimitExceeded,
-			expectedError: apperr.ErrRateLimitExceeded,
+			name:       "returns rate limit when GitHub existence check is rate limited",
+			repoName:   "owner/repo",
+			getErr:     apperr.ErrNotFound,
+			ghCheckErr: apperr.ErrRateLimitExceeded,
+			wantErr:    apperr.ErrRateLimitExceeded,
 		},
 		{
-			name:          "Not found on GitHub",
-			repoName:      "owner/repo",
-			getErr:        apperr.ErrNotFound,
-			ghExists:      false,
-			expectedError: apperr.ErrRepoNotFound,
+			name:     "returns repo not found when GitHub repository does not exist",
+			repoName: "owner/repo",
+			getErr:   apperr.ErrNotFound,
+			ghExists: false,
+			wantErr:  apperr.ErrRepoNotFound,
 		},
 		{
-			name:     "Success full sync",
+			name:       "returns wrapped GitHub check error",
+			repoName:   "owner/repo",
+			getErr:     apperr.ErrNotFound,
+			ghCheckErr: errGithub,
+			wantErr:    errGithub,
+		},
+		{
+			name:     "returns rate limit when GitHub latest tag is rate limited",
 			repoName: "owner/repo",
 			getErr:   apperr.ErrNotFound,
 			ghExists: true,
-			ghTag:    "v1.0.0",
-			mockRepo: &model.Repository{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
+			ghTagErr: apperr.ErrRateLimitExceeded,
+			wantErr:  apperr.ErrRateLimitExceeded,
+		},
+		{
+			name:       "creates repository when latest tag is unavailable because no release exists",
+			repoName:   "owner/repo",
+			getErr:     apperr.ErrNotFound,
+			ghExists:   true,
+			ghTagErr:   apperr.ErrRepoNotFound,
+			repository: &model.Repository{ID: 1, Name: "owner/repo"},
+		},
+		{
+			name:     "returns wrapped GitHub latest tag error",
+			repoName: "owner/repo",
+			getErr:   apperr.ErrNotFound,
+			ghExists: true,
+			ghTagErr: errGithub,
+			wantErr:  errGithub,
+		},
+		{
+			name:      "returns wrapped create error",
+			repoName:  "owner/repo",
+			getErr:    apperr.ErrNotFound,
+			ghExists:  true,
+			ghTag:     "v1.0.0",
+			createErr: errCreate,
+			wantErr:   errCreate,
+		},
+		{
+			name:       "creates repository with latest GitHub tag",
+			repoName:   "owner/repo",
+			getErr:     apperr.ErrNotFound,
+			ghExists:   true,
+			ghTag:      "v1.0.0",
+			repository: &model.Repository{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repoRepo := &mockRepositoryRepoForService{
-				repo:      tt.mockRepo,
-				getErr:    tt.getErr,
-				createErr: tt.createErr,
+			repositoryRepo := &mockRepositoryRepo{
+				repository: tt.repository,
+				getErr:     tt.getErr,
+				createErr:  tt.createErr,
 			}
-			ghClient := &mockGithubClientForService{
+			ghClient := &mockGithubClient{
 				exists:   tt.ghExists,
 				checkErr: tt.ghCheckErr,
 				tag:      tt.ghTag,
 				tagErr:   tt.ghTagErr,
 			}
-			s := NewRepositoryService(log, repoRepo, ghClient)
+			svc := NewRepositoryService(testLogger(), repositoryRepo, ghClient)
 
-			repo, err := s.GetOrCreate(context.Background(), tt.repoName)
+			repository, err := svc.GetOrCreate(context.Background(), tt.repoName)
 
-			if tt.expectedError != nil {
-				if err == nil || !errors.Is(err, tt.expectedError) {
-					t.Errorf("expected error %v, got %v", tt.expectedError, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if repo.Name != tt.repoName {
-					t.Errorf("expected name %s, got %s", tt.repoName, repo.Name)
-				}
+			assertErrorIs(t, err, tt.wantErr)
+			if tt.wantErr != nil {
+				return
+			}
+			if repository.Name != tt.repoName {
+				t.Errorf("got repository name %q, want %q", repository.Name, tt.repoName)
 			}
 		})
 	}
 }
 
-type mockRepositoryRepoForService struct {
-	repo      *model.Repository
-	getErr    error
-	createErr error
+type mockRepositoryRepo struct {
+	repository *model.Repository
+	getErr     error
+	createErr  error
 }
 
-func (m *mockRepositoryRepoForService) GetByName(ctx context.Context, name string) (*model.Repository, error) {
-	return m.repo, m.getErr
+func (f *mockRepositoryRepo) GetByName(ctx context.Context, name string) (*model.Repository, error) {
+	return f.repository, f.getErr
 }
 
-func (m *mockRepositoryRepoForService) Create(
+func (f *mockRepositoryRepo) Create(
 	ctx context.Context,
 	name string,
 	tag string,
 ) (*model.Repository, error) {
-	return m.repo, m.createErr
+	return f.repository, f.createErr
 }
 
-type mockGithubClientForService struct {
+type mockGithubClient struct {
 	exists   bool
 	checkErr error
 	tag      string
 	tagErr   error
 }
 
-func (m *mockGithubClientForService) CheckIfRepoExists(ctx context.Context, repo string) (bool, error) {
-	return m.exists, m.checkErr
+func (f *mockGithubClient) CheckIfRepoExists(ctx context.Context, repo string) (bool, error) {
+	return f.exists, f.checkErr
 }
 
-func (m *mockGithubClientForService) GetRepositoryLatestTag(ctx context.Context, repo string) (string, error) {
-	return m.tag, m.tagErr
+func (f *mockGithubClient) GetRepositoryLatestTag(ctx context.Context, repo string) (string, error) {
+	return f.tag, f.tagErr
 }
