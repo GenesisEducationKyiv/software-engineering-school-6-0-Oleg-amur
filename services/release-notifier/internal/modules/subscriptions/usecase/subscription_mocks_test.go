@@ -56,7 +56,10 @@ type mockRepositoryTracker struct {
 	err        error
 }
 
-func (f *mockRepositoryTracker) Execute(ctx context.Context, repoName string) (*releasetrackerdomain.Repository, error) {
+func (f *mockRepositoryTracker) Execute(
+	ctx context.Context,
+	repoName string,
+) (*releasetrackerdomain.Repository, error) {
 	return f.repository, f.err
 }
 
