@@ -36,6 +36,13 @@ func assertSubscriptionEvent(t *testing.T, publisher *mockNotificationPublisher,
 	if event.EventID == "" {
 		t.Error("want subscription event id to be set")
 	}
+	if event.SchemaVersion != events.NotificationSchemaVersion {
+		t.Errorf(
+			"got subscription event schema version %d, want %d",
+			event.SchemaVersion,
+			events.NotificationSchemaVersion,
+		)
+	}
 }
 
 func testLogger() *slog.Logger {

@@ -45,6 +45,13 @@ func TestPlanReleaseNotifications_Execute(t *testing.T) {
 	if publisher.releases[0].EventID == "" {
 		t.Error("want release notification event id to be set")
 	}
+	if publisher.releases[0].SchemaVersion != events.NotificationSchemaVersion {
+		t.Errorf(
+			"got schema version %d, want %d",
+			publisher.releases[0].SchemaVersion,
+			events.NotificationSchemaVersion,
+		)
+	}
 }
 
 func TestPlanReleaseNotifications_Execute_ReturnsRepositoryError(t *testing.T) {

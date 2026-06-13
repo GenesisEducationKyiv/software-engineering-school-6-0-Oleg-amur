@@ -23,8 +23,9 @@ func TestConsumerHandleDelivery_AcksHandledEvents(t *testing.T) {
 			name:       "subscription confirmation",
 			routingKey: events.SubscriptionConfirmationRequestedType,
 			body: mustMarshal(t, events.SubscriptionConfirmationRequested{
-				Email: "user@example.com",
-				Token: "confirm-token",
+				SchemaVersion: events.NotificationSchemaVersion,
+				Email:         "user@example.com",
+				Token:         "confirm-token",
 			}),
 			assert: func(t *testing.T, handler *mockNotificationHandler) {
 				t.Helper()
@@ -44,6 +45,7 @@ func TestConsumerHandleDelivery_AcksHandledEvents(t *testing.T) {
 			name:       "release notification",
 			routingKey: events.ReleaseNotificationRequestedType,
 			body: mustMarshal(t, events.ReleaseNotificationRequested{
+				SchemaVersion:    events.NotificationSchemaVersion,
 				Email:            "user@example.com",
 				Repo:             "owner/repo",
 				Tag:              "v1.0.0",
@@ -114,10 +116,20 @@ func TestConsumerHandleDelivery_NacksFailedEvents(t *testing.T) {
 			name:       "handler error",
 			routingKey: events.SubscriptionConfirmationRequestedType,
 			body: mustMarshal(t, events.SubscriptionConfirmationRequested{
-				Email: "user@example.com",
-				Token: "confirm-token",
+				SchemaVersion: events.NotificationSchemaVersion,
+				Email:         "user@example.com",
+				Token:         "confirm-token",
 			}),
 			handlerErr: handlerErr,
+		},
+		{
+			name:       "unsupported schema version",
+			routingKey: events.SubscriptionConfirmationRequestedType,
+			body: mustMarshal(t, events.SubscriptionConfirmationRequested{
+				SchemaVersion: events.NotificationSchemaVersion + 1,
+				Email:         "user@example.com",
+				Token:         "confirm-token",
+			}),
 		},
 	}
 

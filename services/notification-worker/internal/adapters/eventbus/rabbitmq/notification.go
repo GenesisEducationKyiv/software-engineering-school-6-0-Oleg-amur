@@ -71,12 +71,18 @@ func (c *Consumer) notificationConsumer(handler NotificationHandler) *sharedrabb
 		if err := json.Unmarshal(body, &event); err != nil {
 			return fmt.Errorf("decode subscription confirmation event: %w", err)
 		}
+		if err := events.ValidateNotificationSchemaVersion(event.SchemaVersion); err != nil {
+			return err
+		}
 		return handler.HandleSubscriptionConfirmationRequested(ctx, event)
 	})
 	consumer.Handle(events.ReleaseNotificationRequestedType, func(ctx context.Context, body []byte) error {
 		var event events.ReleaseNotificationRequested
 		if err := json.Unmarshal(body, &event); err != nil {
 			return fmt.Errorf("decode release notification event: %w", err)
+		}
+		if err := events.ValidateNotificationSchemaVersion(event.SchemaVersion); err != nil {
+			return err
 		}
 		return handler.HandleReleaseNotificationRequested(ctx, event)
 	})
