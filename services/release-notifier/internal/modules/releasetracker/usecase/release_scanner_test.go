@@ -54,7 +54,7 @@ func TestScanner_Scan(t *testing.T) {
 
 			handler := &mockReleaseDetectedHandler{}
 
-			scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
+			scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
 			scanner.Scan(context.Background())
 
 			assertUpdatesLen(t, repoRepo, tt.wantUpdates)
@@ -75,7 +75,7 @@ func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
+	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)
@@ -101,7 +101,7 @@ func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
+	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)
@@ -127,7 +127,7 @@ func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
+	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 1)
@@ -153,7 +153,7 @@ func TestScanner_Scan_UpdateErrorKeepsPublishedEvent(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
+	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 1)
@@ -175,7 +175,7 @@ func TestScanner_Scan_ReleaseHandlerErrorDoesNotUpdateTag(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{err: errors.New("broker down")}
 
-	scanner := NewScanner(testLogger(), repoRepo, ghClient, handler)
+	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
 	scanner.Scan(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)

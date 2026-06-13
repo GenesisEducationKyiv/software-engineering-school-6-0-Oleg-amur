@@ -21,6 +21,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/database"
 	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
 	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
+	releasetrackerworker "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/worker"
 	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
@@ -141,14 +142,14 @@ func runApp(log *slog.Logger) error {
 	)
 
 	releaseNotificationPlanner := releasetrackerusecase.NewReleaseNotificationPlanner(log, subscriptionRepo, notificationPublisher)
-	releaseScanner := releasetrackerusecase.NewScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
+	releaseScanner := releasetrackerusecase.NewReleaseScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
 
 	scanInterval, err := time.ParseDuration(cfg.Scanner.Interval)
 	if err != nil {
 		log.Error("failed to parse scanner interval", "val", cfg.Scanner.Interval, "err", err)
 		scanInterval = time.Hour
 	}
-	scheduler := releasetrackerusecase.NewScheduler(log, releaseScanner, scanInterval)
+	scheduler := releasetrackerworker.NewScheduler(log, releaseScanner, scanInterval)
 	go scheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")

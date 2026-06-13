@@ -23,20 +23,20 @@ type ReleaseDetectedHandler interface {
 	HandleReleaseDetected(ctx context.Context, event domain.ReleaseEvent) error
 }
 
-type Scanner struct {
+type ReleaseScanner struct {
 	log            *slog.Logger
 	repoRepository ScannerRepositoryStore
 	githubClient   ReleaseTagClient
 	releaseHandler ReleaseDetectedHandler
 }
 
-func NewScanner(
+func NewReleaseScanner(
 	log *slog.Logger,
 	repo ScannerRepositoryStore,
 	gh ReleaseTagClient,
 	releaseHandler ReleaseDetectedHandler,
-) *Scanner {
-	return &Scanner{
+) *ReleaseScanner {
+	return &ReleaseScanner{
 		log:            log,
 		repoRepository: repo,
 		githubClient:   gh,
@@ -44,7 +44,7 @@ func NewScanner(
 	}
 }
 
-func (s *Scanner) Scan(ctx context.Context) {
+func (s *ReleaseScanner) Scan(ctx context.Context) {
 	s.log.Debug("starting repository scan")
 
 	repos, err := s.repoRepository.GetAll(ctx)
@@ -65,7 +65,7 @@ func (s *Scanner) Scan(ctx context.Context) {
 	}
 }
 
-func (s *Scanner) processRepo(ctx context.Context, repo domain.Repository) error {
+func (s *ReleaseScanner) processRepo(ctx context.Context, repo domain.Repository) error {
 	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name)
 	if err != nil {
 		return err
