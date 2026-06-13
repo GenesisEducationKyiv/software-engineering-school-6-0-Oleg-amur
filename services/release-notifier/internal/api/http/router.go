@@ -10,7 +10,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func NewRouter(log *slog.Logger, usecases subscriptionhttp.SubscriptionUsecases, healthHandler http.Handler) http.Handler {
+func NewRouter(
+	log *slog.Logger,
+	usecases subscriptionhttp.SubscriptionUsecases,
+	healthHandler http.Handler,
+) http.Handler {
 	mux := http.NewServeMux()
 	h := subscriptionhttp.NewHandler(log, usecases)
 
