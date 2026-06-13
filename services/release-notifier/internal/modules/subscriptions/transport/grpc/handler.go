@@ -1,4 +1,4 @@
-package grpcapi
+package subscriptiongrpc
 
 import (
 	"context"
@@ -19,20 +19,20 @@ type SubscriptionService interface {
 	GetSubscriptions(context.Context, string) ([]subscriptiondto.SubscriptionDTO, error)
 }
 
-type GrpcHandler struct {
+type Handler struct {
 	pb.UnimplementedReleaseNotifierServer
 	log     *slog.Logger
 	service SubscriptionService
 }
 
-func NewGrpcHandler(log *slog.Logger, svc SubscriptionService) *GrpcHandler {
-	return &GrpcHandler{
+func NewHandler(log *slog.Logger, svc SubscriptionService) *Handler {
+	return &Handler{
 		log:     log,
 		service: svc,
 	}
 }
 
-func (h *GrpcHandler) Subscribe(
+func (h *Handler) Subscribe(
 	ctx context.Context,
 	req *pb.SubscribeRequest,
 ) (*pb.SubscribeResponse, error) {
@@ -66,7 +66,7 @@ func (h *GrpcHandler) Subscribe(
 	return &pb.SubscribeResponse{}, nil
 }
 
-func (h *GrpcHandler) Confirm(
+func (h *Handler) Confirm(
 	ctx context.Context,
 	req *pb.ConfirmRequest,
 ) (*pb.ConfirmResponse, error) {
@@ -82,7 +82,7 @@ func (h *GrpcHandler) Confirm(
 	return &pb.ConfirmResponse{}, nil
 }
 
-func (h *GrpcHandler) Unsubscribe(
+func (h *Handler) Unsubscribe(
 	ctx context.Context,
 	req *pb.UnsubscribeRequest,
 ) (*pb.UnsubscribeResponse, error) {
@@ -95,7 +95,7 @@ func (h *GrpcHandler) Unsubscribe(
 	return &pb.UnsubscribeResponse{}, nil
 }
 
-func (h *GrpcHandler) GetSubscriptions(
+func (h *Handler) GetSubscriptions(
 	ctx context.Context,
 	req *pb.GetSubscriptionsRequest,
 ) (*pb.GetSubscriptionsResponse, error) {

@@ -15,7 +15,6 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/rabbitmq"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
-	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/config"
@@ -24,6 +23,7 @@ import (
 	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
 	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
+	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/observability"
 	"google.golang.org/grpc"
@@ -156,7 +156,7 @@ func runApp(log *slog.Logger) error {
 	router := httpapi.NewRouter(log, subscriptionSvc, healthHandler)
 	httpServer := setupHttpServer(cfg.Server, router)
 
-	grpcHandler := grpcapi.NewGrpcHandler(log, subscriptionSvc)
+	grpcHandler := subscriptiongrpc.NewHandler(log, subscriptionSvc)
 	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcHandler, log)
 	if err != nil {
 		return err
@@ -221,7 +221,7 @@ func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {
 func setupGrpcServer(
 	ctx context.Context,
 	cfg config.Server,
-	handler *grpcapi.GrpcHandler,
+	handler *subscriptiongrpc.Handler,
 	log *slog.Logger,
 ) (*grpc.Server, net.Listener, error) {
 	grpcAddr := ":" + cfg.GrpcPort
