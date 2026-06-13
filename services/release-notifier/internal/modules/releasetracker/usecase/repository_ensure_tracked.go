@@ -20,25 +20,25 @@ type RepositoryMetadataClient interface {
 	CheckIfRepoExists(ctx context.Context, repoAddr string) (bool, error)
 }
 
-type RepositoryService struct {
+type EnsureRepositoryTracked struct {
 	log            *slog.Logger
 	repositoryRepo RepositoryStore
 	githubClient   RepositoryMetadataClient
 }
 
-func NewRepositoryService(
+func NewEnsureRepositoryTracked(
 	log *slog.Logger,
 	repo RepositoryStore,
 	githubClient RepositoryMetadataClient,
-) *RepositoryService {
-	return &RepositoryService{
+) *EnsureRepositoryTracked {
+	return &EnsureRepositoryTracked{
 		log:            log,
 		repositoryRepo: repo,
 		githubClient:   githubClient,
 	}
 }
 
-func (s *RepositoryService) EnsureTracked(ctx context.Context, repoName string) (*domain.Repository, error) {
+func (s *EnsureRepositoryTracked) Execute(ctx context.Context, repoName string) (*domain.Repository, error) {
 	repo, err := s.repositoryRepo.GetByName(ctx, repoName)
 	if err != nil {
 		if !errors.Is(err, apperr.ErrNotFound) {

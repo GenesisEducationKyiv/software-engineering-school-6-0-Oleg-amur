@@ -3,7 +3,6 @@
 package testkit
 
 import (
-	"context"
 	"database/sql"
 	"io"
 	"log/slog"
@@ -16,33 +15,12 @@ import (
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
 	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
 	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
-	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/stretchr/testify/require"
 )
-
-type repositoryTracker struct {
-	service *releasetrackerusecase.RepositoryService
-}
-
-func (t repositoryTracker) EnsureTracked(
-	ctx context.Context,
-	repoName string,
-) (*subscriptionmodels.RepositoryRef, error) {
-	repo, err := t.service.EnsureTracked(ctx, repoName)
-	if err != nil {
-		return nil, err
-	}
-
-	return &subscriptionmodels.RepositoryRef{
-		ID:          repo.ID,
-		Name:        repo.Name,
-		LastSeenTag: repo.LastSeenTag,
-	}, nil
-}
 
 type AppConfig struct {
 	DB        *sql.DB
@@ -74,16 +52,16 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(cfg.DB)
 	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
 
-	registerSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberRepo)
-	releaseTrackerService := releasetrackerusecase.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
+	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberRepo)
+	ensureRepositoryTracked := releasetrackerusecase.NewEnsureRepositoryTracked(cfg.Logger, repositoryRepo, githubClient)
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
 	subscriptionUsecases := subscriptionusecase.SubscriptionUsecases{
 		SubscribeToRepository: subscriptionusecase.NewSubscribeToRepository(
 			cfg.Logger,
-			registerSubscriber,
-			repositoryTracker{service: releaseTrackerService},
+			getOrCreateSubscriber,
+			ensureRepositoryTracked,
 			subscriptionRepo,
 			eventPublisher,
 		),

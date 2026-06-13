@@ -20,23 +20,23 @@ type ReleaseTagClient interface {
 }
 
 type ReleaseDetectedHandler interface {
-	HandleReleaseDetected(ctx context.Context, event domain.ReleaseEvent) error
+	Execute(ctx context.Context, event domain.ReleaseEvent) error
 }
 
-type ReleaseScanner struct {
+type ScanReleases struct {
 	log            *slog.Logger
 	repoRepository ScannerRepositoryStore
 	githubClient   ReleaseTagClient
 	releaseHandler ReleaseDetectedHandler
 }
 
-func NewReleaseScanner(
+func NewScanReleases(
 	log *slog.Logger,
 	repo ScannerRepositoryStore,
 	gh ReleaseTagClient,
 	releaseHandler ReleaseDetectedHandler,
-) *ReleaseScanner {
-	return &ReleaseScanner{
+) *ScanReleases {
+	return &ScanReleases{
 		log:            log,
 		repoRepository: repo,
 		githubClient:   gh,
@@ -44,7 +44,7 @@ func NewReleaseScanner(
 	}
 }
 
-func (s *ReleaseScanner) Scan(ctx context.Context) {
+func (s *ScanReleases) Execute(ctx context.Context) {
 	s.log.Debug("starting repository scan")
 
 	repos, err := s.repoRepository.GetAll(ctx)
@@ -65,7 +65,7 @@ func (s *ReleaseScanner) Scan(ctx context.Context) {
 	}
 }
 
-func (s *ReleaseScanner) processRepo(ctx context.Context, repo domain.Repository) error {
+func (s *ScanReleases) processRepo(ctx context.Context, repo domain.Repository) error {
 	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name)
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func (s *ReleaseScanner) processRepo(ctx context.Context, repo domain.Repository
 		RepoName: repo.Name,
 		Tag:      latestTag,
 	}
-	if err := s.releaseHandler.HandleReleaseDetected(ctx, event); err != nil {
+	if err := s.releaseHandler.Execute(ctx, event); err != nil {
 		return fmt.Errorf("failed to handle release notification: %w", err)
 	}
 

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
+	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
@@ -50,12 +51,12 @@ func (f *mockSubscriberRegistration) Execute(ctx context.Context, email string) 
 	return f.subscriber, f.err
 }
 
-type mockRepositoryService struct {
-	repository *domain.RepositoryRef
+type mockRepositoryTracker struct {
+	repository *releasetrackerdomain.Repository
 	err        error
 }
 
-func (f *mockRepositoryService) EnsureTracked(ctx context.Context, repoName string) (*domain.RepositoryRef, error) {
+func (f *mockRepositoryTracker) Execute(ctx context.Context, repoName string) (*releasetrackerdomain.Repository, error) {
 	return f.repository, f.err
 }
 

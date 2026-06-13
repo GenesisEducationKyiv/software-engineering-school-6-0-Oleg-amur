@@ -9,7 +9,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 )
 
-func TestService_EnsureTracked(t *testing.T) {
+func TestEnsureRepositoryTracked_Execute(t *testing.T) {
 	errRepository := errors.New("repository query error")
 	errCreate := errors.New("repository create error")
 	errGithub := errors.New("github error")
@@ -114,9 +114,9 @@ func TestService_EnsureTracked(t *testing.T) {
 				tag:      tt.ghTag,
 				tagErr:   tt.ghTagErr,
 			}
-			svc := NewRepositoryService(testLogger(), repositoryRepo, ghClient)
+			usecase := NewEnsureRepositoryTracked(testLogger(), repositoryRepo, ghClient)
 
-			repository, err := svc.EnsureTracked(context.Background(), tt.repoName)
+			repository, err := usecase.Execute(context.Background(), tt.repoName)
 
 			assertErrorIs(t, err, tt.wantErr)
 			if tt.wantErr != nil {

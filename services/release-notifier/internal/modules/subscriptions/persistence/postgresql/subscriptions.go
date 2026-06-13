@@ -58,7 +58,7 @@ func (r *SubscriptionRepository) GetByToken(
 
 	var s subscriptionmodels.Subscription
 	s.Subscriber = &subscriptionmodels.Subscriber{}
-	s.Repository = &subscriptionmodels.RepositoryRef{}
+	s.Repository = &releasetrackerdomain.Repository{}
 
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
 		&s.ID, &s.SubscriberID, &s.RepositoryID, &s.SubscriptionStatus, &s.Token, &s.CreatedAt,
@@ -119,7 +119,7 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 	for rows.Next() {
 		var s subscriptionmodels.Subscription
 		s.Subscriber = &subscriptionmodels.Subscriber{}
-		s.Repository = &subscriptionmodels.RepositoryRef{}
+		s.Repository = &releasetrackerdomain.Repository{}
 
 		err := rows.Scan(
 			&s.ID,

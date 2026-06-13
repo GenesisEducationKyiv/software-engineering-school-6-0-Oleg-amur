@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
+	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
@@ -17,7 +18,7 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 		req           SubscribeRequest
 		subscriber    *domain.Subscriber
 		subscriberErr error
-		repository    *domain.RepositoryRef
+		repository    *releasetrackerdomain.Repository
 		repositoryErr error
 		createErr     error
 		publishErr    error
@@ -40,7 +41,7 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 			name:       "returns already subscribed when repository rejects duplicate",
 			req:        SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
 			subscriber: &domain.Subscriber{ID: 1},
-			repository: &domain.RepositoryRef{ID: 1},
+			repository: &releasetrackerdomain.Repository{ID: 1},
 			createErr:  apperr.ErrAlreadyExists,
 			wantErr:    apperr.ErrAlreadySubscribed,
 		},
@@ -48,13 +49,13 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 			name:       "enqueues confirmation event after successful subscription",
 			req:        SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
 			subscriber: &domain.Subscriber{ID: 1},
-			repository: &domain.RepositoryRef{ID: 1},
+			repository: &releasetrackerdomain.Repository{ID: 1},
 		},
 		{
 			name:       "returns publish error after successful subscription",
 			req:        SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
 			subscriber: &domain.Subscriber{ID: 1},
-			repository: &domain.RepositoryRef{ID: 1},
+			repository: &releasetrackerdomain.Repository{ID: 1},
 			publishErr: errors.New("broker down"),
 			wantErr:    errors.New("broker down"),
 		},
@@ -66,7 +67,7 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 			usecase := NewSubscribeToRepository(
 				testLogger(),
 				&mockSubscriberRegistration{subscriber: tt.subscriber, err: tt.subscriberErr},
-				&mockRepositoryService{repository: tt.repository, err: tt.repositoryErr},
+				&mockRepositoryTracker{repository: tt.repository, err: tt.repositoryErr},
 				&mockSubscriptionRepo{createErr: tt.createErr},
 				publisher,
 			)

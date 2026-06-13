@@ -9,7 +9,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
-func TestReleaseNotificationPlanner_HandleReleaseDetected(t *testing.T) {
+func TestPlanReleaseNotifications_Execute(t *testing.T) {
 	repo := &mockReleaseNotificationSubscriptionRepo{
 		recipients: []domain.NotificationRecipient{
 			{Email: "user1@example.com", UnsubscribeToken: "token-1"},
@@ -17,9 +17,9 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected(t *testing.T) {
 		},
 	}
 	publisher := &mockNotificationPublisher{}
-	planner := NewReleaseNotificationPlanner(testLogger(), repo, publisher)
+	planner := NewPlanReleaseNotifications(testLogger(), repo, publisher)
 
-	err := planner.HandleReleaseDetected(context.Background(), domain.ReleaseEvent{
+	err := planner.Execute(context.Background(), domain.ReleaseEvent{
 		RepoID:   10,
 		RepoName: "owner/repo",
 		Tag:      "v1.2.3",
@@ -47,13 +47,13 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected(t *testing.T) {
 	}
 }
 
-func TestReleaseNotificationPlanner_HandleReleaseDetected_ReturnsRepositoryError(t *testing.T) {
+func TestPlanReleaseNotifications_Execute_ReturnsRepositoryError(t *testing.T) {
 	repoErr := errors.New("db down")
 	repo := &mockReleaseNotificationSubscriptionRepo{err: repoErr}
 	publisher := &mockNotificationPublisher{}
-	planner := NewReleaseNotificationPlanner(testLogger(), repo, publisher)
+	planner := NewPlanReleaseNotifications(testLogger(), repo, publisher)
 
-	err := planner.HandleReleaseDetected(context.Background(), domain.ReleaseEvent{RepoID: 10})
+	err := planner.Execute(context.Background(), domain.ReleaseEvent{RepoID: 10})
 
 	if err == nil {
 		t.Fatal("got nil error, want repository error")
@@ -63,16 +63,16 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected_ReturnsRepositoryError
 	}
 }
 
-func TestReleaseNotificationPlanner_HandleReleaseDetected_ReturnsPublishError(t *testing.T) {
+func TestPlanReleaseNotifications_Execute_ReturnsPublishError(t *testing.T) {
 	repo := &mockReleaseNotificationSubscriptionRepo{
 		recipients: []domain.NotificationRecipient{
 			{Email: "user@example.com", UnsubscribeToken: "token"},
 		},
 	}
 	publisher := &mockNotificationPublisher{releaseErr: errors.New("broker down")}
-	planner := NewReleaseNotificationPlanner(testLogger(), repo, publisher)
+	planner := NewPlanReleaseNotifications(testLogger(), repo, publisher)
 
-	err := planner.HandleReleaseDetected(context.Background(), domain.ReleaseEvent{
+	err := planner.Execute(context.Background(), domain.ReleaseEvent{
 		RepoID:   10,
 		RepoName: "owner/repo",
 		Tag:      "v1.2.3",

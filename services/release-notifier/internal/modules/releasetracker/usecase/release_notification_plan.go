@@ -18,25 +18,25 @@ type releaseNotificationPublisher interface {
 	PublishReleaseNotification(ctx context.Context, event events.ReleaseNotificationRequested) error
 }
 
-type ReleaseNotificationPlanner struct {
+type PlanReleaseNotifications struct {
 	log              *slog.Logger
 	subscriptionRepo subscriptionRepoForReleaseNotifications
 	events           releaseNotificationPublisher
 }
 
-func NewReleaseNotificationPlanner(
+func NewPlanReleaseNotifications(
 	log *slog.Logger,
 	subscriptionRepo subscriptionRepoForReleaseNotifications,
 	events releaseNotificationPublisher,
-) *ReleaseNotificationPlanner {
-	return &ReleaseNotificationPlanner{
+) *PlanReleaseNotifications {
+	return &PlanReleaseNotifications{
 		log:              log,
 		subscriptionRepo: subscriptionRepo,
 		events:           events,
 	}
 }
 
-func (p *ReleaseNotificationPlanner) HandleReleaseDetected(ctx context.Context, event domain.ReleaseEvent) error {
+func (p *PlanReleaseNotifications) Execute(ctx context.Context, event domain.ReleaseEvent) error {
 	recipients, err := p.subscriptionRepo.GetActiveRecipientsByRepoID(ctx, event.RepoID)
 	if err != nil {
 		return fmt.Errorf("fetch active subscriptions: %w", err)

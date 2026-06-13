@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
+)
 
 const (
 	StatusPending = iota
@@ -16,11 +20,5 @@ type Subscription struct {
 	CreatedAt          time.Time
 
 	Subscriber *Subscriber
-	Repository *RepositoryRef
-}
-
-type RepositoryRef struct {
-	ID          int
-	Name        string
-	LastSeenTag string
+	Repository *releasetrackerdomain.Repository
 }

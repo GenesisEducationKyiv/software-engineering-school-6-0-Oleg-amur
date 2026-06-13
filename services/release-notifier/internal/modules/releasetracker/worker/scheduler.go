@@ -7,7 +7,7 @@ import (
 )
 
 type releaseScanner interface {
-	Scan(ctx context.Context)
+	Execute(ctx context.Context)
 }
 
 type Scheduler struct {
@@ -29,7 +29,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
-	s.scanner.Scan(ctx)
+	s.scanner.Execute(ctx)
 
 	for {
 		select {
@@ -37,7 +37,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 			s.log.Info("background scheduler stopping")
 			return
 		case <-ticker.C:
-			s.scanner.Scan(ctx)
+			s.scanner.Execute(ctx)
 		}
 	}
 }

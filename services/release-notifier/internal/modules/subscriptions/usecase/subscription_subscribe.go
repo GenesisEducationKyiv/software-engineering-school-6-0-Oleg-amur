@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
+	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/google/uuid"
@@ -17,7 +18,7 @@ type SubscriberRegistration interface {
 }
 
 type RepositoryTracker interface {
-	EnsureTracked(ctx context.Context, repoName string) (*domain.RepositoryRef, error)
+	Execute(ctx context.Context, repoName string) (*releasetrackerdomain.Repository, error)
 }
 
 type SubscriptionCreator interface {
@@ -58,7 +59,7 @@ func (u *SubscribeToRepository) Execute(ctx context.Context, req SubscribeReques
 		return err
 	}
 
-	repo, err := u.repositoryTracker.EnsureTracked(ctx, req.Repo)
+	repo, err := u.repositoryTracker.Execute(ctx, req.Repo)
 	if err != nil {
 		return err
 	}

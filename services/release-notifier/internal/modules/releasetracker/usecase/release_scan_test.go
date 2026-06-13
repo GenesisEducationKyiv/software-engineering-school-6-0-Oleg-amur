@@ -11,7 +11,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 )
 
-func TestScanner_Scan(t *testing.T) {
+func TestScanReleases_Execute(t *testing.T) {
 	tests := []struct {
 		name        string
 		repos       []domain.Repository
@@ -54,8 +54,8 @@ func TestScanner_Scan(t *testing.T) {
 
 			handler := &mockReleaseDetectedHandler{}
 
-			scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
-			scanner.Scan(context.Background())
+			usecase := NewScanReleases(testLogger(), repoRepo, ghClient, handler)
+			usecase.Execute(context.Background())
 
 			assertUpdatesLen(t, repoRepo, tt.wantUpdates)
 			if tt.wantUpdates > 0 {
@@ -66,7 +66,7 @@ func TestScanner_Scan(t *testing.T) {
 	}
 }
 
-func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
+func TestScanReleases_Execute_GetAllErrorStopsScan(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
 		getAllErr: errors.New("db down"),
 	}
@@ -75,8 +75,8 @@ func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
-	scanner.Scan(context.Background())
+	usecase := NewScanReleases(testLogger(), repoRepo, ghClient, handler)
+	usecase.Execute(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)
 	if len(handler.events) != 0 {
@@ -84,7 +84,7 @@ func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
 	}
 }
 
-func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
+func TestScanReleases_Execute_RateLimitStopsRemainingRepos(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
 		repos: []domain.Repository{
 			{ID: 1, Name: "owner/rate-limited", LastSeenTag: "v1.0.0"},
@@ -101,8 +101,8 @@ func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
-	scanner.Scan(context.Background())
+	usecase := NewScanReleases(testLogger(), repoRepo, ghClient, handler)
+	usecase.Execute(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)
 	if len(handler.events) != 0 {
@@ -110,7 +110,7 @@ func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 	}
 }
 
-func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
+func TestScanReleases_Execute_GithubErrorContinuesNextRepo(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
 		repos: []domain.Repository{
 			{ID: 1, Name: "owner/fails", LastSeenTag: "v1.0.0"},
@@ -127,8 +127,8 @@ func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
-	scanner.Scan(context.Background())
+	usecase := NewScanReleases(testLogger(), repoRepo, ghClient, handler)
+	usecase.Execute(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 1)
 	if repoRepo.updateArgs[0].id != 2 {
@@ -139,7 +139,7 @@ func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 	}
 }
 
-func TestScanner_Scan_UpdateErrorKeepsPublishedEvent(t *testing.T) {
+func TestScanReleases_Execute_UpdateErrorKeepsPublishedEvent(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
 		repos: []domain.Repository{
 			{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
@@ -153,8 +153,8 @@ func TestScanner_Scan_UpdateErrorKeepsPublishedEvent(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{}
 
-	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
-	scanner.Scan(context.Background())
+	usecase := NewScanReleases(testLogger(), repoRepo, ghClient, handler)
+	usecase.Execute(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 1)
 	if len(handler.events) != 1 {
@@ -162,7 +162,7 @@ func TestScanner_Scan_UpdateErrorKeepsPublishedEvent(t *testing.T) {
 	}
 }
 
-func TestScanner_Scan_ReleaseHandlerErrorDoesNotUpdateTag(t *testing.T) {
+func TestScanReleases_Execute_ReleaseHandlerErrorDoesNotUpdateTag(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
 		repos: []domain.Repository{
 			{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
@@ -175,8 +175,8 @@ func TestScanner_Scan_ReleaseHandlerErrorDoesNotUpdateTag(t *testing.T) {
 	}
 	handler := &mockReleaseDetectedHandler{err: errors.New("broker down")}
 
-	scanner := NewReleaseScanner(testLogger(), repoRepo, ghClient, handler)
-	scanner.Scan(context.Background())
+	usecase := NewScanReleases(testLogger(), repoRepo, ghClient, handler)
+	usecase.Execute(context.Background())
 
 	assertUpdatesLen(t, repoRepo, 0)
 	if len(handler.events) != 1 {
@@ -265,7 +265,7 @@ type mockReleaseDetectedHandler struct {
 	err    error
 }
 
-func (f *mockReleaseDetectedHandler) HandleReleaseDetected(ctx context.Context, event domain.ReleaseEvent) error {
+func (f *mockReleaseDetectedHandler) Execute(ctx context.Context, event domain.ReleaseEvent) error {
 	f.events = append(f.events, event)
 	return f.err
 }
