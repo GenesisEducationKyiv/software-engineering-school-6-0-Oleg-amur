@@ -1,17 +1,17 @@
-package services
+package usecase
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
 func TestReleaseNotificationPlanner_HandleReleaseDetected(t *testing.T) {
 	repo := &mockReleaseNotificationSubscriptionRepo{
-		recipients: []models.NotificationRecipient{
+		recipients: []domain.NotificationRecipient{
 			{Email: "user1@example.com", UnsubscribeToken: "token-1"},
 			{Email: "user2@example.com", UnsubscribeToken: "token-2"},
 		},
@@ -19,7 +19,7 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected(t *testing.T) {
 	publisher := &mockNotificationPublisher{}
 	planner := NewReleaseNotificationPlanner(testLogger(), repo, publisher)
 
-	err := planner.HandleReleaseDetected(context.Background(), models.ReleaseEvent{
+	err := planner.HandleReleaseDetected(context.Background(), domain.ReleaseEvent{
 		RepoID:   10,
 		RepoName: "owner/repo",
 		Tag:      "v1.2.3",
@@ -53,7 +53,7 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected_ReturnsRepositoryError
 	publisher := &mockNotificationPublisher{}
 	planner := NewReleaseNotificationPlanner(testLogger(), repo, publisher)
 
-	err := planner.HandleReleaseDetected(context.Background(), models.ReleaseEvent{RepoID: 10})
+	err := planner.HandleReleaseDetected(context.Background(), domain.ReleaseEvent{RepoID: 10})
 
 	if err == nil {
 		t.Fatal("got nil error, want repository error")
@@ -65,14 +65,14 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected_ReturnsRepositoryError
 
 func TestReleaseNotificationPlanner_HandleReleaseDetected_ReturnsPublishError(t *testing.T) {
 	repo := &mockReleaseNotificationSubscriptionRepo{
-		recipients: []models.NotificationRecipient{
+		recipients: []domain.NotificationRecipient{
 			{Email: "user@example.com", UnsubscribeToken: "token"},
 		},
 	}
 	publisher := &mockNotificationPublisher{releaseErr: errors.New("broker down")}
 	planner := NewReleaseNotificationPlanner(testLogger(), repo, publisher)
 
-	err := planner.HandleReleaseDetected(context.Background(), models.ReleaseEvent{
+	err := planner.HandleReleaseDetected(context.Background(), domain.ReleaseEvent{
 		RepoID:   10,
 		RepoName: "owner/repo",
 		Tag:      "v1.2.3",
@@ -87,14 +87,14 @@ func TestReleaseNotificationPlanner_HandleReleaseDetected_ReturnsPublishError(t 
 }
 
 type mockReleaseNotificationSubscriptionRepo struct {
-	recipients []models.NotificationRecipient
+	recipients []domain.NotificationRecipient
 	err        error
 }
 
 func (f *mockReleaseNotificationSubscriptionRepo) GetActiveRecipientsByRepoID(
 	ctx context.Context,
 	repoID int,
-) ([]models.NotificationRecipient, error) {
+) ([]domain.NotificationRecipient, error) {
 	return f.recipients, f.err
 }
 

@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 )
 
 func TestService_EnsureTracked(t *testing.T) {
@@ -17,7 +17,7 @@ func TestService_EnsureTracked(t *testing.T) {
 	tests := []struct {
 		name       string
 		repoName   string
-		repository *models.TrackedRepository
+		repository *domain.Repository
 		getErr     error
 		ghExists   bool
 		ghCheckErr error
@@ -29,7 +29,7 @@ func TestService_EnsureTracked(t *testing.T) {
 		{
 			name:       "returns repository when it already exists",
 			repoName:   "owner/repo",
-			repository: &models.TrackedRepository{ID: 1, Name: "owner/repo"},
+			repository: &domain.Repository{ID: 1, Name: "owner/repo"},
 		},
 		{
 			name:     "returns wrapped repository error",
@@ -72,7 +72,7 @@ func TestService_EnsureTracked(t *testing.T) {
 			getErr:     apperr.ErrNotFound,
 			ghExists:   true,
 			ghTagErr:   apperr.ErrRepoNotFound,
-			repository: &models.TrackedRepository{ID: 1, Name: "owner/repo"},
+			repository: &domain.Repository{ID: 1, Name: "owner/repo"},
 		},
 		{
 			name:     "returns wrapped GitHub latest tag error",
@@ -97,13 +97,13 @@ func TestService_EnsureTracked(t *testing.T) {
 			getErr:     apperr.ErrNotFound,
 			ghExists:   true,
 			ghTag:      "v1.0.0",
-			repository: &models.TrackedRepository{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
+			repository: &domain.Repository{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repositoryRepo := &mockTrackedRepositoryStore{
+			repositoryRepo := &mockRepositoryStore{
 				repository: tt.repository,
 				getErr:     tt.getErr,
 				createErr:  tt.createErr,
@@ -129,21 +129,21 @@ func TestService_EnsureTracked(t *testing.T) {
 	}
 }
 
-type mockTrackedRepositoryStore struct {
-	repository *models.TrackedRepository
+type mockRepositoryStore struct {
+	repository *domain.Repository
 	getErr     error
 	createErr  error
 }
 
-func (f *mockTrackedRepositoryStore) GetByName(ctx context.Context, name string) (*models.TrackedRepository, error) {
+func (f *mockRepositoryStore) GetByName(ctx context.Context, name string) (*domain.Repository, error) {
 	return f.repository, f.getErr
 }
 
-func (f *mockTrackedRepositoryStore) Create(
+func (f *mockRepositoryStore) Create(
 	ctx context.Context,
 	name string,
 	tag string,
-) (*models.TrackedRepository, error) {
+) (*domain.Repository, error) {
 	return f.repository, f.createErr
 }
 

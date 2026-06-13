@@ -5,7 +5,7 @@ package http_test
 import (
 	"net/http"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http/dto"
+	dto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/http"
 )
 
 func (s *HTTPSuite) TestUnsubscribe_RemovesSubscription() {

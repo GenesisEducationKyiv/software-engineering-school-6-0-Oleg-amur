@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -7,8 +7,13 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
+
+type SubscriberRepo interface {
+	GetByEmail(ctx context.Context, email string) (*domain.Subscriber, error)
+	Create(ctx context.Context, email string) (*domain.Subscriber, error)
+}
 
 type SubscriberService struct {
 	log            *slog.Logger
@@ -25,7 +30,7 @@ func NewSubscriberService(
 	}
 }
 
-func (s *SubscriberService) GetOrCreate(ctx context.Context, email string) (*models.Subscriber, error) {
+func (s *SubscriberService) GetOrCreate(ctx context.Context, email string) (*domain.Subscriber, error) {
 	subscriber, err := s.subscriberRepo.GetByEmail(ctx, email)
 	if err != nil {
 		if !errors.Is(err, apperr.ErrNotFound) {

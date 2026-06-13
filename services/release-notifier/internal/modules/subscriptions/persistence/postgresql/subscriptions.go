@@ -5,16 +5,17 @@ import (
 	"database/sql"
 	"errors"
 
+	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	releasewatchmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
-	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
 type SubscriptionRepository struct {
-	db Queryable
+	db postgresqladapter.Queryable
 }
 
-func NewSubscriptionRepository(db Queryable) *SubscriptionRepository {
+func NewSubscriptionRepository(db postgresqladapter.Queryable) *SubscriptionRepository {
 	return &SubscriptionRepository{db: db}
 }
 
@@ -57,7 +58,7 @@ func (r *SubscriptionRepository) GetByToken(
 
 	var s subscriptionmodels.Subscription
 	s.Subscriber = &subscriptionmodels.Subscriber{}
-	s.Repository = &subscriptionmodels.TrackedRepositoryRef{}
+	s.Repository = &subscriptionmodels.RepositoryRef{}
 
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
 		&s.ID, &s.SubscriberID, &s.RepositoryID, &s.SubscriptionStatus, &s.Token, &s.CreatedAt,
@@ -118,7 +119,7 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 	for rows.Next() {
 		var s subscriptionmodels.Subscription
 		s.Subscriber = &subscriptionmodels.Subscriber{}
-		s.Repository = &subscriptionmodels.TrackedRepositoryRef{}
+		s.Repository = &subscriptionmodels.RepositoryRef{}
 
 		err := rows.Scan(
 			&s.ID,
@@ -143,7 +144,7 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 func (r *SubscriptionRepository) GetActiveRecipientsByRepoID(
 	ctx context.Context,
 	repoID int,
-) ([]releasewatchmodels.NotificationRecipient, error) {
+) ([]releasetrackerdomain.NotificationRecipient, error) {
 	query := `
 		SELECT s.token, sub.email
 		FROM subscriptions s
@@ -159,9 +160,9 @@ func (r *SubscriptionRepository) GetActiveRecipientsByRepoID(
 		err = errors.Join(err, clErr)
 	}()
 
-	var recipients []releasewatchmodels.NotificationRecipient
+	var recipients []releasetrackerdomain.NotificationRecipient
 	for rows.Next() {
-		var recipient releasewatchmodels.NotificationRecipient
+		var recipient releasetrackerdomain.NotificationRecipient
 
 		if err := rows.Scan(
 			&recipient.UnsubscribeToken,

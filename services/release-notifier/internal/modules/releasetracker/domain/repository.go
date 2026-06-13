@@ -1,8 +1,8 @@
-package models
+package domain
 
 import "time"
 
-type TrackedRepository struct {
+type Repository struct {
 	ID          int
 	Name        string
 	LastSeenTag string

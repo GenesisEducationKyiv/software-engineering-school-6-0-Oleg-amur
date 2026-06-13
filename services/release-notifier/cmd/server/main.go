@@ -15,15 +15,16 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/rabbitmq"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/database"
-	releasewatchservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/services"
-	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
-	subscriptionservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/services"
+	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
+	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
+	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
+	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/observability"
 	"google.golang.org/grpc"
 )
@@ -34,19 +35,19 @@ const (
 )
 
 type repositoryTracker struct {
-	service *releasewatchservices.RepositoryService
+	service *releasetrackerusecase.RepositoryService
 }
 
 func (t repositoryTracker) EnsureTracked(
 	ctx context.Context,
 	repoName string,
-) (*subscriptionmodels.TrackedRepositoryRef, error) {
+) (*subscriptionmodels.RepositoryRef, error) {
 	repo, err := t.service.EnsureTracked(ctx, repoName)
 	if err != nil {
 		return nil, err
 	}
 
-	return &subscriptionmodels.TrackedRepositoryRef{
+	return &subscriptionmodels.RepositoryRef{
 		ID:          repo.ID,
 		Name:        repo.Name,
 		LastSeenTag: repo.LastSeenTag,
@@ -101,9 +102,9 @@ func runApp(log *slog.Logger) error {
 		return err
 	}
 
-	subscriberRepo := postgresql.NewSubscriberRepository(db)
-	repositoryRepo := postgresql.NewRepositoryRepository(db)
-	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
+	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(db)
+	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(db)
+	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(db)
 
 	notificationPublisher, err := rabbitmq.NewNotificationPublisher(rabbitmq.Config{
 		URL:      cfg.EventBus.URL,
@@ -120,34 +121,34 @@ func runApp(log *slog.Logger) error {
 		}
 	}()
 
-	subscriberService := subscriptionservices.NewSubscriberService(
+	subscriberService := subscriptionusecase.NewSubscriberService(
 		log,
 		subscriberRepo,
 	)
 
-	releasewatchService := releasewatchservices.NewRepositoryService(
+	releaseTrackerService := releasetrackerusecase.NewRepositoryService(
 		log,
 		repositoryRepo,
 		githubClient,
 	)
 
-	subscriptionSvc := subscriptionservices.NewSubscriptionService(
+	subscriptionSvc := subscriptionusecase.NewSubscriptionService(
 		log,
 		subscriberService,
-		repositoryTracker{service: releasewatchService},
+		repositoryTracker{service: releaseTrackerService},
 		subscriptionRepo,
 		notificationPublisher,
 	)
 
-	releaseNotificationPlanner := releasewatchservices.NewReleaseNotificationPlanner(log, subscriptionRepo, notificationPublisher)
-	releaseScanner := releasewatchservices.NewScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
+	releaseNotificationPlanner := releasetrackerusecase.NewReleaseNotificationPlanner(log, subscriptionRepo, notificationPublisher)
+	releaseScanner := releasetrackerusecase.NewScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
 
 	scanInterval, err := time.ParseDuration(cfg.Scanner.Interval)
 	if err != nil {
 		log.Error("failed to parse scanner interval", "val", cfg.Scanner.Interval, "err", err)
 		scanInterval = time.Hour
 	}
-	scheduler := releasewatchservices.NewScheduler(log, releaseScanner, scanInterval)
+	scheduler := releasetrackerusecase.NewScheduler(log, releaseScanner, scanInterval)
 	go scheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")

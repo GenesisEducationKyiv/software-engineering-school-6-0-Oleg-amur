@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
 func TestSubscriberService_GetOrCreate(t *testing.T) {
@@ -16,7 +16,7 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 	tests := []struct {
 		name       string
 		email      string
-		subscriber *models.Subscriber
+		subscriber *domain.Subscriber
 		getErr     error
 		createErr  error
 		wantErr    error
@@ -25,12 +25,12 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 		{
 			name:       "returns subscriber when it already exists",
 			email:      "test@example.com",
-			subscriber: &models.Subscriber{ID: 1, Email: "test@example.com"},
+			subscriber: &domain.Subscriber{ID: 1, Email: "test@example.com"},
 		},
 		{
 			name:       "creates subscriber when it does not exist",
 			email:      "new@example.com",
-			subscriber: &models.Subscriber{ID: 2, Email: "new@example.com"},
+			subscriber: &domain.Subscriber{ID: 2, Email: "new@example.com"},
 			getErr:     apperr.ErrNotFound,
 			wantCreate: true,
 		},
@@ -74,17 +74,17 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 }
 
 type mockSubscriberRepo struct {
-	subscriber   *models.Subscriber
+	subscriber   *domain.Subscriber
 	getErr       error
 	createErr    error
 	createCalled bool
 }
 
-func (f *mockSubscriberRepo) GetByEmail(ctx context.Context, email string) (*models.Subscriber, error) {
+func (f *mockSubscriberRepo) GetByEmail(ctx context.Context, email string) (*domain.Subscriber, error) {
 	return f.subscriber, f.getErr
 }
 
-func (f *mockSubscriberRepo) Create(ctx context.Context, email string) (*models.Subscriber, error) {
+func (f *mockSubscriberRepo) Create(ctx context.Context, email string) (*domain.Subscriber, error) {
 	f.createCalled = true
 	return f.subscriber, f.createErr
 }

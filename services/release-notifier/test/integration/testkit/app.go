@@ -12,31 +12,32 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/inmemory"
 	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
-	releasewatchservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/services"
-	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
-	subscriptionservices "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/services"
+	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
+	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
+	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
+	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/stretchr/testify/require"
 )
 
 type repositoryTracker struct {
-	service *releasewatchservices.RepositoryService
+	service *releasetrackerusecase.RepositoryService
 }
 
 func (t repositoryTracker) EnsureTracked(
 	ctx context.Context,
 	repoName string,
-) (*subscriptionmodels.TrackedRepositoryRef, error) {
+) (*subscriptionmodels.RepositoryRef, error) {
 	repo, err := t.service.EnsureTracked(ctx, repoName)
 	if err != nil {
 		return nil, err
 	}
 
-	return &subscriptionmodels.TrackedRepositoryRef{
+	return &subscriptionmodels.RepositoryRef{
 		ID:          repo.ID,
 		Name:        repo.Name,
 		LastSeenTag: repo.LastSeenTag,
@@ -68,20 +69,20 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 
 	gitHubHTTPClient := &http.Client{}
 
-	subscriberRepo := postgresql.NewSubscriberRepository(cfg.DB)
-	repositoryRepo := postgresql.NewRepositoryRepository(cfg.DB)
-	subscriptionRepo := postgresql.NewSubscriptionRepository(cfg.DB)
+	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(cfg.DB)
+	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(cfg.DB)
+	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(cfg.DB)
 	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
 
-	subscriberService := subscriptionservices.NewSubscriberService(cfg.Logger, subscriberRepo)
-	releasewatchService := releasewatchservices.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
+	subscriberService := subscriptionusecase.NewSubscriberService(cfg.Logger, subscriberRepo)
+	releaseTrackerService := releasetrackerusecase.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
-	subscriptionService := subscriptionservices.NewSubscriptionService(
+	subscriptionService := subscriptionusecase.NewSubscriptionService(
 		cfg.Logger,
 		subscriberService,
-		repositoryTracker{service: releasewatchService},
+		repositoryTracker{service: releaseTrackerService},
 		subscriptionRepo,
 		eventPublisher,
 	)

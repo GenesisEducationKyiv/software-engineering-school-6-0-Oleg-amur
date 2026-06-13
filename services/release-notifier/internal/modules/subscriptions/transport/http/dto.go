@@ -1,4 +1,4 @@
-package dto
+package subscriptionhttp
 
 type SubscribeRequest struct {
 	Email string `json:"email"`

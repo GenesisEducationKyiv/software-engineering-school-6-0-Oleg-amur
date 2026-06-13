@@ -4,14 +4,15 @@ import (
 	"log/slog"
 	"net/http"
 
+	subscriptionhttp "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/observability"
 	webstatic "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/static"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func NewRouter(log *slog.Logger, svc SubscriptionService, healthHandler http.Handler) http.Handler {
+func NewRouter(log *slog.Logger, svc subscriptionhttp.SubscriptionService, healthHandler http.Handler) http.Handler {
 	mux := http.NewServeMux()
-	h := NewHandler(log, svc)
+	h := subscriptionhttp.NewHandler(log, svc)
 
 	mux.HandleFunc("/", serveIndex)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(webstatic.Files))))

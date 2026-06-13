@@ -3,13 +3,13 @@
 package repository_test
 
 import (
-	releasewatchmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
-	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
 type createdSubscription struct {
 	subscriber *subscriptionmodels.Subscriber
-	repository *releasewatchmodels.TrackedRepository
+	repository *releasetrackerdomain.Repository
 	token      string
 }
 

@@ -1,4 +1,4 @@
-package api
+package subscriptionhttp
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http/dto"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
 	subscriptiondto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/dto"
 )
@@ -37,7 +36,7 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req dto.SubscribeRequest
+	var req SubscribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
@@ -145,9 +144,9 @@ func (h *Handler) GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := make([]dto.Subscription, 0, len(subs))
+	response := make([]Subscription, 0, len(subs))
 	for _, s := range subs {
-		response = append(response, dto.Subscription{
+		response = append(response, Subscription{
 			Email:       s.Email,
 			Repo:        s.Repo,
 			Confirmed:   s.Confirmed,
@@ -165,7 +164,7 @@ func (h *Handler) GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) sendError(w http.ResponseWriter, message string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	if err := json.NewEncoder(w).Encode(dto.ErrorResponse{Message: message}); err != nil {
+	if err := json.NewEncoder(w).Encode(ErrorResponse{Message: message}); err != nil {
 		h.log.Error("failed to encode response", "err", err)
 	}
 }

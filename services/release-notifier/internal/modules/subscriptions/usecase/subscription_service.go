@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -7,11 +7,30 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	subscriptiondto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/dto"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/google/uuid"
 )
+
+type subscriberService interface {
+	GetOrCreate(ctx context.Context, email string) (*domain.Subscriber, error)
+}
+
+type RepositoryTracker interface {
+	EnsureTracked(ctx context.Context, repoName string) (*domain.RepositoryRef, error)
+}
+
+type SubscriptionRepo interface {
+	Create(ctx context.Context, subID, repoID int, token string) error
+	Activate(ctx context.Context, token string) error
+	DeleteByToken(ctx context.Context, token string) error
+	GetActiveByEmail(ctx context.Context, email string) ([]domain.Subscription, error)
+}
+
+type notificationPublisher interface {
+	PublishSubscriptionConfirmation(ctx context.Context, event events.SubscriptionConfirmationRequested) error
+}
 
 type SubscriptionService struct {
 	log               *slog.Logger
@@ -99,7 +118,7 @@ func (s *SubscriptionService) GetSubscriptions(
 		result = append(result, subscriptiondto.SubscriptionDTO{
 			Email:       email,
 			Repo:        sub.Repository.Name,
-			Confirmed:   sub.SubscriptionStatus == models.StatusActive,
+			Confirmed:   sub.SubscriptionStatus == domain.StatusActive,
 			LastSeenTag: sub.Repository.LastSeenTag,
 		})
 	}

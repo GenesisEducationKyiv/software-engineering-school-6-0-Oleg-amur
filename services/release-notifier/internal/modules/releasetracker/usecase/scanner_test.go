@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 )
 
 func TestScanner_Scan(t *testing.T) {
 	tests := []struct {
 		name        string
-		repos       []models.TrackedRepository
+		repos       []domain.Repository
 		githubTags  map[string]string
 		wantUpdates int
 		wantTag     string
@@ -22,7 +22,7 @@ func TestScanner_Scan(t *testing.T) {
 	}{
 		{
 			name: "does nothing when latest tag has not changed",
-			repos: []models.TrackedRepository{
+			repos: []domain.Repository{
 				{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 			},
 			githubTags: map[string]string{
@@ -31,7 +31,7 @@ func TestScanner_Scan(t *testing.T) {
 		},
 		{
 			name: "updates tag and emits release event when new release is found",
-			repos: []models.TrackedRepository{
+			repos: []domain.Repository{
 				{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 			},
 			githubTags: map[string]string{
@@ -86,7 +86,7 @@ func TestScanner_Scan_GetAllErrorStopsScan(t *testing.T) {
 
 func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
-		repos: []models.TrackedRepository{
+		repos: []domain.Repository{
 			{ID: 1, Name: "owner/rate-limited", LastSeenTag: "v1.0.0"},
 			{ID: 2, Name: "owner/next", LastSeenTag: "v1.0.0"},
 		},
@@ -112,7 +112,7 @@ func TestScanner_Scan_RateLimitStopsRemainingRepos(t *testing.T) {
 
 func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
-		repos: []models.TrackedRepository{
+		repos: []domain.Repository{
 			{ID: 1, Name: "owner/fails", LastSeenTag: "v1.0.0"},
 			{ID: 2, Name: "owner/next", LastSeenTag: "v1.0.0"},
 		},
@@ -141,7 +141,7 @@ func TestScanner_Scan_GithubErrorContinuesNextRepo(t *testing.T) {
 
 func TestScanner_Scan_UpdateErrorKeepsPublishedEvent(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
-		repos: []models.TrackedRepository{
+		repos: []domain.Repository{
 			{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 		},
 		updateErrs: []error{errors.New("db down")},
@@ -164,7 +164,7 @@ func TestScanner_Scan_UpdateErrorKeepsPublishedEvent(t *testing.T) {
 
 func TestScanner_Scan_ReleaseHandlerErrorDoesNotUpdateTag(t *testing.T) {
 	repoRepo := &mockRepositoryRepo{
-		repos: []models.TrackedRepository{
+		repos: []domain.Repository{
 			{ID: 1, Name: "owner/repo", LastSeenTag: "v1.0.0"},
 		},
 	}
@@ -200,7 +200,7 @@ func assertUpdatedTag(t *testing.T, repo *mockRepositoryRepo, want string) {
 	}
 }
 
-func assertReleaseEvents(t *testing.T, events []models.ReleaseEvent, wantCount int, wantTag string) {
+func assertReleaseEvents(t *testing.T, events []domain.ReleaseEvent, wantCount int, wantTag string) {
 	t.Helper()
 
 	for _, event := range events {
@@ -219,7 +219,7 @@ func testLogger() *slog.Logger {
 }
 
 type mockRepositoryRepo struct {
-	repos      []models.TrackedRepository
+	repos      []domain.Repository
 	getAllErr  error
 	updateErrs []error
 	updateArgs []struct {
@@ -228,7 +228,7 @@ type mockRepositoryRepo struct {
 	}
 }
 
-func (f *mockRepositoryRepo) GetAll(ctx context.Context) ([]models.TrackedRepository, error) {
+func (f *mockRepositoryRepo) GetAll(ctx context.Context) ([]domain.Repository, error) {
 	return f.repos, f.getAllErr
 }
 
@@ -261,11 +261,11 @@ func (f *mockGithubClient) GetRepositoryLatestTag(
 }
 
 type mockReleaseDetectedHandler struct {
-	events []models.ReleaseEvent
+	events []domain.ReleaseEvent
 	err    error
 }
 
-func (f *mockReleaseDetectedHandler) HandleReleaseDetected(ctx context.Context, event models.ReleaseEvent) error {
+func (f *mockReleaseDetectedHandler) HandleReleaseDetected(ctx context.Context, event domain.ReleaseEvent) error {
 	f.events = append(f.events, event)
 	return f.err
 }

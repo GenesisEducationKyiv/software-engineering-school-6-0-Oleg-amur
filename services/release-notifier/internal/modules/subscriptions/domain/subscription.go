@@ -1,4 +1,4 @@
-package models
+package domain
 
 import "time"
 
@@ -16,10 +16,10 @@ type Subscription struct {
 	CreatedAt          time.Time
 
 	Subscriber *Subscriber
-	Repository *TrackedRepositoryRef
+	Repository *RepositoryRef
 }
 
-type TrackedRepositoryRef struct {
+type RepositoryRef struct {
 	ID          int
 	Name        string
 	LastSeenTag string

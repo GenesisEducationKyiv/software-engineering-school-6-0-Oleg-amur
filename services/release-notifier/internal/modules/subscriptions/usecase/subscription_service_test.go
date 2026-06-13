@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	subscriptiondto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/dto"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
@@ -20,9 +20,9 @@ func TestSubscriptionService_Subscribe(t *testing.T) {
 	tests := []struct {
 		name          string
 		req           subscriptiondto.SubscribeRequest
-		subscriber    *models.Subscriber
+		subscriber    *domain.Subscriber
 		subscriberErr error
-		repository    *models.TrackedRepositoryRef
+		repository    *domain.RepositoryRef
 		repositoryErr error
 		createErr     error
 		publishErr    error
@@ -37,29 +37,29 @@ func TestSubscriptionService_Subscribe(t *testing.T) {
 		{
 			name:          "returns repository service error",
 			req:           subscriptiondto.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			subscriber:    &models.Subscriber{ID: 1},
+			subscriber:    &domain.Subscriber{ID: 1},
 			repositoryErr: apperr.ErrRepoNotFound,
 			wantErr:       apperr.ErrRepoNotFound,
 		},
 		{
 			name:       "returns already subscribed when repository rejects duplicate",
 			req:        subscriptiondto.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			subscriber: &models.Subscriber{ID: 1},
-			repository: &models.TrackedRepositoryRef{ID: 1},
+			subscriber: &domain.Subscriber{ID: 1},
+			repository: &domain.RepositoryRef{ID: 1},
 			createErr:  apperr.ErrAlreadyExists,
 			wantErr:    apperr.ErrAlreadySubscribed,
 		},
 		{
 			name:       "enqueues confirmation event after successful subscription",
 			req:        subscriptiondto.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			subscriber: &models.Subscriber{ID: 1},
-			repository: &models.TrackedRepositoryRef{ID: 1},
+			subscriber: &domain.Subscriber{ID: 1},
+			repository: &domain.RepositoryRef{ID: 1},
 		},
 		{
 			name:       "returns publish error after successful subscription",
 			req:        subscriptiondto.SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			subscriber: &models.Subscriber{ID: 1},
-			repository: &models.TrackedRepositoryRef{ID: 1},
+			subscriber: &domain.Subscriber{ID: 1},
+			repository: &domain.RepositoryRef{ID: 1},
 			publishErr: errors.New("broker down"),
 			wantErr:    errors.New("broker down"),
 		},
@@ -164,7 +164,7 @@ func TestSubscriptionService_GetSubscriptions(t *testing.T) {
 	tests := []struct {
 		name    string
 		email   string
-		subs    []models.Subscription
+		subs    []domain.Subscription
 		repoErr error
 		wantErr error
 		wantLen int
@@ -178,22 +178,22 @@ func TestSubscriptionService_GetSubscriptions(t *testing.T) {
 		{
 			name:  "returns empty list when user has no active subscriptions",
 			email: "test@example.com",
-			subs:  []models.Subscription{},
+			subs:  []domain.Subscription{},
 		},
 		{
 			name:  "maps active subscriptions to DTOs",
 			email: "test@example.com",
-			subs: []models.Subscription{
+			subs: []domain.Subscription{
 				{
-					SubscriptionStatus: models.StatusActive,
-					Repository: &models.TrackedRepositoryRef{
+					SubscriptionStatus: domain.StatusActive,
+					Repository: &domain.RepositoryRef{
 						Name:        "owner/repo1",
 						LastSeenTag: "v1.0",
 					},
 				},
 				{
-					SubscriptionStatus: models.StatusActive,
-					Repository: &models.TrackedRepositoryRef{
+					SubscriptionStatus: domain.StatusActive,
+					Repository: &domain.RepositoryRef{
 						Name:        "owner/repo2",
 						LastSeenTag: "v2.0",
 					},
@@ -257,20 +257,20 @@ func testLogger() *slog.Logger {
 }
 
 type mockSubscriberService struct {
-	subscriber *models.Subscriber
+	subscriber *domain.Subscriber
 	err        error
 }
 
-func (f *mockSubscriberService) GetOrCreate(ctx context.Context, email string) (*models.Subscriber, error) {
+func (f *mockSubscriberService) GetOrCreate(ctx context.Context, email string) (*domain.Subscriber, error) {
 	return f.subscriber, f.err
 }
 
 type mockRepositoryService struct {
-	repository *models.TrackedRepositoryRef
+	repository *domain.RepositoryRef
 	err        error
 }
 
-func (f *mockRepositoryService) EnsureTracked(ctx context.Context, repoName string) (*models.TrackedRepositoryRef, error) {
+func (f *mockRepositoryService) EnsureTracked(ctx context.Context, repoName string) (*domain.RepositoryRef, error) {
 	return f.repository, f.err
 }
 
@@ -301,7 +301,7 @@ type mockSubscriptionRepo struct {
 	createErr            error
 	activateErr          error
 	deleteErr            error
-	getActiveByEmailSubs []models.Subscription
+	getActiveByEmailSubs []domain.Subscription
 	getActiveByEmailErr  error
 }
 
@@ -320,6 +320,6 @@ func (f *mockSubscriptionRepo) DeleteByToken(ctx context.Context, token string) 
 func (f *mockSubscriptionRepo) GetActiveByEmail(
 	ctx context.Context,
 	email string,
-) ([]models.Subscription, error) {
+) ([]domain.Subscription, error) {
 	return f.getActiveByEmailSubs, f.getActiveByEmailErr
 }

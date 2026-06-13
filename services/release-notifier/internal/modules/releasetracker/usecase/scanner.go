@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -7,8 +7,21 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 )
+
+type ScannerRepositoryStore interface {
+	GetAll(ctx context.Context) ([]domain.Repository, error)
+	UpdateTag(ctx context.Context, id int, tag string) error
+}
+
+type ReleaseTagClient interface {
+	GetRepositoryLatestTag(ctx context.Context, repoAddr string) (string, error)
+}
+
+type ReleaseDetectedHandler interface {
+	HandleReleaseDetected(ctx context.Context, event domain.ReleaseEvent) error
+}
 
 type Scanner struct {
 	log            *slog.Logger
@@ -52,7 +65,7 @@ func (s *Scanner) Scan(ctx context.Context) {
 	}
 }
 
-func (s *Scanner) processRepo(ctx context.Context, repo models.TrackedRepository) error {
+func (s *Scanner) processRepo(ctx context.Context, repo domain.Repository) error {
 	latestTag, err := s.githubClient.GetRepositoryLatestTag(ctx, repo.Name)
 	if err != nil {
 		return err
@@ -64,7 +77,7 @@ func (s *Scanner) processRepo(ctx context.Context, repo models.TrackedRepository
 
 	s.log.Info("new release found", "repo", repo.Name, "old", repo.LastSeenTag, "new", latestTag)
 
-	event := models.ReleaseEvent{
+	event := domain.ReleaseEvent{
 		RepoID:   repo.ID,
 		RepoName: repo.Name,
 		Tag:      latestTag,

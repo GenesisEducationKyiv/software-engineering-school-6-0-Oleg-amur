@@ -1,4 +1,4 @@
-package services
+package usecase
 
 import (
 	"context"
@@ -7,18 +7,28 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 )
+
+type RepositoryStore interface {
+	GetByName(ctx context.Context, name string) (*domain.Repository, error)
+	Create(ctx context.Context, name string, lastSeenTag string) (*domain.Repository, error)
+}
+
+type RepositoryMetadataClient interface {
+	GetRepositoryLatestTag(ctx context.Context, repoAddr string) (string, error)
+	CheckIfRepoExists(ctx context.Context, repoAddr string) (bool, error)
+}
 
 type RepositoryService struct {
 	log            *slog.Logger
-	repositoryRepo TrackedRepositoryStore
+	repositoryRepo RepositoryStore
 	githubClient   RepositoryMetadataClient
 }
 
 func NewRepositoryService(
 	log *slog.Logger,
-	repo TrackedRepositoryStore,
+	repo RepositoryStore,
 	githubClient RepositoryMetadataClient,
 ) *RepositoryService {
 	return &RepositoryService{
@@ -28,7 +38,7 @@ func NewRepositoryService(
 	}
 }
 
-func (s *RepositoryService) EnsureTracked(ctx context.Context, repoName string) (*models.TrackedRepository, error) {
+func (s *RepositoryService) EnsureTracked(ctx context.Context, repoName string) (*domain.Repository, error) {
 	repo, err := s.repositoryRepo.GetByName(ctx, repoName)
 	if err != nil {
 		if !errors.Is(err, apperr.ErrNotFound) {

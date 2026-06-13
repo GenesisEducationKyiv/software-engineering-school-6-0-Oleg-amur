@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
+	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
+	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/test/integration/testkit"
 	"github.com/stretchr/testify/suite"
 )
@@ -18,9 +19,9 @@ type RepositorySuite struct {
 	pg               *testkit.Postgres
 	ctx              context.Context
 	cancel           context.CancelFunc
-	repositoryRepo   *postgresql.RepositoryRepository
-	subscriberRepo   *postgresql.SubscriberRepository
-	subscriptionRepo *postgresql.SubscriptionRepository
+	repositoryRepo   *releasetrackerpostgresql.RepositoryStore
+	subscriberRepo   *subscriptionpostgresql.SubscriberRepository
+	subscriptionRepo *subscriptionpostgresql.SubscriptionRepository
 }
 
 func TestRepositorySuite(t *testing.T) {
@@ -43,7 +44,7 @@ func (s *RepositorySuite) TearDownSuite() {
 
 func (s *RepositorySuite) SetupTest() {
 	s.pg.Reset(s.T())
-	s.repositoryRepo = postgresql.NewRepositoryRepository(s.pg.DB)
-	s.subscriberRepo = postgresql.NewSubscriberRepository(s.pg.DB)
-	s.subscriptionRepo = postgresql.NewSubscriptionRepository(s.pg.DB)
+	s.repositoryRepo = releasetrackerpostgresql.NewRepositoryStore(s.pg.DB)
+	s.subscriberRepo = subscriptionpostgresql.NewSubscriberRepository(s.pg.DB)
+	s.subscriptionRepo = subscriptionpostgresql.NewSubscriptionRepository(s.pg.DB)
 }

@@ -1,10 +1,14 @@
-package services
+package usecase
 
 import (
 	"context"
 	"log/slog"
 	"time"
 )
+
+type releaseScanner interface {
+	Scan(ctx context.Context)
+}
 
 type Scheduler struct {
 	log      *slog.Logger

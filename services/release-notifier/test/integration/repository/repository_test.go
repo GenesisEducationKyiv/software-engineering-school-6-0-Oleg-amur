@@ -6,7 +6,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
 )
 
-func (s *RepositorySuite) TestRepositoryRepository_CreateAndGetByName() {
+func (s *RepositorySuite) TestRepositoryStore_CreateAndGetByName() {
 	created, err := s.repositoryRepo.Create(s.ctx, "owner/repo", "v1.0.0")
 	s.Require().NoError(err, "create repository")
 	s.NotZero(created.ID, "created repository id")
@@ -18,7 +18,7 @@ func (s *RepositorySuite) TestRepositoryRepository_CreateAndGetByName() {
 	s.Equal(created.ID, got.ID)
 }
 
-func (s *RepositorySuite) TestRepositoryRepository_UpdateTag() {
+func (s *RepositorySuite) TestRepositoryStore_UpdateTag() {
 	created, err := s.repositoryRepo.Create(s.ctx, "owner/repo", "v1.0.0")
 	s.Require().NoError(err, "create repository")
 
@@ -29,7 +29,7 @@ func (s *RepositorySuite) TestRepositoryRepository_UpdateTag() {
 	s.Equal("v2.0.0", updated.LastSeenTag)
 }
 
-func (s *RepositorySuite) TestRepositoryRepository_GetAll() {
+func (s *RepositorySuite) TestRepositoryStore_GetAll() {
 	_, err := s.repositoryRepo.Create(s.ctx, "owner/repo", "v1.0.0")
 	s.Require().NoError(err, "create repository")
 
@@ -39,7 +39,7 @@ func (s *RepositorySuite) TestRepositoryRepository_GetAll() {
 	s.Equal("owner/repo", all[0].Name)
 }
 
-func (s *RepositorySuite) TestRepositoryRepository_GetByNameReturnsNotFound() {
+func (s *RepositorySuite) TestRepositoryStore_GetByNameReturnsNotFound() {
 	_, err := s.repositoryRepo.GetByName(s.ctx, "missing/repo")
 
 	s.ErrorIs(err, apperr.ErrNotFound)

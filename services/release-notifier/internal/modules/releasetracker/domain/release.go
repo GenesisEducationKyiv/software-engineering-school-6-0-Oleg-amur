@@ -1,4 +1,4 @@
-package models
+package domain
 
 type ReleaseEvent struct {
 	RepoID   int

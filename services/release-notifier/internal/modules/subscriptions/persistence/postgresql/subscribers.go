@@ -6,15 +6,16 @@ import (
 	"errors"
 	"fmt"
 
+	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/models"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
 type SubscriberRepository struct {
-	db Queryable
+	db postgresqladapter.Queryable
 }
 
-func NewSubscriberRepository(db Queryable) *SubscriberRepository {
+func NewSubscriberRepository(db postgresqladapter.Queryable) *SubscriberRepository {
 	return &SubscriberRepository{db: db}
 }
 

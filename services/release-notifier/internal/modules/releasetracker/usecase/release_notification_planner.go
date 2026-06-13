@@ -1,14 +1,22 @@
-package services
+package usecase
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/google/uuid"
 )
+
+type subscriptionRepoForReleaseNotifications interface {
+	GetActiveRecipientsByRepoID(ctx context.Context, repoID int) ([]domain.NotificationRecipient, error)
+}
+
+type releaseNotificationPublisher interface {
+	PublishReleaseNotification(ctx context.Context, event events.ReleaseNotificationRequested) error
+}
 
 type ReleaseNotificationPlanner struct {
 	log              *slog.Logger
@@ -28,7 +36,7 @@ func NewReleaseNotificationPlanner(
 	}
 }
 
-func (p *ReleaseNotificationPlanner) HandleReleaseDetected(ctx context.Context, event models.ReleaseEvent) error {
+func (p *ReleaseNotificationPlanner) HandleReleaseDetected(ctx context.Context, event domain.ReleaseEvent) error {
 	recipients, err := p.subscriptionRepo.GetActiveRecipientsByRepoID(ctx, event.RepoID)
 	if err != nil {
 		return fmt.Errorf("fetch active subscriptions: %w", err)

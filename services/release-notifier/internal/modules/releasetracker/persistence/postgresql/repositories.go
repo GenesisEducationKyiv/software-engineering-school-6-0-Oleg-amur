@@ -6,29 +6,30 @@ import (
 	"errors"
 	"fmt"
 
+	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	releasewatchmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasewatch/models"
+	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 )
 
-type RepositoryRepository struct {
-	db Queryable
+type RepositoryStore struct {
+	db postgresqladapter.Queryable
 }
 
-func NewRepositoryRepository(db Queryable) *RepositoryRepository {
-	return &RepositoryRepository{db: db}
+func NewRepositoryStore(db postgresqladapter.Queryable) *RepositoryStore {
+	return &RepositoryStore{db: db}
 }
 
-func (r *RepositoryRepository) Create(
+func (r *RepositoryStore) Create(
 	ctx context.Context,
 	name string,
 	lastSeenTag string,
-) (*releasewatchmodels.TrackedRepository, error) {
+) (*releasetrackerdomain.Repository, error) {
 	query := `
 		INSERT INTO repositories (name, last_seen_tag) 
 		VALUES ($1, $2) 
 		RETURNING id, name, last_seen_tag, created_at`
 
-	var repo releasewatchmodels.TrackedRepository
+	var repo releasetrackerdomain.Repository
 	err := r.db.QueryRowContext(ctx, query, name, lastSeenTag).
 		Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
 	if err != nil {
@@ -37,12 +38,12 @@ func (r *RepositoryRepository) Create(
 	return &repo, nil
 }
 
-func (r *RepositoryRepository) GetByName(
+func (r *RepositoryStore) GetByName(
 	ctx context.Context,
 	name string,
-) (*releasewatchmodels.TrackedRepository, error) {
+) (*releasetrackerdomain.Repository, error) {
 	query := `SELECT id, name, last_seen_tag, created_at FROM repositories WHERE name = $1`
-	var repo releasewatchmodels.TrackedRepository
+	var repo releasetrackerdomain.Repository
 	err := r.db.QueryRowContext(ctx, query, name).
 		Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt)
 	if err != nil {
@@ -54,13 +55,13 @@ func (r *RepositoryRepository) GetByName(
 	return &repo, nil
 }
 
-func (r *RepositoryRepository) UpdateTag(ctx context.Context, id int, tag string) error {
+func (r *RepositoryStore) UpdateTag(ctx context.Context, id int, tag string) error {
 	query := `UPDATE repositories SET last_seen_tag = $1 WHERE id = $2`
 	_, err := r.db.ExecContext(ctx, query, tag, id)
 	return err
 }
 
-func (r *RepositoryRepository) GetAll(ctx context.Context) ([]releasewatchmodels.TrackedRepository, error) {
+func (r *RepositoryStore) GetAll(ctx context.Context) ([]releasetrackerdomain.Repository, error) {
 	query := `SELECT id, name, last_seen_tag, created_at FROM repositories`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -71,9 +72,9 @@ func (r *RepositoryRepository) GetAll(ctx context.Context) ([]releasewatchmodels
 		err = errors.Join(err, clErr)
 	}()
 
-	var repos []releasewatchmodels.TrackedRepository
+	var repos []releasetrackerdomain.Repository
 	for rows.Next() {
-		var repo releasewatchmodels.TrackedRepository
+		var repo releasetrackerdomain.Repository
 		if err := rows.Scan(&repo.ID, &repo.Name, &repo.LastSeenTag, &repo.CreatedAt); err != nil {
 			return nil, err
 		}
