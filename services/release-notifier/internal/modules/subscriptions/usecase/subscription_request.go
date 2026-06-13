@@ -27,10 +27,10 @@ type SubscribeRequest struct {
 
 func (r *SubscribeRequest) Validate() error {
 	if !isValidEmail(r.Email) {
-		return apperr.ErrInvalidFormat
+		return apperr.ErrInvalidEmailFormat
 	}
 	if !isValidGitHubRepoPath(r.Repo) {
-		return apperr.ErrInvalidFormat
+		return apperr.ErrInvalidRepositoryFormat
 	}
 	return nil
 }

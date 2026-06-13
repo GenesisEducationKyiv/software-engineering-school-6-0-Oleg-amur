@@ -27,15 +27,15 @@ func TestSubscribeRequest_Validate(t *testing.T) {
 				Email: "invalid-email",
 				Repo:  "owner/repo",
 			},
-			wantErr: apperr.ErrInvalidFormat,
+			wantErr: apperr.ErrInvalidEmailFormat,
 		},
 		{
-			name: "returns invalid format when repo is invalid",
+			name: "returns invalid repository format when repo is invalid",
 			request: SubscribeRequest{
 				Email: "user@example.com",
 				Repo:  "owner",
 			},
-			wantErr: apperr.ErrInvalidFormat,
+			wantErr: apperr.ErrInvalidRepositoryFormat,
 		},
 	}
 

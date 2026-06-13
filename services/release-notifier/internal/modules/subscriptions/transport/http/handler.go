@@ -54,7 +54,8 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	err := h.usecases.Subscribe(r.Context(), subReq)
 	if err != nil {
-		if errors.Is(err, apperr.ErrInvalidFormat) {
+		if errors.Is(err, apperr.ErrInvalidEmailFormat) ||
+			errors.Is(err, apperr.ErrInvalidRepositoryFormat) {
 			h.sendError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
