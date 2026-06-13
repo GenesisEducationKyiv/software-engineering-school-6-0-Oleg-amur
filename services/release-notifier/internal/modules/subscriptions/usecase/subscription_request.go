@@ -1,9 +1,11 @@
-package dto
+package usecase
 
 import (
 	"net/mail"
 	"regexp"
 	"strings"
+
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
 )
 
 const (
@@ -17,6 +19,21 @@ var (
 	githubOwnerPattern    = regexp.MustCompile(`^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$`)
 	githubRepoNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 )
+
+type SubscribeRequest struct {
+	Email string
+	Repo  string
+}
+
+func (r *SubscribeRequest) Validate() error {
+	if !isValidEmail(r.Email) {
+		return apperr.ErrInvalidFormat
+	}
+	if !isValidGitHubRepoPath(r.Repo) {
+		return apperr.ErrInvalidFormat
+	}
+	return nil
+}
 
 func isValidEmail(address string) bool {
 	if len(address) == 0 || len(address) > maxEmailLength {

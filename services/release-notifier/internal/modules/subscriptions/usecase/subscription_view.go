@@ -1,6 +1,6 @@
-package dto
+package usecase
 
-type SubscriptionDTO struct {
+type SubscriptionView struct {
 	Email       string
 	Repo        string
 	Confirmed   bool

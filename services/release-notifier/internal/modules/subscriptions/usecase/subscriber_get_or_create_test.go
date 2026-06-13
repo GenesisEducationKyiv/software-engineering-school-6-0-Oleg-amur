@@ -9,7 +9,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
-func TestSubscriberService_GetOrCreate(t *testing.T) {
+func TestGetOrCreateSubscriber_Execute(t *testing.T) {
 	errGet := errors.New("db error")
 	errCreate := errors.New("create error")
 
@@ -57,9 +57,9 @@ func TestSubscriberService_GetOrCreate(t *testing.T) {
 				getErr:     tt.getErr,
 				createErr:  tt.createErr,
 			}
-			svc := NewSubscriberService(testLogger(), repo)
+			svc := NewGetOrCreateSubscriber(testLogger(), repo)
 
-			subscriber, err := svc.GetOrCreate(context.Background(), tt.email)
+			subscriber, err := svc.Execute(context.Background(), tt.email)
 
 			assertErrorIs(t, err, tt.wantErr)
 			if tt.wantErr == nil && subscriber.ID != tt.subscriber.ID {

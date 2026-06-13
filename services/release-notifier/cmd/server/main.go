@@ -13,19 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/rabbitmq"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/database"
-	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
-	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
-	releasetrackerworker "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/worker"
-	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
-	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
-	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/observability"
 	"google.golang.org/grpc"
 )
@@ -34,26 +27,6 @@ const (
 	configPath             = "configs/config.yaml"
 	errorChannelBufferSize = 2
 )
-
-type repositoryTracker struct {
-	service *releasetrackerusecase.RepositoryService
-}
-
-func (t repositoryTracker) EnsureTracked(
-	ctx context.Context,
-	repoName string,
-) (*subscriptionmodels.RepositoryRef, error) {
-	repo, err := t.service.EnsureTracked(ctx, repoName)
-	if err != nil {
-		return nil, err
-	}
-
-	return &subscriptionmodels.RepositoryRef{
-		ID:          repo.ID,
-		Name:        repo.Name,
-		LastSeenTag: repo.LastSeenTag,
-	}, nil
-}
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "release-notifier")
@@ -103,61 +76,24 @@ func runApp(log *slog.Logger) error {
 		return err
 	}
 
-	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(db)
-	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(db)
-	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(db)
-
-	notificationPublisher, err := rabbitmq.NewNotificationPublisher(rabbitmq.Config{
-		URL:      cfg.EventBus.URL,
-		Exchange: cfg.EventBus.NotificationExchange,
-		Queue:    cfg.EventBus.NotificationQueue,
-		DLQ:      cfg.EventBus.NotificationDLQ,
-	})
+	modules, err := setupModules(log, db, cfg, githubClient)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := notificationPublisher.Close(); err != nil {
+		if err := modules.notificationPublisher.Close(); err != nil {
 			log.Error("unable to close notification publisher", "error", err)
 		}
 	}()
 
-	subscriberService := subscriptionusecase.NewSubscriberService(
-		log,
-		subscriberRepo,
-	)
-
-	releaseTrackerService := releasetrackerusecase.NewRepositoryService(
-		log,
-		repositoryRepo,
-		githubClient,
-	)
-
-	subscriptionSvc := subscriptionusecase.NewSubscriptionService(
-		log,
-		subscriberService,
-		repositoryTracker{service: releaseTrackerService},
-		subscriptionRepo,
-		notificationPublisher,
-	)
-
-	releaseNotificationPlanner := releasetrackerusecase.NewReleaseNotificationPlanner(log, subscriptionRepo, notificationPublisher)
-	releaseScanner := releasetrackerusecase.NewReleaseScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
-
-	scanInterval, err := time.ParseDuration(cfg.Scanner.Interval)
-	if err != nil {
-		log.Error("failed to parse scanner interval", "val", cfg.Scanner.Interval, "err", err)
-		scanInterval = time.Hour
-	}
-	scheduler := releasetrackerworker.NewScheduler(log, releaseScanner, scanInterval)
-	go scheduler.Start(ctx)
+	go modules.releaseScheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")
 	healthHandler := httpapi.NewHealthHandler(log, db)
-	router := httpapi.NewRouter(log, subscriptionSvc, healthHandler)
+	router := httpapi.NewRouter(log, modules.subscriptionUsecases, healthHandler)
 	httpServer := setupHttpServer(cfg.Server, router)
 
-	grpcHandler := subscriptiongrpc.NewHandler(log, subscriptionSvc)
+	grpcHandler := subscriptiongrpc.NewHandler(log, modules.subscriptionUsecases)
 	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcHandler, log)
 	if err != nil {
 		return err

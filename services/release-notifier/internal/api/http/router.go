@@ -10,9 +10,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func NewRouter(log *slog.Logger, svc subscriptionhttp.SubscriptionService, healthHandler http.Handler) http.Handler {
+func NewRouter(log *slog.Logger, usecases subscriptionhttp.SubscriptionUsecases, healthHandler http.Handler) http.Handler {
 	mux := http.NewServeMux()
-	h := subscriptionhttp.NewHandler(log, svc)
+	h := subscriptionhttp.NewHandler(log, usecases)
 
 	mux.HandleFunc("/", serveIndex)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(webstatic.Files))))

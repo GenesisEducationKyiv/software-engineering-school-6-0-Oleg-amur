@@ -74,24 +74,29 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(cfg.DB)
 	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
 
-	subscriberService := subscriptionusecase.NewSubscriberService(cfg.Logger, subscriberRepo)
+	registerSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberRepo)
 	releaseTrackerService := releasetrackerusecase.NewRepositoryService(cfg.Logger, repositoryRepo, githubClient)
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
-	subscriptionService := subscriptionusecase.NewSubscriptionService(
-		cfg.Logger,
-		subscriberService,
-		repositoryTracker{service: releaseTrackerService},
-		subscriptionRepo,
-		eventPublisher,
-	)
+	subscriptionUsecases := subscriptionusecase.SubscriptionUsecases{
+		SubscribeToRepository: subscriptionusecase.NewSubscribeToRepository(
+			cfg.Logger,
+			registerSubscriber,
+			repositoryTracker{service: releaseTrackerService},
+			subscriptionRepo,
+			eventPublisher,
+		),
+		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionRepo),
+		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionRepo),
+		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionRepo),
+	}
 
 	return &App{
 		DB:          cfg.DB,
 		Logger:      cfg.Logger,
-		HTTPHandler: httpapi.NewRouter(cfg.Logger, subscriptionService, httpapi.NewHealthHandler(cfg.Logger, cfg.DB)),
-		GRPCHandler: subscriptiongrpc.NewHandler(cfg.Logger, subscriptionService),
+		HTTPHandler: httpapi.NewRouter(cfg.Logger, subscriptionUsecases, httpapi.NewHealthHandler(cfg.Logger, cfg.DB)),
+		GRPCHandler: subscriptiongrpc.NewHandler(cfg.Logger, subscriptionUsecases),
 		Events:      subscriptionEvents,
 	}
 }

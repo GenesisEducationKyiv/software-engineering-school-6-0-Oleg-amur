@@ -8,25 +8,25 @@ import (
 	"net/http"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	subscriptiondto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/dto"
+	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 )
 
-type SubscriptionService interface {
-	Subscribe(context.Context, subscriptiondto.SubscribeRequest) error
+type SubscriptionUsecases interface {
+	Subscribe(context.Context, subscriptionusecase.SubscribeRequest) error
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
-	GetSubscriptions(context.Context, string) ([]subscriptiondto.SubscriptionDTO, error)
+	GetSubscriptions(context.Context, string) ([]subscriptionusecase.SubscriptionView, error)
 }
 
 type Handler struct {
-	log     *slog.Logger
-	service SubscriptionService
+	log      *slog.Logger
+	usecases SubscriptionUsecases
 }
 
-func NewHandler(log *slog.Logger, svc SubscriptionService) *Handler {
+func NewHandler(log *slog.Logger, usecases SubscriptionUsecases) *Handler {
 	return &Handler{
-		log:     log,
-		service: svc,
+		log:      log,
+		usecases: usecases,
 	}
 }
 
@@ -42,7 +42,7 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subReq := subscriptiondto.SubscribeRequest{
+	subReq := subscriptionusecase.SubscribeRequest{
 		Email: req.Email,
 		Repo:  req.Repo,
 	}
@@ -52,7 +52,7 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Subscribe(r.Context(), subReq)
+	err := h.usecases.Subscribe(r.Context(), subReq)
 	if err != nil {
 		if errors.Is(err, apperr.ErrInvalidFormat) {
 			h.sendError(w, err.Error(), http.StatusBadRequest)
@@ -90,7 +90,7 @@ func (h *Handler) Confirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Confirm(r.Context(), token)
+	err := h.usecases.Confirm(r.Context(), token)
 	if err != nil {
 		if errors.Is(err, apperr.ErrTokenNotFound) {
 			h.sendError(w, "Token not found", http.StatusNotFound)
@@ -116,7 +116,7 @@ func (h *Handler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Unsubscribe(r.Context(), token)
+	err := h.usecases.Unsubscribe(r.Context(), token)
 	if err != nil {
 		h.log.Error("unsubscription failed", "err", err)
 		h.sendError(w, "Internal server error", http.StatusInternalServerError)
@@ -137,7 +137,7 @@ func (h *Handler) GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subs, err := h.service.GetSubscriptions(r.Context(), email)
+	subs, err := h.usecases.GetSubscriptions(r.Context(), email)
 	if err != nil {
 		h.log.Error("get subscriptions failed", "err", err)
 		h.sendError(w, "Internal server error", http.StatusInternalServerError)

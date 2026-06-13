@@ -7,28 +7,28 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	subscriptiondto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/dto"
+	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type SubscriptionService interface {
-	Subscribe(context.Context, subscriptiondto.SubscribeRequest) error
+type SubscriptionUsecases interface {
+	Subscribe(context.Context, subscriptionusecase.SubscribeRequest) error
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
-	GetSubscriptions(context.Context, string) ([]subscriptiondto.SubscriptionDTO, error)
+	GetSubscriptions(context.Context, string) ([]subscriptionusecase.SubscriptionView, error)
 }
 
 type Handler struct {
 	pb.UnimplementedReleaseNotifierServer
-	log     *slog.Logger
-	service SubscriptionService
+	log      *slog.Logger
+	usecases SubscriptionUsecases
 }
 
-func NewHandler(log *slog.Logger, svc SubscriptionService) *Handler {
+func NewHandler(log *slog.Logger, usecases SubscriptionUsecases) *Handler {
 	return &Handler{
-		log:     log,
-		service: svc,
+		log:      log,
+		usecases: usecases,
 	}
 }
 
@@ -36,7 +36,7 @@ func (h *Handler) Subscribe(
 	ctx context.Context,
 	req *pb.SubscribeRequest,
 ) (*pb.SubscribeResponse, error) {
-	subReq := subscriptiondto.SubscribeRequest{
+	subReq := subscriptionusecase.SubscribeRequest{
 		Email: req.GetEmail(),
 		Repo:  req.GetRepo(),
 	}
@@ -45,7 +45,7 @@ func (h *Handler) Subscribe(
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	err := h.service.Subscribe(ctx, subReq)
+	err := h.usecases.Subscribe(ctx, subReq)
 	if err != nil {
 		if errors.Is(err, apperr.ErrInvalidFormat) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -70,7 +70,7 @@ func (h *Handler) Confirm(
 	ctx context.Context,
 	req *pb.ConfirmRequest,
 ) (*pb.ConfirmResponse, error) {
-	err := h.service.Confirm(ctx, req.GetToken())
+	err := h.usecases.Confirm(ctx, req.GetToken())
 	if err != nil {
 		if errors.Is(err, apperr.ErrTokenNotFound) {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -86,7 +86,7 @@ func (h *Handler) Unsubscribe(
 	ctx context.Context,
 	req *pb.UnsubscribeRequest,
 ) (*pb.UnsubscribeResponse, error) {
-	err := h.service.Unsubscribe(ctx, req.GetToken())
+	err := h.usecases.Unsubscribe(ctx, req.GetToken())
 	if err != nil {
 		h.log.Error("unsubscription failed", "err", err)
 		return nil, status.Error(codes.Internal, "Internal server error")
@@ -99,7 +99,7 @@ func (h *Handler) GetSubscriptions(
 	ctx context.Context,
 	req *pb.GetSubscriptionsRequest,
 ) (*pb.GetSubscriptionsResponse, error) {
-	subs, err := h.service.GetSubscriptions(ctx, req.GetEmail())
+	subs, err := h.usecases.GetSubscriptions(ctx, req.GetEmail())
 	if err != nil {
 		h.log.Error("get subscriptions failed", "err", err)
 		return nil, status.Error(codes.Internal, "Internal server error")
