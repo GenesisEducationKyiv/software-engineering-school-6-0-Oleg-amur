@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts v0.0.0
+	github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging v0.0.0
 	github.com/google/uuid v1.6.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.9.1
@@ -17,6 +18,8 @@ require (
 )
 
 replace github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts => ../../shared/contracts
+
+replace github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging => ../../shared/messaging
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
