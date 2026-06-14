@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
+	subscriptiondomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
 func TestPlanReleaseNotifications_Execute(t *testing.T) {
 	repo := &mockReleaseNotificationSubscriptionRepo{
-		recipients: []domain.NotificationRecipient{
+		subscriptions: []subscriptiondomain.RepositorySubscription{
 			{Email: "user1@example.com", UnsubscribeToken: "token-1"},
 			{Email: "user2@example.com", UnsubscribeToken: "token-2"},
 		},
@@ -65,7 +66,7 @@ func TestPlanReleaseNotifications_Execute_ReturnsRepositoryError(t *testing.T) {
 
 func TestPlanReleaseNotifications_Execute_ReturnsPublishError(t *testing.T) {
 	repo := &mockReleaseNotificationSubscriptionRepo{
-		recipients: []domain.NotificationRecipient{
+		subscriptions: []subscriptiondomain.RepositorySubscription{
 			{Email: "user@example.com", UnsubscribeToken: "token"},
 		},
 	}
@@ -87,15 +88,15 @@ func TestPlanReleaseNotifications_Execute_ReturnsPublishError(t *testing.T) {
 }
 
 type mockReleaseNotificationSubscriptionRepo struct {
-	recipients []domain.NotificationRecipient
-	err        error
+	subscriptions []subscriptiondomain.RepositorySubscription
+	err           error
 }
 
-func (f *mockReleaseNotificationSubscriptionRepo) GetActiveRecipientsByRepoID(
+func (f *mockReleaseNotificationSubscriptionRepo) Execute(
 	ctx context.Context,
 	repoID int,
-) ([]domain.NotificationRecipient, error) {
-	return f.recipients, f.err
+) ([]subscriptiondomain.RepositorySubscription, error) {
+	return f.subscriptions, f.err
 }
 
 type mockNotificationPublisher struct {

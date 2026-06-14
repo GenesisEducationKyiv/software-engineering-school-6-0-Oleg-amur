@@ -70,7 +70,7 @@ func (s *RepositorySuite) TestSubscriptionRepository_GetActiveByRepoIDReturnsOnl
 	err = s.subscriptionRepo.Activate(s.ctx, activeSubscription.token)
 	s.Require().NoError(err, "activate subscription")
 
-	active, err := s.subscriptionRepo.GetActiveRecipientsByRepoID(s.ctx, activeSubscription.repository.ID)
+	active, err := s.subscriptionRepo.GetActiveByRepositoryID(s.ctx, activeSubscription.repository.ID)
 	s.Require().NoError(err, "get active subscriptions by repository id")
 	s.Require().Len(active, 1, "active subscriptions by repository id")
 	s.Equal(activeSubscription.subscriber.Email, active[0].Email)

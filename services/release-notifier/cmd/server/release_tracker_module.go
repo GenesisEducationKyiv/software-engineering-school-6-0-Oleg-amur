@@ -9,7 +9,6 @@ import (
 	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
 	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
 	releasetrackerworker "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/worker"
-	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 )
 
 func setupRepositoryTrackingUsecase(
@@ -23,14 +22,14 @@ func setupRepositoryTrackingUsecase(
 func setupReleaseTrackerModule(
 	log *slog.Logger,
 	repositoryRepo *releasetrackerpostgresql.RepositoryStore,
-	subscriptionRepo *subscriptionpostgresql.SubscriptionRepository,
+	subscriptions releasetrackerusecase.ActiveSubscriptionsByRepositoryLister,
 	notificationPublisher *rabbitmq.Publisher,
 	githubClient *github.Client,
 	scanIntervalValue string,
 ) *releasetrackerworker.Scheduler {
 	planReleaseNotifications := releasetrackerusecase.NewPlanReleaseNotifications(
 		log,
-		subscriptionRepo,
+		subscriptions,
 		notificationPublisher,
 	)
 	scanReleases := releasetrackerusecase.NewScanReleases(
