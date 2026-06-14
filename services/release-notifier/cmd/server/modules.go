@@ -51,10 +51,12 @@ func setupModules(
 		ensureRepositoryTracked,
 		notificationPublisher,
 	)
+
+	activeSubscriptionsByRepository := subscriptionusecase.NewListActiveSubscriptionsByRepository(subscriptionRepo)
 	releaseScheduler := setupReleaseTrackerModule(
 		log,
 		repositoryRepo,
-		subscriptionRepo,
+		activeSubscriptionsByRepository,
 		notificationPublisher,
 		githubClient,
 		cfg.Scanner.Interval,

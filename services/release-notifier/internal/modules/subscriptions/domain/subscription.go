@@ -22,3 +22,8 @@ type Subscription struct {
 	Subscriber *Subscriber
 	Repository *releasetrackerdomain.Repository
 }
+
+type RepositorySubscription struct {
+	Email            string
+	UnsubscribeToken string
+}

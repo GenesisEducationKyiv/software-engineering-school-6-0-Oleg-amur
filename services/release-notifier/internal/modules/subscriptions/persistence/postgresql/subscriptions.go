@@ -141,10 +141,10 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 	return subs, nil
 }
 
-func (r *SubscriptionRepository) GetActiveRecipientsByRepoID(
+func (r *SubscriptionRepository) GetActiveByRepositoryID(
 	ctx context.Context,
 	repoID int,
-) ([]releasetrackerdomain.NotificationRecipient, error) {
+) ([]subscriptionmodels.RepositorySubscription, error) {
 	query := `
 		SELECT s.token, sub.email
 		FROM subscriptions s
@@ -160,21 +160,21 @@ func (r *SubscriptionRepository) GetActiveRecipientsByRepoID(
 		err = errors.Join(err, clErr)
 	}()
 
-	var recipients []releasetrackerdomain.NotificationRecipient
+	var subscriptions []subscriptionmodels.RepositorySubscription
 	for rows.Next() {
-		var recipient releasetrackerdomain.NotificationRecipient
+		var subscription subscriptionmodels.RepositorySubscription
 
 		if err := rows.Scan(
-			&recipient.UnsubscribeToken,
-			&recipient.Email,
+			&subscription.UnsubscribeToken,
+			&subscription.Email,
 		); err != nil {
 			return nil, err
 		}
-		recipients = append(recipients, recipient)
+		subscriptions = append(subscriptions, subscription)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return recipients, nil
+	return subscriptions, nil
 }
