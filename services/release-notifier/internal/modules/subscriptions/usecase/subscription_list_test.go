@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"testing"
 
-	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
@@ -35,14 +34,14 @@ func TestListSubscriptions_Execute(t *testing.T) {
 			subs: []domain.Subscription{
 				{
 					SubscriptionStatus: domain.StatusActive,
-					Repository: &releasetrackerdomain.Repository{
+					Repository: &domain.Repository{
 						Name:        "owner/repo1",
 						LastSeenTag: "v1.0",
 					},
 				},
 				{
 					SubscriptionStatus: domain.StatusActive,
-					Repository: &releasetrackerdomain.Repository{
+					Repository: &domain.Repository{
 						Name:        "owner/repo2",
 						LastSeenTag: "v2.0",
 					},
