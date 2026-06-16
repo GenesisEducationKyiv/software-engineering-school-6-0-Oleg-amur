@@ -79,8 +79,8 @@ func TestNotificationService_HandleSubscriptionConfirmationRequested(t *testing.
 	svc := NewNotificationService(testLogger(), sender, builder)
 
 	err := svc.HandleSubscriptionConfirmationRequested(context.Background(), events.SubscriptionConfirmationRequested{
-		Email: "user@example.com",
-		Token: "confirm-token",
+		Email:             "user@example.com",
+		ConfirmationToken: "confirm-token",
 	})
 	if err != nil {
 		t.Fatalf("got error %v, want nil", err)
@@ -104,8 +104,8 @@ func TestNotificationService_HandleSubscriptionConfirmationRequested_ReturnsSend
 	svc := NewNotificationService(testLogger(), sender, builder)
 
 	err := svc.HandleSubscriptionConfirmationRequested(context.Background(), events.SubscriptionConfirmationRequested{
-		Email: "user@example.com",
-		Token: "confirm-token",
+		Email:             "user@example.com",
+		ConfirmationToken: "confirm-token",
 	})
 
 	if !errors.Is(err, senderErr) {

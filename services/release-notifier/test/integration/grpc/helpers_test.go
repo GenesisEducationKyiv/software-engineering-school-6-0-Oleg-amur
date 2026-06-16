@@ -25,8 +25,8 @@ func (s *GRPCSuite) receiveSubscriptionToken() string {
 	s.T().Helper()
 
 	event := s.receiveSubscriptionEvent()
-	s.Require().NotEmpty(event.Token, "subscription event token")
-	return event.Token
+	s.Require().NotEmpty(event.ConfirmationToken, "subscription event confirmation token")
+	return event.ConfirmationToken
 }
 
 func (s *GRPCSuite) assertGRPCCode(gotErr error, wantCode codes.Code) {
