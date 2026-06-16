@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/client/email"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/adapters/email"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/adapters/eventbus/rabbitmq"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/config"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/eventbus/rabbitmq"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/service"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/notification-worker/internal/notification"
 )
 
 const configPath = "configs/config.yaml"
@@ -41,7 +41,7 @@ func runWorker(log *slog.Logger) error {
 		return err
 	}
 	msgBuilder := email.NewSimpleMessageBuilder(cfg.Notifier.BaseUrl)
-	notificationService := service.NewNotificationService(log, emailClient, msgBuilder)
+	notificationService := notification.NewNotificationService(log, emailClient, msgBuilder)
 
 	consumer, err := rabbitmq.NewNotificationConsumer(log, rabbitmq.Config{
 		URL:      cfg.EventBus.URL,

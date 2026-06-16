@@ -6,7 +6,7 @@ import (
 	"context"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/model"
+	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	"google.golang.org/grpc/codes"
 )
 
@@ -22,7 +22,7 @@ func (s *GRPCSuite) TestConfirm_ActivatesSubscription() {
 	_, err = s.client.Confirm(context.Background(), &pb.ConfirmRequest{Token: token})
 	s.assertGRPCCode(err, codes.OK)
 
-	s.assertSubscriptionStatus(token, model.StatusActive)
+	s.assertSubscriptionStatus(token, subscriptionmodels.StatusActive)
 }
 
 func (s *GRPCSuite) assertSubscriptionStatus(token string, want int) {

@@ -5,7 +5,7 @@ package http_test
 import (
 	"net/http"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http/dto"
+	dto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/http"
 )
 
 func (s *HTTPSuite) TestSubscribe_CreatesPendingSubscription() {
@@ -18,7 +18,7 @@ func (s *HTTPSuite) TestSubscribe_CreatesPendingSubscription() {
 
 	event := s.receiveSubscriptionEvent()
 	s.Equal(subscribeRequest.Email, event.Email)
-	s.NotEmpty(event.Token)
+	s.NotEmpty(event.ConfirmationToken)
 
 	response := s.getSubscriptions(subscribeRequest.Email)
 	s.Empty(response, "active subscriptions before confirmation")

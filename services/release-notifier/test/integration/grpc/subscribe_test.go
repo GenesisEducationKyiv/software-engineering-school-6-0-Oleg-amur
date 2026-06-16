@@ -18,7 +18,7 @@ func (s *GRPCSuite) TestSubscribe_CreatesPendingSubscription() {
 
 	event := s.receiveSubscriptionEvent()
 	s.Equal("user@example.com", event.Email)
-	s.NotEmpty(event.Token)
+	s.NotEmpty(event.ConfirmationToken)
 
 	resp, err := s.client.GetSubscriptions(context.Background(), &pb.GetSubscriptionsRequest{
 		Email: "user@example.com",

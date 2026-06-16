@@ -13,23 +13,19 @@ import (
 	"syscall"
 	"time"
 
-	grpcapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/client/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/database"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/eventbus/rabbitmq"
+	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/observability"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/repository/postgresql"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/scanner"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/service"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
 const (
-	configPath             = "configs/config.yaml"
-	errorChannelBufferSize = 2
+	configPath = "configs/config.yaml"
 )
 
 func main() {
@@ -80,95 +76,66 @@ func runApp(log *slog.Logger) error {
 		return err
 	}
 
-	subscriberRepo := postgresql.NewSubscriberRepository(db)
-	repositoryRepo := postgresql.NewRepositoryRepository(db)
-	subscriptionRepo := postgresql.NewSubscriptionRepository(db)
-
-	notificationPublisher, err := rabbitmq.NewNotificationPublisher(rabbitmq.Config{
-		URL:      cfg.EventBus.URL,
-		Exchange: cfg.EventBus.NotificationExchange,
-		Queue:    cfg.EventBus.NotificationQueue,
-		DLQ:      cfg.EventBus.NotificationDLQ,
-	})
+	modules, err := setupModules(log, db, cfg, githubClient)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := notificationPublisher.Close(); err != nil {
+		if err := modules.notificationPublisher.Close(); err != nil {
 			log.Error("unable to close notification publisher", "error", err)
 		}
 	}()
 
-	subscriberService := service.NewSubscriberService(
-		log,
-		subscriberRepo,
-	)
-
-	repositoryService := service.NewRepositoryService(
-		log,
-		repositoryRepo,
-		githubClient,
-	)
-
-	subscriptionSvc := service.NewSubscriptionService(
-		log,
-		subscriberService,
-		repositoryService,
-		subscriptionRepo,
-		notificationPublisher,
-	)
-
-	releaseNotificationPlanner := service.NewReleaseNotificationPlanner(log, subscriptionRepo, notificationPublisher)
-	releaseScanner := scanner.NewScanner(log, repositoryRepo, githubClient, releaseNotificationPlanner)
-
-	scanInterval, err := time.ParseDuration(cfg.Scanner.Interval)
-	if err != nil {
-		log.Error("failed to parse scanner interval", "val", cfg.Scanner.Interval, "err", err)
-		scanInterval = time.Hour
-	}
-	scheduler := scanner.NewScheduler(log, releaseScanner, scanInterval)
-	go scheduler.Start(ctx)
+	go modules.releaseScheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")
 	healthHandler := httpapi.NewHealthHandler(log, db)
-	router := httpapi.NewRouter(log, subscriptionSvc, healthHandler)
+	router := httpapi.NewRouter(log, modules.subscriptionUsecases, healthHandler)
 	httpServer := setupHttpServer(cfg.Server, router)
 
-	grpcHandler := grpcapi.NewGrpcHandler(log, subscriptionSvc)
+	grpcHandler := subscriptiongrpc.NewHandler(log, modules.subscriptionUsecases)
 	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcHandler, log)
 	if err != nil {
 		return err
 	}
 
-	errCh := make(chan error, errorChannelBufferSize)
+	group, groupCtx := errgroup.WithContext(ctx)
 
-	go func() {
+	group.Go(func() error {
 		log.Info("HTTP server starting", "addr", httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
+			return fmt.Errorf("HTTP server failed: %w", err)
 		}
-	}()
+		return nil
+	})
 
-	go func() {
+	group.Go(func() error {
 		log.Info("gRPC server starting", "addr", ":"+cfg.Server.GrpcPort)
-		if err := grpcServer.Serve(grpcLis); err != nil {
-			errCh <- err
+		if err := grpcServer.Serve(grpcLis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			return fmt.Errorf("gRPC server failed: %w", err)
 		}
-	}()
+		return nil
+	})
 
-	select {
-	case <-ctx.Done():
-		log.Info("shutting down signal received")
-	case err := <-errCh:
-		log.Error("server error", "error", err)
-	}
+	group.Go(func() error {
+		<-groupCtx.Done()
+		if errors.Is(ctx.Err(), context.Canceled) {
+			log.Info("shutting down signal received")
+		}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	log.Info("shutting down servers...")
-	grpcServer.GracefulStop()
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Info("shutting down servers...")
+		grpcServer.GracefulStop()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("shutdown HTTP server: %w", err)
+		}
+
+		return nil
+	})
+
+	if err := group.Wait(); err != nil {
 		return err
 	}
 
@@ -199,7 +166,7 @@ func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {
 func setupGrpcServer(
 	ctx context.Context,
 	cfg config.Server,
-	handler *grpcapi.GrpcHandler,
+	handler *subscriptiongrpc.Handler,
 	log *slog.Logger,
 ) (*grpc.Server, net.Listener, error) {
 	grpcAddr := ":" + cfg.GrpcPort

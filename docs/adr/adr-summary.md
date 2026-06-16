@@ -8,4 +8,4 @@ This directory contains the ADRs for the GitHub Release Notifier project.
 - [ADR 003: Web Framework & Communication](003-web-framework.md)
 - [ADR 004: Background Scanning](004-background-scanning.md)
 - [ADR 005: Custom GitHub Client](005-custom-github-client.md)
-- [ADR 006: Notification Worker and Event Bus](006-notification-worker-and-event-bus.md)
+- [ADR 006: Notification Worker and Modular Monolith](006-notification-worker-and-modular-monolith.md)

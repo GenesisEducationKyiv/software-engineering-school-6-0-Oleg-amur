@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http/dto"
+	dto "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
@@ -111,8 +111,8 @@ func (s *HTTPSuite) receiveSubscriptionToken() string {
 	s.T().Helper()
 
 	event := s.receiveSubscriptionEvent()
-	s.Require().NotEmpty(event.Token, "subscription event token")
-	return event.Token
+	s.Require().NotEmpty(event.ConfirmationToken, "subscription event confirmation token")
+	return event.ConfirmationToken
 }
 
 func decodeSubscriptions(t *testing.T, body []byte) []dto.Subscription {
