@@ -74,10 +74,10 @@ func (u *SubscribeToRepository) Execute(ctx context.Context, req SubscribeReques
 	}
 
 	event := events.SubscriptionConfirmationRequested{
-		EventID:       uuid.New().String(),
-		SchemaVersion: events.NotificationSchemaVersion,
-		Email:         req.Email,
-		Token:         token,
+		EventID:           uuid.New().String(),
+		SchemaVersion:     events.NotificationSchemaVersion,
+		Email:             req.Email,
+		ConfirmationToken: token,
 	}
 	if err := u.events.PublishSubscriptionConfirmation(ctx, event); err != nil {
 		u.log.Error("failed to publish subscription confirmation event", "email", req.Email, "err", err)

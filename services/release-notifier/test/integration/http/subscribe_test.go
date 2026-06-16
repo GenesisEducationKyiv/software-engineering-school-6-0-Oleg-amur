@@ -18,7 +18,7 @@ func (s *HTTPSuite) TestSubscribe_CreatesPendingSubscription() {
 
 	event := s.receiveSubscriptionEvent()
 	s.Equal(subscribeRequest.Email, event.Email)
-	s.NotEmpty(event.Token)
+	s.NotEmpty(event.ConfirmationToken)
 
 	response := s.getSubscriptions(subscribeRequest.Email)
 	s.Empty(response, "active subscriptions before confirmation")

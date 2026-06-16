@@ -23,9 +23,9 @@ func TestConsumerHandleDelivery_AcksHandledEvents(t *testing.T) {
 			name:       "subscription confirmation",
 			routingKey: events.SubscriptionConfirmationRequestedType,
 			body: mustMarshal(t, events.SubscriptionConfirmationRequested{
-				SchemaVersion: events.NotificationSchemaVersion,
-				Email:         "user@example.com",
-				Token:         "confirm-token",
+				SchemaVersion:     events.NotificationSchemaVersion,
+				Email:             "user@example.com",
+				ConfirmationToken: "confirm-token",
 			}),
 			assert: func(t *testing.T, handler *mockNotificationHandler) {
 				t.Helper()
@@ -36,8 +36,11 @@ func TestConsumerHandleDelivery_AcksHandledEvents(t *testing.T) {
 				if handler.confirmation.Email != "user@example.com" {
 					t.Errorf("got email %q, want user@example.com", handler.confirmation.Email)
 				}
-				if handler.confirmation.Token != "confirm-token" {
-					t.Errorf("got token %q, want confirm-token", handler.confirmation.Token)
+				if handler.confirmation.ConfirmationToken != "confirm-token" {
+					t.Errorf(
+						"got confirmation token %q, want confirm-token",
+						handler.confirmation.ConfirmationToken,
+					)
 				}
 			},
 		},
@@ -116,9 +119,9 @@ func TestConsumerHandleDelivery_NacksFailedEvents(t *testing.T) {
 			name:       "handler error",
 			routingKey: events.SubscriptionConfirmationRequestedType,
 			body: mustMarshal(t, events.SubscriptionConfirmationRequested{
-				SchemaVersion: events.NotificationSchemaVersion,
-				Email:         "user@example.com",
-				Token:         "confirm-token",
+				SchemaVersion:     events.NotificationSchemaVersion,
+				Email:             "user@example.com",
+				ConfirmationToken: "confirm-token",
 			}),
 			handlerErr: handlerErr,
 		},
@@ -126,9 +129,9 @@ func TestConsumerHandleDelivery_NacksFailedEvents(t *testing.T) {
 			name:       "unsupported schema version",
 			routingKey: events.SubscriptionConfirmationRequestedType,
 			body: mustMarshal(t, events.SubscriptionConfirmationRequested{
-				SchemaVersion: events.NotificationSchemaVersion + 1,
-				Email:         "user@example.com",
-				Token:         "confirm-token",
+				SchemaVersion:     events.NotificationSchemaVersion + 1,
+				Email:             "user@example.com",
+				ConfirmationToken: "confirm-token",
 			}),
 		},
 	}

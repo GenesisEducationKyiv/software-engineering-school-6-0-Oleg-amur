@@ -9,10 +9,10 @@ const (
 )
 
 type SubscriptionConfirmationRequested struct {
-	EventID       string `json:"event_id"`
-	SchemaVersion int    `json:"schema_version"`
-	Email         string `json:"email"`
-	Token         string `json:"token"`
+	EventID           string `json:"event_id"`
+	SchemaVersion     int    `json:"schema_version"`
+	Email             string `json:"email"`
+	ConfirmationToken string `json:"confirmation_token"`
 }
 
 type ReleaseNotificationRequested struct {

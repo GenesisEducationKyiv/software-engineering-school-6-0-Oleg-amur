@@ -7,7 +7,6 @@ import (
 
 	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
@@ -58,7 +57,7 @@ func (r *SubscriptionRepository) GetByToken(
 
 	var s subscriptionmodels.Subscription
 	s.Subscriber = &subscriptionmodels.Subscriber{}
-	s.Repository = &releasetrackerdomain.Repository{}
+	s.Repository = &subscriptionmodels.Repository{}
 
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
 		&s.ID, &s.SubscriberID, &s.RepositoryID, &s.SubscriptionStatus, &s.Token, &s.CreatedAt,
@@ -119,7 +118,7 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 	for rows.Next() {
 		var s subscriptionmodels.Subscription
 		s.Subscriber = &subscriptionmodels.Subscriber{}
-		s.Repository = &releasetrackerdomain.Repository{}
+		s.Repository = &subscriptionmodels.Repository{}
 
 		err := rows.Scan(
 			&s.ID,

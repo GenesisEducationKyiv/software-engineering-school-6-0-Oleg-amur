@@ -10,10 +10,10 @@ import (
 func (s *EventBusSuite) TestNotificationPublisherPublishesEventsToRabbitMQ() {
 	s.Run("subscription confirmation", func() {
 		event := events.SubscriptionConfirmationRequested{
-			EventID:       uuid.NewString(),
-			SchemaVersion: events.NotificationSchemaVersion,
-			Email:         "user@example.com",
-			Token:         "confirm-token",
+			EventID:           uuid.NewString(),
+			SchemaVersion:     events.NotificationSchemaVersion,
+			Email:             "user@example.com",
+			ConfirmationToken: "confirm-token",
 		}
 
 		s.Require().NoError(s.publisher.PublishSubscriptionConfirmation(s.ctx, event))

@@ -30,7 +30,7 @@ func assertSubscriptionEvent(t *testing.T, publisher *mockNotificationPublisher,
 	if event.Email != wantEmail {
 		t.Errorf("got subscription event email %q, want %q", event.Email, wantEmail)
 	}
-	if event.Token == "" {
+	if event.ConfirmationToken == "" {
 		t.Error("want subscription event token to be set")
 	}
 	if event.EventID == "" {

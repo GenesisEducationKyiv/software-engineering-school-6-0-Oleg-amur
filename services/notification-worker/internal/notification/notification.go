@@ -1,4 +1,4 @@
-package notifications
+package notification
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func (s *NotificationService) HandleSubscriptionConfirmationRequested(
 ) error {
 	s.log.Info("sending confirmation email", "email", event.Email)
 
-	subject, body := s.messageBuilder.BuildConfirmationMessage(event.Token)
+	subject, body := s.messageBuilder.BuildConfirmationMessage(event.ConfirmationToken)
 
 	if err := s.emailSender.Send(ctx, event.Email, subject, body); err != nil {
 		s.log.Error("failed to send confirmation", "email", event.Email, "err", err)
