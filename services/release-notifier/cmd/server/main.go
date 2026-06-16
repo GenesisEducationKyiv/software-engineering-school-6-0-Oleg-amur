@@ -20,12 +20,12 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/database"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/observability"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
 const (
-	configPath             = "configs/config.yaml"
-	errorChannelBufferSize = 2
+	configPath = "configs/config.yaml"
 )
 
 func main() {
@@ -99,35 +99,43 @@ func runApp(log *slog.Logger) error {
 		return err
 	}
 
-	errCh := make(chan error, errorChannelBufferSize)
+	group, groupCtx := errgroup.WithContext(ctx)
 
-	go func() {
+	group.Go(func() error {
 		log.Info("HTTP server starting", "addr", httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
+			return fmt.Errorf("HTTP server failed: %w", err)
 		}
-	}()
+		return nil
+	})
 
-	go func() {
+	group.Go(func() error {
 		log.Info("gRPC server starting", "addr", ":"+cfg.Server.GrpcPort)
-		if err := grpcServer.Serve(grpcLis); err != nil {
-			errCh <- err
+		if err := grpcServer.Serve(grpcLis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			return fmt.Errorf("gRPC server failed: %w", err)
 		}
-	}()
+		return nil
+	})
 
-	select {
-	case <-ctx.Done():
-		log.Info("shutting down signal received")
-	case err := <-errCh:
-		log.Error("server error", "error", err)
-	}
+	group.Go(func() error {
+		<-groupCtx.Done()
+		if errors.Is(ctx.Err(), context.Canceled) {
+			log.Info("shutting down signal received")
+		}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	log.Info("shutting down servers...")
-	grpcServer.GracefulStop()
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Info("shutting down servers...")
+		grpcServer.GracefulStop()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("shutdown HTTP server: %w", err)
+		}
+
+		return nil
+	})
+
+	if err := group.Wait(); err != nil {
 		return err
 	}
 
