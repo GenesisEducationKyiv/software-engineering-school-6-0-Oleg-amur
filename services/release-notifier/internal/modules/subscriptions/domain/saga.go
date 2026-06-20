@@ -2,14 +2,24 @@ package domain
 
 import "encoding/json"
 
-const (
-	SagaStatusStarted     = 1
-	SagaStatusCompleted   = 2
-	SagaStatusCompensated = 3
+type SagaStatus int
+type OutboxStatus int
 
-	OutboxStatusPending   = 1
-	OutboxStatusPublished = 2
+const (
+	SagaStatusStarted     SagaStatus = 1
+	SagaStatusCompleted   SagaStatus = 2
+	SagaStatusCompensated SagaStatus = 3
+
+	OutboxStatusPending   OutboxStatus = 1
+	OutboxStatusPublished OutboxStatus = 2
 )
+
+type SubscriptionSaga struct {
+	ID             int
+	SubscriptionID int
+	Status         SagaStatus
+	FailureReason *string
+}
 
 type OutboxMessage struct {
 	ID        int
