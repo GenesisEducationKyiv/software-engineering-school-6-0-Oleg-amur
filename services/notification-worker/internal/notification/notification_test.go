@@ -119,7 +119,6 @@ func TestNotificationService_HandleSubscriptionConfirmationRequested_PublishesFa
 		Email:             "user@example.com",
 		ConfirmationToken: "confirm-token",
 	})
-
 	if err != nil {
 		t.Fatalf("got error %v, want nil", err)
 	}
