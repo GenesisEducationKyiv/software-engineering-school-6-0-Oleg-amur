@@ -10,12 +10,12 @@ import (
 
 func setupSubscriptionsModule(
 	log *slog.Logger,
-	subscriberRepo *subscriptionpostgresql.SubscriberRepository,
-	subscriptionRepo *subscriptionpostgresql.SubscriptionRepository,
+	subscriberStore *subscriptionpostgresql.SubscriberStore,
+	subscriptionStore *subscriptionpostgresql.SubscriptionStore,
 	subscriptionCreator subscriptionusecase.SubscriptionCreator,
 	ensureRepositoryTracked *releasetrackerusecase.EnsureRepositoryTracked,
 ) subscriptionusecase.SubscriptionUsecases {
-	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(log, subscriberRepo)
+	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(log, subscriberStore)
 
 	return subscriptionusecase.SubscriptionUsecases{
 		SubscribeToRepository: subscriptionusecase.NewSubscribeToRepository(
@@ -24,8 +24,8 @@ func setupSubscriptionsModule(
 			ensureRepositoryTracked,
 			subscriptionCreator,
 		),
-		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionRepo),
-		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionRepo),
-		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionRepo),
+		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionStore),
+		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionStore),
+		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionStore),
 	}
 }

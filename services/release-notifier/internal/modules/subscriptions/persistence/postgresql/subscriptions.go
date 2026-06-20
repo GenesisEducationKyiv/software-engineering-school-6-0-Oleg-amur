@@ -10,24 +10,15 @@ import (
 	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
-type SubscriptionRepository struct {
+type SubscriptionStore struct {
 	db postgresqladapter.Queryable
 }
 
-func NewSubscriptionRepository(db postgresqladapter.Queryable) *SubscriptionRepository {
-	return &SubscriptionRepository{db: db}
+func NewSubscriptionStore(db postgresqladapter.Queryable) *SubscriptionStore {
+	return &SubscriptionStore{db: db}
 }
 
-func (r *SubscriptionRepository) Create(
-	ctx context.Context,
-	subID, repoID int,
-	token string,
-) error {
-	_, err := r.CreateReturningID(ctx, subID, repoID, token)
-	return err
-}
-
-func (r *SubscriptionRepository) CreateReturningID(
+func (r *SubscriptionStore) Create(
 	ctx context.Context,
 	subID, repoID int,
 	token string,
@@ -51,7 +42,7 @@ func (r *SubscriptionRepository) CreateReturningID(
 	return subscriptionID, nil
 }
 
-func (r *SubscriptionRepository) GetByToken(
+func (r *SubscriptionStore) GetByToken(
 	ctx context.Context,
 	token string,
 ) (*subscriptionmodels.Subscription, error) {
@@ -79,7 +70,7 @@ func (r *SubscriptionRepository) GetByToken(
 	return &s, nil
 }
 
-func (r *SubscriptionRepository) Activate(ctx context.Context, token string) error {
+func (r *SubscriptionStore) Activate(ctx context.Context, token string) error {
 	query := `UPDATE subscriptions SET subscription_status = $1 WHERE token = $2`
 	result, err := r.db.ExecContext(ctx, query, subscriptionmodels.StatusActive, token)
 	if err != nil {
@@ -95,19 +86,19 @@ func (r *SubscriptionRepository) Activate(ctx context.Context, token string) err
 	return nil
 }
 
-func (r *SubscriptionRepository) DeleteByToken(ctx context.Context, token string) error {
+func (r *SubscriptionStore) DeleteByToken(ctx context.Context, token string) error {
 	query := `DELETE FROM subscriptions WHERE token = $1`
 	_, err := r.db.ExecContext(ctx, query, token)
 	return err
 }
 
-func (r *SubscriptionRepository) DeleteByID(ctx context.Context, id int) error {
+func (r *SubscriptionStore) DeleteByID(ctx context.Context, id int) error {
 	query := `DELETE FROM subscriptions WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }
 
-func (r *SubscriptionRepository) GetActiveByEmail(
+func (r *SubscriptionStore) GetActiveByEmail(
 	ctx context.Context,
 	email string,
 ) ([]subscriptionmodels.Subscription, error) {
@@ -153,7 +144,7 @@ func (r *SubscriptionRepository) GetActiveByEmail(
 	return subs, nil
 }
 
-func (r *SubscriptionRepository) GetActiveByRepositoryID(
+func (r *SubscriptionStore) GetActiveByRepositoryID(
 	ctx context.Context,
 	repoID int,
 ) ([]subscriptionmodels.RepositorySubscription, error) {

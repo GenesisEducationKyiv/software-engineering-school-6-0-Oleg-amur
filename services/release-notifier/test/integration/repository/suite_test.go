@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
 	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/test/integration/testkit"
@@ -16,12 +17,12 @@ import (
 type RepositorySuite struct {
 	suite.Suite
 
-	pg               *testkit.Postgres
-	ctx              context.Context
-	cancel           context.CancelFunc
-	repositoryRepo   *releasetrackerpostgresql.RepositoryStore
-	subscriberRepo   *subscriptionpostgresql.SubscriberRepository
-	subscriptionRepo *subscriptionpostgresql.SubscriptionRepository
+	pg                *testkit.Postgres
+	ctx               context.Context
+	cancel            context.CancelFunc
+	repositoryStore   *releasetrackerpostgresql.RepositoryStore
+	subscriberStore   *subscriptionpostgresql.SubscriberStore
+	subscriptionStore *subscriptionpostgresql.SubscriptionStore
 }
 
 func TestRepositorySuite(t *testing.T) {
@@ -44,7 +45,8 @@ func (s *RepositorySuite) TearDownSuite() {
 
 func (s *RepositorySuite) SetupTest() {
 	s.pg.Reset(s.T())
-	s.repositoryRepo = releasetrackerpostgresql.NewRepositoryStore(s.pg.DB)
-	s.subscriberRepo = subscriptionpostgresql.NewSubscriberRepository(s.pg.DB)
-	s.subscriptionRepo = subscriptionpostgresql.NewSubscriptionRepository(s.pg.DB)
+	queryable := postgresqladapter.NewContextQueryable(s.pg.DB)
+	s.repositoryStore = releasetrackerpostgresql.NewRepositoryStore(queryable)
+	s.subscriberStore = subscriptionpostgresql.NewSubscriberStore(queryable)
+	s.subscriptionStore = subscriptionpostgresql.NewSubscriptionStore(queryable)
 }

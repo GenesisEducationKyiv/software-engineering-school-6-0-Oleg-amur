@@ -11,15 +11,15 @@ import (
 	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
-type SubscriberRepository struct {
+type SubscriberStore struct {
 	db postgresqladapter.Queryable
 }
 
-func NewSubscriberRepository(db postgresqladapter.Queryable) *SubscriberRepository {
-	return &SubscriberRepository{db: db}
+func NewSubscriberStore(db postgresqladapter.Queryable) *SubscriberStore {
+	return &SubscriberStore{db: db}
 }
 
-func (r *SubscriberRepository) Create(ctx context.Context, email string) (*subscriptionmodels.Subscriber, error) {
+func (r *SubscriberStore) Create(ctx context.Context, email string) (*subscriptionmodels.Subscriber, error) {
 	query := `
 		INSERT INTO subscribers (email) 
 		VALUES ($1) 
@@ -33,7 +33,7 @@ func (r *SubscriberRepository) Create(ctx context.Context, email string) (*subsc
 	return &s, nil
 }
 
-func (r *SubscriberRepository) GetByEmail(
+func (r *SubscriberStore) GetByEmail(
 	ctx context.Context,
 	email string,
 ) (*subscriptionmodels.Subscriber, error) {

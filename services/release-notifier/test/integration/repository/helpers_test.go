@@ -21,9 +21,9 @@ func (s *RepositorySuite) createSubscription(
 ) createdSubscription {
 	s.T().Helper()
 
-	subscriber, err := s.subscriberRepo.Create(s.ctx, email)
+	subscriber, err := s.subscriberStore.Create(s.ctx, email)
 	s.Require().NoError(err, "create subscriber")
-	repository, err := s.repositoryRepo.Create(s.ctx, repoName, lastSeenTag)
+	repository, err := s.repositoryStore.Create(s.ctx, repoName, lastSeenTag)
 	s.Require().NoError(err, "create repository")
 	subscription := createdSubscription{
 		subscriber: subscriber,
@@ -31,7 +31,7 @@ func (s *RepositorySuite) createSubscription(
 		token:      token,
 	}
 
-	err = s.subscriptionRepo.Create(s.ctx, subscriber.ID, repository.ID, token)
+	_, err = s.subscriptionStore.Create(s.ctx, subscriber.ID, repository.ID, token)
 	s.Require().NoError(err, "create subscription")
 
 	return subscription

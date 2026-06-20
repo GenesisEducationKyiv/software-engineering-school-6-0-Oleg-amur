@@ -3,24 +3,25 @@ package postgresql
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	subscriptiondomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
-type OutboxRepository struct {
+type OutboxStore struct {
 	db postgresqladapter.Queryable
 }
 
-func NewOutboxRepository(db postgresqladapter.Queryable) *OutboxRepository {
-	return &OutboxRepository{db: db}
+func NewOutboxStore(db postgresqladapter.Queryable) *OutboxStore {
+	return &OutboxStore{db: db}
 }
 
-func (r *OutboxRepository) FetchPendingOutbox(
+func (r *OutboxStore) FetchPendingOutbox(
 	ctx context.Context,
 	limit int,
-) ([]subscriptiondomain.OutboxMessage, error) {
+) (_ []subscriptiondomain.OutboxMessage, err error) {
 	query := `
 		SELECT id, event_type, payload
 		FROM outbox_messages
@@ -32,7 +33,9 @@ func (r *OutboxRepository) FetchPendingOutbox(
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	var messages []subscriptiondomain.OutboxMessage
 	for rows.Next() {
@@ -49,7 +52,7 @@ func (r *OutboxRepository) FetchPendingOutbox(
 	return messages, nil
 }
 
-func (r *OutboxRepository) MarkOutboxPublished(ctx context.Context, id int) error {
+func (r *OutboxStore) MarkOutboxPublished(ctx context.Context, id int) error {
 	query := `
 		UPDATE outbox_messages
 		SET outbox_status = $1, published_at = CURRENT_TIMESTAMP
@@ -58,7 +61,7 @@ func (r *OutboxRepository) MarkOutboxPublished(ctx context.Context, id int) erro
 	return err
 }
 
-func (r *OutboxRepository) MarkOutboxPublishFailed(ctx context.Context, id int, cause error) error {
+func (r *OutboxStore) MarkOutboxPublishFailed(ctx context.Context, id int, cause error) error {
 	query := `
 		UPDATE outbox_messages
 		SET attempts = attempts + 1, last_error = $1
@@ -67,7 +70,7 @@ func (r *OutboxRepository) MarkOutboxPublishFailed(ctx context.Context, id int, 
 	return err
 }
 
-func (r *OutboxRepository) Create(ctx context.Context, eventType string, payload any) error {
+func (r *OutboxStore) Create(ctx context.Context, eventType string, payload any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal outbox payload: %w", err)

@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS subscription_sagas (
     id SERIAL PRIMARY KEY,
-    subscription_id INT NOT NULL
-	REFERENCES subscriptions (id) ON DELETE CASCADE,
+    subscription_id INT NOT NULL,
     saga_status SMALLINT NOT NULL,
     failure_reason TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

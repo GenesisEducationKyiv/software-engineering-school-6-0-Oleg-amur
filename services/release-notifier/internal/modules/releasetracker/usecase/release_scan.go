@@ -24,30 +24,30 @@ type ReleaseDetectedHandler interface {
 }
 
 type ScanReleases struct {
-	log            *slog.Logger
-	repoRepository ScannerRepositoryStore
-	githubClient   ReleaseTagClient
-	releaseHandler ReleaseDetectedHandler
+	log             *slog.Logger
+	repositoryStore ScannerRepositoryStore
+	githubClient    ReleaseTagClient
+	releaseHandler  ReleaseDetectedHandler
 }
 
 func NewScanReleases(
 	log *slog.Logger,
-	repo ScannerRepositoryStore,
+	store ScannerRepositoryStore,
 	gh ReleaseTagClient,
 	releaseHandler ReleaseDetectedHandler,
 ) *ScanReleases {
 	return &ScanReleases{
-		log:            log,
-		repoRepository: repo,
-		githubClient:   gh,
-		releaseHandler: releaseHandler,
+		log:             log,
+		repositoryStore: store,
+		githubClient:    gh,
+		releaseHandler:  releaseHandler,
 	}
 }
 
 func (s *ScanReleases) Execute(ctx context.Context) {
 	s.log.Debug("starting repository scan")
 
-	repos, err := s.repoRepository.GetAll(ctx)
+	repos, err := s.repositoryStore.GetAll(ctx)
 	if err != nil {
 		s.log.Error("failed to fetch repositories from db", "err", err)
 		return
@@ -86,7 +86,7 @@ func (s *ScanReleases) processRepo(ctx context.Context, repo domain.Repository) 
 		return fmt.Errorf("failed to handle release notification: %w", err)
 	}
 
-	if err := s.repoRepository.UpdateTag(ctx, repo.ID, latestTag); err != nil {
+	if err := s.repositoryStore.UpdateTag(ctx, repo.ID, latestTag); err != nil {
 		return fmt.Errorf("failed to update tag: %w", err)
 	}
 

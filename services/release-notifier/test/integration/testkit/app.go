@@ -12,6 +12,7 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/inmemory"
 	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
+	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
 	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
@@ -49,23 +50,32 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 
 	gitHubHTTPClient := &http.Client{}
 
-	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(cfg.DB)
-	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(cfg.DB)
-	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(cfg.DB)
-	subscriptionConfirmationStore := subscriptionpostgresql.NewSubscriptionConfirmationStore(cfg.DB)
-	subscriptionOutboxRepo := subscriptionpostgresql.NewOutboxRepository(cfg.DB)
+	queryable := postgresqladapter.NewContextQueryable(cfg.DB)
+	transactionManager := postgresqladapter.NewTransactionManager(cfg.DB)
+	subscriberStore := subscriptionpostgresql.NewSubscriberStore(queryable)
+	repositoryStore := releasetrackerpostgresql.NewRepositoryStore(queryable)
+	subscriptionStore := subscriptionpostgresql.NewSubscriptionStore(queryable)
+	subscriptionSagaStore := subscriptionpostgresql.NewSubscriptionSagaStore(queryable)
+	subscriptionOutboxStore := subscriptionpostgresql.NewOutboxStore(queryable)
+	subscriptionSaga := subscriptionworkflow.NewSubscriptionConfirmationSaga(
+		cfg.Logger,
+		transactionManager,
+		subscriptionStore,
+		subscriptionSagaStore,
+		subscriptionOutboxStore,
+	)
 	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
 
-	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberRepo)
-	ensureRepositoryTracked := releasetrackerusecase.NewEnsureRepositoryTracked(cfg.Logger, repositoryRepo, githubClient)
+	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberStore)
+	ensureRepositoryTracked := releasetrackerusecase.NewEnsureRepositoryTracked(cfg.Logger, repositoryStore, githubClient)
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
 	subscriptionStarter := &testSubscriptionStarter{
-		store: subscriptionConfirmationStore,
+		starter: subscriptionSaga,
 		relay: subscriptionworkflow.NewPublishSubscriptionOutbox(
 			cfg.Logger,
-			subscriptionOutboxRepo,
+			subscriptionOutboxStore,
 			eventPublisher,
 		),
 	}
@@ -76,9 +86,9 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 			ensureRepositoryTracked,
 			subscriptionStarter,
 		),
-		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionRepo),
-		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionRepo),
-		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionRepo),
+		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionStore),
+		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionStore),
+		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionStore),
 	}
 
 	return &App{
@@ -91,8 +101,8 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 }
 
 type testSubscriptionStarter struct {
-	store *subscriptionpostgresql.SubscriptionConfirmationStore
-	relay *subscriptionworkflow.PublishSubscriptionOutbox
+	starter *subscriptionworkflow.SubscriptionConfirmationSaga
+	relay   *subscriptionworkflow.PublishSubscriptionOutbox
 }
 
 func (s *testSubscriptionStarter) StartSubscriptionConfirmation(
@@ -101,7 +111,7 @@ func (s *testSubscriptionStarter) StartSubscriptionConfirmation(
 	email string,
 	token string,
 ) error {
-	if err := s.store.StartSubscriptionConfirmation(ctx, subID, repoID, email, token); err != nil {
+	if err := s.starter.StartSubscriptionConfirmation(ctx, subID, repoID, email, token); err != nil {
 		return err
 	}
 	s.relay.Execute(ctx)

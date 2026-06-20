@@ -24,6 +24,7 @@ type Scanner struct {
 	Interval string `yaml:"interval" env:"SCAN_INTERVAL" env-default:"1h"`
 }
 
+//nolint:golines // Environment tags must remain single string literals.
 type EventBus struct {
 	URL                   string `yaml:"url"                       env:"EVENT_BUS_URL"`
 	NotificationExchange  string `yaml:"notificationExchange"      env:"NOTIFICATION_EXCHANGE"`

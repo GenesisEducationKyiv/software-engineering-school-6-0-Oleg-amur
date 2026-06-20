@@ -13,15 +13,15 @@ import (
 
 func setupRepositoryTrackingUsecase(
 	log *slog.Logger,
-	repositoryRepo *releasetrackerpostgresql.RepositoryStore,
+	repositoryStore *releasetrackerpostgresql.RepositoryStore,
 	githubClient *github.Client,
 ) *releasetrackerusecase.EnsureRepositoryTracked {
-	return releasetrackerusecase.NewEnsureRepositoryTracked(log, repositoryRepo, githubClient)
+	return releasetrackerusecase.NewEnsureRepositoryTracked(log, repositoryStore, githubClient)
 }
 
 func setupReleaseTrackerModule(
 	log *slog.Logger,
-	repositoryRepo *releasetrackerpostgresql.RepositoryStore,
+	repositoryStore *releasetrackerpostgresql.RepositoryStore,
 	subscriptions releasetrackerusecase.ActiveSubscriptionsByRepositoryLister,
 	notificationPublisher *rabbitmq.Publisher,
 	githubClient *github.Client,
@@ -34,7 +34,7 @@ func setupReleaseTrackerModule(
 	)
 	scanReleases := releasetrackerusecase.NewScanReleases(
 		log,
-		repositoryRepo,
+		repositoryStore,
 		githubClient,
 		planReleaseNotifications,
 	)

@@ -1,9 +1,16 @@
 package domain
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
-type SagaStatus int
-type OutboxStatus int
+var ErrInvalidSagaTransition = errors.New("invalid saga transition")
+
+type (
+	SagaStatus   int
+	OutboxStatus int
+)
 
 const (
 	SagaStatusStarted     SagaStatus = 1
@@ -18,7 +25,7 @@ type SubscriptionSaga struct {
 	ID             int
 	SubscriptionID int
 	Status         SagaStatus
-	FailureReason *string
+	FailureReason  *string
 }
 
 type OutboxMessage struct {

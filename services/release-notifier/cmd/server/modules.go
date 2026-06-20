@@ -7,6 +7,7 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/rabbitmq"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
+	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/config"
 	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
 	releasetrackerworker "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/worker"
@@ -30,12 +31,20 @@ func setupModules(
 	cfg *config.Config,
 	githubClient *github.Client,
 ) (*applicationModules, error) {
-	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(db)
-	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(db)
-	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(db)
-	subscriptionConfirmationStore := subscriptionpostgresql.NewSubscriptionConfirmationStore(db)
-	subscriptionSagaRepo := subscriptionpostgresql.NewSubscriptionSagaRepository(db)
-	subscriptionOutboxRepo := subscriptionpostgresql.NewOutboxRepository(db)
+	queryable := postgresqladapter.NewContextQueryable(db)
+	transactionManager := postgresqladapter.NewTransactionManager(db)
+	subscriberStore := subscriptionpostgresql.NewSubscriberStore(queryable)
+	repositoryStore := releasetrackerpostgresql.NewRepositoryStore(queryable)
+	subscriptionStore := subscriptionpostgresql.NewSubscriptionStore(queryable)
+	subscriptionSagaStore := subscriptionpostgresql.NewSubscriptionSagaStore(queryable)
+	subscriptionOutboxStore := subscriptionpostgresql.NewOutboxStore(queryable)
+	subscriptionSaga := subscriptionworkflow.NewSubscriptionConfirmationSaga(
+		log,
+		transactionManager,
+		subscriptionStore,
+		subscriptionSagaStore,
+		subscriptionOutboxStore,
+	)
 
 	notificationPublisher, err := rabbitmq.NewNotificationPublisher(rabbitmq.Config{
 		URL:      cfg.EventBus.URL,
@@ -60,21 +69,21 @@ func setupModules(
 
 	ensureRepositoryTracked := setupRepositoryTrackingUsecase(
 		log,
-		repositoryRepo,
+		repositoryStore,
 		githubClient,
 	)
 	subscriptionUsecases := setupSubscriptionsModule(
 		log,
-		subscriberRepo,
-		subscriptionRepo,
-		subscriptionConfirmationStore,
+		subscriberStore,
+		subscriptionStore,
+		subscriptionSaga,
 		ensureRepositoryTracked,
 	)
 
-	activeSubscriptionsByRepository := subscriptionusecase.NewListActiveSubscriptionsByRepository(subscriptionRepo)
+	activeSubscriptionsByRepository := subscriptionusecase.NewListActiveSubscriptionsByRepository(subscriptionStore)
 	releaseScheduler := setupReleaseTrackerModule(
 		log,
-		repositoryRepo,
+		repositoryStore,
 		activeSubscriptionsByRepository,
 		notificationPublisher,
 		githubClient,
@@ -82,20 +91,16 @@ func setupModules(
 	)
 	publishSubscriptionOutbox := subscriptionworkflow.NewPublishSubscriptionOutbox(
 		log,
-		subscriptionOutboxRepo,
+		subscriptionOutboxStore,
 		notificationPublisher,
 	)
 	subscriptionOutboxRelay := releasetrackerworker.NewScheduler(log, publishSubscriptionOutbox, 5*time.Second)
 
 	return &applicationModules{
-		subscriptionUsecases:    subscriptionUsecases,
-		releaseScheduler:        releaseScheduler,
-		subscriptionOutboxRelay: subscriptionOutboxRelay,
-		subscriptionSaga: subscriptionworkflow.NewSubscriptionConfirmationSaga(
-			log,
-			subscriptionSagaRepo,
-			subscriptionConfirmationStore,
-		),
+		subscriptionUsecases:     subscriptionUsecases,
+		releaseScheduler:         releaseScheduler,
+		subscriptionOutboxRelay:  subscriptionOutboxRelay,
+		subscriptionSaga:         subscriptionSaga,
 		subscriptionSagaConsumer: subscriptionSagaConsumer,
 		notificationPublisher:    notificationPublisher,
 	}, nil

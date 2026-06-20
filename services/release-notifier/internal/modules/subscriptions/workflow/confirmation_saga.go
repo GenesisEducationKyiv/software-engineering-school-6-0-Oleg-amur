@@ -4,33 +4,86 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
+	"github.com/google/uuid"
 )
 
-type SubscriptionSagaRepository interface {
-	CompleteSubscriptionConfirmation(ctx context.Context, sagaID int) error
+type TransactionManager interface {
+	Run(ctx context.Context, work func(context.Context) error) error
 }
 
-type SubscriptionConfirmationCompensator interface {
-	CompensateSubscriptionConfirmation(ctx context.Context, sagaID int, subscriptionID int, reason string) error
+type SubscriptionStore interface {
+	Create(ctx context.Context, subscriberID, repositoryID int, token string) (int, error)
+	DeleteByID(ctx context.Context, subscriptionID int) error
+}
+
+type SubscriptionSagaStore interface {
+	CreateStarted(ctx context.Context, subscriptionID int) (*domain.SubscriptionSaga, error)
+	CompleteSubscriptionConfirmation(ctx context.Context, sagaID int) error
+	MarkCompensated(ctx context.Context, sagaID int, reason string) error
+}
+
+type SubscriptionOutboxStore interface {
+	Create(ctx context.Context, eventType string, payload any) error
 }
 
 type SubscriptionConfirmationSaga struct {
-	log         *slog.Logger
-	sagas       SubscriptionSagaRepository
-	compensator SubscriptionConfirmationCompensator
+	log                *slog.Logger
+	transactionManager TransactionManager
+	subscriptions      SubscriptionStore
+	sagas              SubscriptionSagaStore
+	outbox             SubscriptionOutboxStore
 }
 
 func NewSubscriptionConfirmationSaga(
 	log *slog.Logger,
-	sagas SubscriptionSagaRepository,
-	compensator SubscriptionConfirmationCompensator,
+	transactionManager TransactionManager,
+	subscriptions SubscriptionStore,
+	sagas SubscriptionSagaStore,
+	outbox SubscriptionOutboxStore,
 ) *SubscriptionConfirmationSaga {
 	return &SubscriptionConfirmationSaga{
-		log:         log,
-		sagas:       sagas,
-		compensator: compensator,
+		log:                log,
+		transactionManager: transactionManager,
+		subscriptions:      subscriptions,
+		sagas:              sagas,
+		outbox:             outbox,
 	}
+}
+
+func (s *SubscriptionConfirmationSaga) StartSubscriptionConfirmation(
+	ctx context.Context,
+	subscriberID, repositoryID int,
+	email string,
+	token string,
+) error {
+	return s.transactionManager.Run(ctx, func(txCtx context.Context) error {
+		subscriptionID, err := s.subscriptions.Create(
+			txCtx,
+			subscriberID,
+			repositoryID,
+			token,
+		)
+		if err != nil {
+			return err
+		}
+
+		saga, err := s.sagas.CreateStarted(txCtx, subscriptionID)
+		if err != nil {
+			return err
+		}
+
+		event := events.SubscriptionConfirmationRequested{
+			EventID:           uuid.NewString(),
+			SchemaVersion:     events.NotificationSchemaVersion,
+			SagaID:            saga.ID,
+			SubscriptionID:    subscriptionID,
+			Email:             email,
+			ConfirmationToken: token,
+		}
+		return s.outbox.Create(txCtx, events.SubscriptionConfirmationRequestedType, event)
+	})
 }
 
 func (s *SubscriptionConfirmationSaga) HandleSubscriptionConfirmationSucceeded(
@@ -64,5 +117,10 @@ func (s *SubscriptionConfirmationSaga) HandleSubscriptionConfirmationFailed(
 		"reason",
 		event.Reason,
 	)
-	return s.compensator.CompensateSubscriptionConfirmation(ctx, event.SagaID, event.SubscriptionID, event.Reason)
+	return s.transactionManager.Run(ctx, func(txCtx context.Context) error {
+		if err := s.subscriptions.DeleteByID(txCtx, event.SubscriptionID); err != nil {
+			return err
+		}
+		return s.sagas.MarkCompensated(txCtx, event.SagaID, event.Reason)
+	})
 }

@@ -12,7 +12,7 @@ import (
 
 const subscriptionOutboxBatchSize = 50
 
-type SubscriptionOutboxStore interface {
+type OutboxStore interface {
 	FetchPendingOutbox(ctx context.Context, limit int) ([]domain.OutboxMessage, error)
 	MarkOutboxPublished(ctx context.Context, id int) error
 	MarkOutboxPublishFailed(ctx context.Context, id int, cause error) error
@@ -24,13 +24,13 @@ type SubscriptionConfirmationPublisher interface {
 
 type PublishSubscriptionOutbox struct {
 	log       *slog.Logger
-	store     SubscriptionOutboxStore
+	store     OutboxStore
 	publisher SubscriptionConfirmationPublisher
 }
 
 func NewPublishSubscriptionOutbox(
 	log *slog.Logger,
-	store SubscriptionOutboxStore,
+	store OutboxStore,
 	publisher SubscriptionConfirmationPublisher,
 ) *PublishSubscriptionOutbox {
 	return &PublishSubscriptionOutbox{

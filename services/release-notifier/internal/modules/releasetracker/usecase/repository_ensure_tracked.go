@@ -21,25 +21,25 @@ type RepositoryMetadataClient interface {
 }
 
 type EnsureRepositoryTracked struct {
-	log            *slog.Logger
-	repositoryRepo RepositoryStore
-	githubClient   RepositoryMetadataClient
+	log             *slog.Logger
+	repositoryStore RepositoryStore
+	githubClient    RepositoryMetadataClient
 }
 
 func NewEnsureRepositoryTracked(
 	log *slog.Logger,
-	repo RepositoryStore,
+	store RepositoryStore,
 	githubClient RepositoryMetadataClient,
 ) *EnsureRepositoryTracked {
 	return &EnsureRepositoryTracked{
-		log:            log,
-		repositoryRepo: repo,
-		githubClient:   githubClient,
+		log:             log,
+		repositoryStore: store,
+		githubClient:    githubClient,
 	}
 }
 
 func (s *EnsureRepositoryTracked) Execute(ctx context.Context, repoName string) (*domain.Repository, error) {
-	repo, err := s.repositoryRepo.GetByName(ctx, repoName)
+	repo, err := s.repositoryStore.GetByName(ctx, repoName)
 	if err != nil {
 		if !errors.Is(err, apperr.ErrNotFound) {
 			return nil, fmt.Errorf("repository check error: %w", err)
@@ -66,7 +66,7 @@ func (s *EnsureRepositoryTracked) Execute(ctx context.Context, repoName string) 
 			}
 		}
 
-		repo, err = s.repositoryRepo.Create(ctx, repoName, tag)
+		repo, err = s.repositoryStore.Create(ctx, repoName, tag)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create repository: %w", err)
 		}

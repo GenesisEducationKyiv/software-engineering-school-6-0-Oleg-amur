@@ -9,7 +9,6 @@ import (
 
 	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
 func assertErrorIs(t *testing.T, got error, want error) {
@@ -17,31 +16,6 @@ func assertErrorIs(t *testing.T, got error, want error) {
 
 	if !errors.Is(got, want) {
 		t.Fatalf("got error %v, want %v", got, want)
-	}
-}
-
-func assertSubscriptionEvent(t *testing.T, publisher *mockNotificationPublisher, wantEmail string) {
-	t.Helper()
-
-	if len(publisher.confirmations) != 1 {
-		t.Fatalf("got %d subscription events, want 1", len(publisher.confirmations))
-	}
-	event := publisher.confirmations[0]
-	if event.Email != wantEmail {
-		t.Errorf("got subscription event email %q, want %q", event.Email, wantEmail)
-	}
-	if event.ConfirmationToken == "" {
-		t.Error("want subscription event token to be set")
-	}
-	if event.EventID == "" {
-		t.Error("want subscription event id to be set")
-	}
-	if event.SchemaVersion != events.NotificationSchemaVersion {
-		t.Errorf(
-			"got subscription event schema version %d, want %d",
-			event.SchemaVersion,
-			events.NotificationSchemaVersion,
-		)
 	}
 }
 
@@ -85,29 +59,6 @@ func (f *mockRepositoryTracker) Execute(
 	return f.repository, f.err
 }
 
-type mockNotificationPublisher struct {
-	confirmations   []events.SubscriptionConfirmationRequested
-	releases        []events.ReleaseNotificationRequested
-	confirmationErr error
-	releaseErr      error
-}
-
-func (f *mockNotificationPublisher) PublishSubscriptionConfirmation(
-	ctx context.Context,
-	event events.SubscriptionConfirmationRequested,
-) error {
-	f.confirmations = append(f.confirmations, event)
-	return f.confirmationErr
-}
-
-func (f *mockNotificationPublisher) PublishReleaseNotification(
-	ctx context.Context,
-	event events.ReleaseNotificationRequested,
-) error {
-	f.releases = append(f.releases, event)
-	return f.releaseErr
-}
-
 type mockSubscriptionRepo struct {
 	createErr            error
 	activateErr          error
@@ -122,10 +73,6 @@ type startedConfirmation struct {
 	repoID int
 	email  string
 	token  string
-}
-
-func (f *mockSubscriptionRepo) Create(ctx context.Context, subID, repoID int, token string) error {
-	return f.createErr
 }
 
 func (f *mockSubscriptionRepo) StartSubscriptionConfirmation(
