@@ -11,6 +11,8 @@ eventBus:
   notificationExchange: "notifications"
   notificationQueue: "notification-worker"
   notificationDLQ: "notification-worker.dlq"
+  subscriptionSagaQueue: "release-notifier.subscription-saga"
+  subscriptionSagaDLQ: "release-notifier.subscription-saga.dlq"
 github:
   url: "https://api.github.com"
   apiToken: ""

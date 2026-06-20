@@ -84,9 +84,13 @@ func runApp(log *slog.Logger) error {
 		if err := modules.notificationPublisher.Close(); err != nil {
 			log.Error("unable to close notification publisher", "error", err)
 		}
+		if err := modules.subscriptionSagaConsumer.Close(); err != nil {
+			log.Error("unable to close subscription saga consumer", "error", err)
+		}
 	}()
 
 	go modules.releaseScheduler.Start(ctx)
+	go modules.subscriptionOutboxRelay.Start(ctx)
 
 	log.Debug("setting up transport layers")
 	healthHandler := httpapi.NewHealthHandler(log, db)
@@ -115,6 +119,11 @@ func runApp(log *slog.Logger) error {
 			return fmt.Errorf("gRPC server failed: %w", err)
 		}
 		return nil
+	})
+
+	group.Go(func() error {
+		log.Info("subscription saga consumer starting", "queue", cfg.EventBus.SubscriptionSagaQueue)
+		return modules.subscriptionSagaConsumer.Subscribe(groupCtx, modules.subscriptionSaga)
 	})
 
 	group.Go(func() error {

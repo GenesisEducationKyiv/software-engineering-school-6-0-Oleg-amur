@@ -45,6 +45,21 @@ func assertSubscriptionEvent(t *testing.T, publisher *mockNotificationPublisher,
 	}
 }
 
+func assertSubscriptionSagaStarted(t *testing.T, repo *mockSubscriptionRepo, wantEmail string) {
+	t.Helper()
+
+	if len(repo.startedConfirmations) != 1 {
+		t.Fatalf("got %d started subscription sagas, want 1", len(repo.startedConfirmations))
+	}
+	started := repo.startedConfirmations[0]
+	if started.email != wantEmail {
+		t.Errorf("got saga email %q, want %q", started.email, wantEmail)
+	}
+	if started.token == "" {
+		t.Error("want saga confirmation token to be set")
+	}
+}
+
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
@@ -99,9 +114,32 @@ type mockSubscriptionRepo struct {
 	deleteErr            error
 	getActiveByEmailSubs []domain.Subscription
 	getActiveByEmailErr  error
+	startedConfirmations []startedConfirmation
+}
+
+type startedConfirmation struct {
+	subID  int
+	repoID int
+	email  string
+	token  string
 }
 
 func (f *mockSubscriptionRepo) Create(ctx context.Context, subID, repoID int, token string) error {
+	return f.createErr
+}
+
+func (f *mockSubscriptionRepo) StartSubscriptionConfirmation(
+	ctx context.Context,
+	subID, repoID int,
+	email string,
+	token string,
+) error {
+	f.startedConfirmations = append(f.startedConfirmations, startedConfirmation{
+		subID:  subID,
+		repoID: repoID,
+		email:  email,
+		token:  token,
+	})
 	return f.createErr
 }
 

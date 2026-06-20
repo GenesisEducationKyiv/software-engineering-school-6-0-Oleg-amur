@@ -41,7 +41,21 @@ func runWorker(log *slog.Logger) error {
 		return err
 	}
 	msgBuilder := email.NewSimpleMessageBuilder(cfg.Notifier.BaseUrl)
-	notificationService := notification.NewNotificationService(log, emailClient, msgBuilder)
+
+	sagaResultPublisher, err := rabbitmq.NewSubscriptionSagaResultPublisher(rabbitmq.Config{
+		URL:      cfg.EventBus.URL,
+		Exchange: cfg.EventBus.NotificationExchange,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := sagaResultPublisher.Close(); err != nil {
+			log.Error("unable to close subscription saga result publisher", "error", err)
+		}
+	}()
+
+	notificationService := notification.NewNotificationService(log, emailClient, msgBuilder, sagaResultPublisher)
 
 	consumer, err := rabbitmq.NewNotificationConsumer(log, rabbitmq.Config{
 		URL:      cfg.EventBus.URL,

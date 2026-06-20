@@ -3,6 +3,7 @@
 package testkit
 
 import (
+	"context"
 	"database/sql"
 	"io"
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
+	subscriptionworkflow "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/workflow"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/stretchr/testify/require"
 )
@@ -50,6 +52,7 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(cfg.DB)
 	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(cfg.DB)
 	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(cfg.DB)
+	sagaStore := subscriptionpostgresql.NewSagaStore(cfg.DB)
 	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
 
 	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberRepo)
@@ -57,13 +60,20 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
+	subscriptionStarter := &testSubscriptionStarter{
+		store: sagaStore,
+		relay: subscriptionworkflow.NewPublishSubscriptionOutbox(
+			cfg.Logger,
+			sagaStore,
+			eventPublisher,
+		),
+	}
 	subscriptionUsecases := subscriptionusecase.SubscriptionUsecases{
 		SubscribeToRepository: subscriptionusecase.NewSubscribeToRepository(
 			cfg.Logger,
 			getOrCreateSubscriber,
 			ensureRepositoryTracked,
-			subscriptionRepo,
-			eventPublisher,
+			subscriptionStarter,
 		),
 		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionRepo),
 		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionRepo),
@@ -77,4 +87,22 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 		GRPCHandler: subscriptiongrpc.NewHandler(cfg.Logger, subscriptionUsecases),
 		Events:      subscriptionEvents,
 	}
+}
+
+type testSubscriptionStarter struct {
+	store *subscriptionpostgresql.SagaStore
+	relay *subscriptionworkflow.PublishSubscriptionOutbox
+}
+
+func (s *testSubscriptionStarter) StartSubscriptionConfirmation(
+	ctx context.Context,
+	subID, repoID int,
+	email string,
+	token string,
+) error {
+	if err := s.store.StartSubscriptionConfirmation(ctx, subID, repoID, email, token); err != nil {
+		return err
+	}
+	s.relay.Execute(ctx)
+	return nil
 }

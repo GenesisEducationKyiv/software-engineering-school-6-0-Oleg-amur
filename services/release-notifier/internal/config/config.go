@@ -25,10 +25,12 @@ type Scanner struct {
 }
 
 type EventBus struct {
-	URL                  string `yaml:"url"                  env:"EVENT_BUS_URL"`
-	NotificationExchange string `yaml:"notificationExchange" env:"NOTIFICATION_EXCHANGE"`
-	NotificationQueue    string `yaml:"notificationQueue"    env:"NOTIFICATION_QUEUE"`
-	NotificationDLQ      string `yaml:"notificationDLQ"      env:"NOTIFICATION_DEAD_LETTER_QUEUE"`
+	URL                   string `yaml:"url"                       env:"EVENT_BUS_URL"`
+	NotificationExchange  string `yaml:"notificationExchange"      env:"NOTIFICATION_EXCHANGE"`
+	NotificationQueue     string `yaml:"notificationQueue"         env:"NOTIFICATION_QUEUE"`
+	NotificationDLQ       string `yaml:"notificationDLQ"           env:"NOTIFICATION_DEAD_LETTER_QUEUE"`
+	SubscriptionSagaQueue string `yaml:"subscriptionSagaQueue"     env:"SUBSCRIPTION_SAGA_QUEUE"             env-default:"release-notifier.subscription-saga"`
+	SubscriptionSagaDLQ   string `yaml:"subscriptionSagaDLQ"       env:"SUBSCRIPTION_SAGA_DEAD_LETTER_QUEUE" env-default:"release-notifier.subscription-saga.dlq"`
 }
 
 type GithubClient struct {
