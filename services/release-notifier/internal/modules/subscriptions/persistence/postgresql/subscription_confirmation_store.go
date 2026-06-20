@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	subscriptiondomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/google/uuid"
 )
@@ -31,12 +29,16 @@ func (s *SubscriptionConfirmationStore) StartSubscriptionConfirmation(
 	}
 	defer rollbackUnlessCommitted(tx, &err)
 
-	subscriptionID, err := createPendingSubscription(ctx, tx, subscriberID, repositoryID, token)
+	subscriptions := NewSubscriptionRepository(tx)
+	sagas := NewSubscriptionSagaRepository(tx)
+	outbox := NewOutboxRepository(tx)
+
+	subscriptionID, err := subscriptions.CreateReturningID(ctx, subscriberID, repositoryID, token)
 	if err != nil {
 		return err
 	}
 
-	saga, err := createSubscriptionSaga(ctx, tx, subscriptionID)
+	saga, err := sagas.CreateStarted(ctx, subscriptionID)
 	if err != nil {
 		return err
 	}
@@ -49,7 +51,7 @@ func (s *SubscriptionConfirmationStore) StartSubscriptionConfirmation(
 		Email:             email,
 		ConfirmationToken: token,
 	}
-	if err = insertOutboxMessage(ctx, tx, events.SubscriptionConfirmationRequestedType, event); err != nil {
+	if err = outbox.Create(ctx, events.SubscriptionConfirmationRequestedType, event); err != nil {
 		return err
 	}
 
@@ -57,34 +59,27 @@ func (s *SubscriptionConfirmationStore) StartSubscriptionConfirmation(
 	return err
 }
 
-func createPendingSubscription(
+func (s *SubscriptionConfirmationStore) CompensateSubscriptionConfirmation(
 	ctx context.Context,
-	tx *sql.Tx,
-	subscriberID, repositoryID int,
-	token string,
-) (int, error) {
-	query := `
-		INSERT INTO subscriptions (subscriber_id, repository_id, subscription_status, token)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (subscriber_id, repository_id) DO NOTHING
-		RETURNING id`
-
-	var subscriptionID int
-	err := tx.QueryRowContext(
-		ctx,
-		query,
-		subscriberID,
-		repositoryID,
-		subscriptiondomain.StatusPending,
-		token,
-	).Scan(&subscriptionID)
+	sagaID int,
+	subscriptionID int,
+	reason string,
+) (err error) {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, apperr.ErrAlreadyExists
-		}
-		return 0, err
+		return err
 	}
-	return subscriptionID, nil
+	defer rollbackUnlessCommitted(tx, &err)
+
+	if err = NewSubscriptionRepository(tx).DeleteByID(ctx, subscriptionID); err != nil {
+		return err
+	}
+	if err = NewSubscriptionSagaRepository(tx).MarkCompensated(ctx, sagaID, reason); err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	return err
 }
 
 func rollbackUnlessCommitted(tx *sql.Tx, err *error) {

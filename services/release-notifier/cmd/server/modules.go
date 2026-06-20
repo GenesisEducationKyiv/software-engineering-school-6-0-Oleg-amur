@@ -33,7 +33,9 @@ func setupModules(
 	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(db)
 	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(db)
 	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(db)
-	subscriptionSagaStore := subscriptionpostgresql.NewSagaStore(db)
+	subscriptionConfirmationStore := subscriptionpostgresql.NewSubscriptionConfirmationStore(db)
+	subscriptionSagaRepo := subscriptionpostgresql.NewSubscriptionSagaRepository(db)
+	subscriptionOutboxRepo := subscriptionpostgresql.NewOutboxRepository(db)
 
 	notificationPublisher, err := rabbitmq.NewNotificationPublisher(rabbitmq.Config{
 		URL:      cfg.EventBus.URL,
@@ -65,7 +67,7 @@ func setupModules(
 		log,
 		subscriberRepo,
 		subscriptionRepo,
-		subscriptionSagaStore,
+		subscriptionConfirmationStore,
 		ensureRepositoryTracked,
 	)
 
@@ -80,16 +82,20 @@ func setupModules(
 	)
 	publishSubscriptionOutbox := subscriptionworkflow.NewPublishSubscriptionOutbox(
 		log,
-		subscriptionSagaStore,
+		subscriptionOutboxRepo,
 		notificationPublisher,
 	)
 	subscriptionOutboxRelay := releasetrackerworker.NewScheduler(log, publishSubscriptionOutbox, 5*time.Second)
 
 	return &applicationModules{
-		subscriptionUsecases:     subscriptionUsecases,
-		releaseScheduler:         releaseScheduler,
-		subscriptionOutboxRelay:  subscriptionOutboxRelay,
-		subscriptionSaga:         subscriptionworkflow.NewSubscriptionConfirmationSaga(log, subscriptionSagaStore),
+		subscriptionUsecases:    subscriptionUsecases,
+		releaseScheduler:        releaseScheduler,
+		subscriptionOutboxRelay: subscriptionOutboxRelay,
+		subscriptionSaga: subscriptionworkflow.NewSubscriptionConfirmationSaga(
+			log,
+			subscriptionSagaRepo,
+			subscriptionConfirmationStore,
+		),
 		subscriptionSagaConsumer: subscriptionSagaConsumer,
 		notificationPublisher:    notificationPublisher,
 	}, nil

@@ -7,20 +7,29 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
-type SubscriptionSagaStore interface {
+type SubscriptionSagaRepository interface {
 	CompleteSubscriptionConfirmation(ctx context.Context, sagaID int) error
+}
+
+type SubscriptionConfirmationCompensator interface {
 	CompensateSubscriptionConfirmation(ctx context.Context, sagaID int, subscriptionID int, reason string) error
 }
 
 type SubscriptionConfirmationSaga struct {
-	log   *slog.Logger
-	store SubscriptionSagaStore
+	log         *slog.Logger
+	sagas       SubscriptionSagaRepository
+	compensator SubscriptionConfirmationCompensator
 }
 
-func NewSubscriptionConfirmationSaga(log *slog.Logger, store SubscriptionSagaStore) *SubscriptionConfirmationSaga {
+func NewSubscriptionConfirmationSaga(
+	log *slog.Logger,
+	sagas SubscriptionSagaRepository,
+	compensator SubscriptionConfirmationCompensator,
+) *SubscriptionConfirmationSaga {
 	return &SubscriptionConfirmationSaga{
-		log:   log,
-		store: store,
+		log:         log,
+		sagas:       sagas,
+		compensator: compensator,
 	}
 }
 
@@ -37,7 +46,7 @@ func (s *SubscriptionConfirmationSaga) HandleSubscriptionConfirmationSucceeded(
 		"email",
 		event.Email,
 	)
-	return s.store.CompleteSubscriptionConfirmation(ctx, event.SagaID)
+	return s.sagas.CompleteSubscriptionConfirmation(ctx, event.SagaID)
 }
 
 func (s *SubscriptionConfirmationSaga) HandleSubscriptionConfirmationFailed(
@@ -55,5 +64,5 @@ func (s *SubscriptionConfirmationSaga) HandleSubscriptionConfirmationFailed(
 		"reason",
 		event.Reason,
 	)
-	return s.store.CompensateSubscriptionConfirmation(ctx, event.SagaID, event.SubscriptionID, event.Reason)
+	return s.compensator.CompensateSubscriptionConfirmation(ctx, event.SagaID, event.SubscriptionID, event.Reason)
 }

@@ -2,16 +2,16 @@ package postgresql
 
 import (
 	"context"
-	"database/sql"
 
+	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	subscriptiondomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
 type SubscriptionSagaRepository struct {
-	db *sql.DB
+	db postgresqladapter.Queryable
 }
 
-func NewSubscriptionSagaRepository(db *sql.DB) *SubscriptionSagaRepository {
+func NewSubscriptionSagaRepository(db postgresqladapter.Queryable) *SubscriptionSagaRepository {
 	return &SubscriptionSagaRepository{db: db}
 }
 
@@ -24,9 +24,8 @@ func (r *SubscriptionSagaRepository) CompleteSubscriptionConfirmation(ctx contex
 	return err
 }
 
-func (r *SubscriptionSagaRepository) createStartedTx(
+func (r *SubscriptionSagaRepository) CreateStarted(
 	ctx context.Context,
-	tx *sql.Tx,
 	subscriptionID int,
 ) (*subscriptiondomain.SubscriptionSaga, error) {
 	query := `
@@ -35,7 +34,7 @@ func (r *SubscriptionSagaRepository) createStartedTx(
 		RETURNING id, subscription_id, saga_status, failure_reason`
 
 	saga := &subscriptiondomain.SubscriptionSaga{}
-	err := tx.QueryRowContext(ctx, query, subscriptionID, subscriptiondomain.SagaStatusStarted).Scan(
+	err := r.db.QueryRowContext(ctx, query, subscriptionID, subscriptiondomain.SagaStatusStarted).Scan(
 		&saga.ID,
 		&saga.SubscriptionID,
 		&saga.Status,
@@ -47,9 +46,8 @@ func (r *SubscriptionSagaRepository) createStartedTx(
 	return saga, nil
 }
 
-func (r *SubscriptionSagaRepository) markCompensatedTx(
+func (r *SubscriptionSagaRepository) MarkCompensated(
 	ctx context.Context,
-	tx *sql.Tx,
 	sagaID int,
 	reason string,
 ) error {
@@ -57,6 +55,6 @@ func (r *SubscriptionSagaRepository) markCompensatedTx(
 		UPDATE subscription_sagas
 		SET saga_status = $1, failure_reason = $2, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $3`
-	_, err := tx.ExecContext(ctx, query, subscriptiondomain.SagaStatusCompensated, reason, sagaID)
+	_, err := r.db.ExecContext(ctx, query, subscriptiondomain.SagaStatusCompensated, reason, sagaID)
 	return err
 }

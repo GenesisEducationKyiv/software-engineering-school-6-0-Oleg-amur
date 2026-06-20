@@ -52,7 +52,8 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	subscriberRepo := subscriptionpostgresql.NewSubscriberRepository(cfg.DB)
 	repositoryRepo := releasetrackerpostgresql.NewRepositoryStore(cfg.DB)
 	subscriptionRepo := subscriptionpostgresql.NewSubscriptionRepository(cfg.DB)
-	sagaStore := subscriptionpostgresql.NewSagaStore(cfg.DB)
+	subscriptionConfirmationStore := subscriptionpostgresql.NewSubscriptionConfirmationStore(cfg.DB)
+	subscriptionOutboxRepo := subscriptionpostgresql.NewOutboxRepository(cfg.DB)
 	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
 
 	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberRepo)
@@ -61,10 +62,10 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
 	subscriptionStarter := &testSubscriptionStarter{
-		store: sagaStore,
+		store: subscriptionConfirmationStore,
 		relay: subscriptionworkflow.NewPublishSubscriptionOutbox(
 			cfg.Logger,
-			sagaStore,
+			subscriptionOutboxRepo,
 			eventPublisher,
 		),
 	}
@@ -90,7 +91,7 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 }
 
 type testSubscriptionStarter struct {
-	store *subscriptionpostgresql.SagaStore
+	store *subscriptionpostgresql.SubscriptionConfirmationStore
 	relay *subscriptionworkflow.PublishSubscriptionOutbox
 }
 

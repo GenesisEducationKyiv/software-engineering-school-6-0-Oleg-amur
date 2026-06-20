@@ -12,7 +12,7 @@ func setupSubscriptionsModule(
 	log *slog.Logger,
 	subscriberRepo *subscriptionpostgresql.SubscriberRepository,
 	subscriptionRepo *subscriptionpostgresql.SubscriptionRepository,
-	sagaStore *subscriptionpostgresql.SagaStore,
+	subscriptionCreator subscriptionusecase.SubscriptionCreator,
 	ensureRepositoryTracked *releasetrackerusecase.EnsureRepositoryTracked,
 ) subscriptionusecase.SubscriptionUsecases {
 	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(log, subscriberRepo)
@@ -22,7 +22,7 @@ func setupSubscriptionsModule(
 			log,
 			getOrCreateSubscriber,
 			ensureRepositoryTracked,
-			sagaStore,
+			subscriptionCreator,
 		),
 		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionRepo),
 		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionRepo),

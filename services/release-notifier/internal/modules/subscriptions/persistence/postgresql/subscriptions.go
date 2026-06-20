@@ -23,25 +23,32 @@ func (r *SubscriptionRepository) Create(
 	subID, repoID int,
 	token string,
 ) error {
+	_, err := r.CreateReturningID(ctx, subID, repoID, token)
+	return err
+}
+
+func (r *SubscriptionRepository) CreateReturningID(
+	ctx context.Context,
+	subID, repoID int,
+	token string,
+) (int, error) {
 	query := `
 		INSERT INTO subscriptions (subscriber_id, repository_id, subscription_status, token) 
 		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (subscriber_id, repository_id) DO NOTHING`
+		ON CONFLICT (subscriber_id, repository_id) DO NOTHING
+		RETURNING id`
 
-	res, err := r.db.ExecContext(ctx, query, subID, repoID, subscriptionmodels.StatusPending, token)
+	var subscriptionID int
+	err := r.db.QueryRowContext(ctx, query, subID, repoID, subscriptionmodels.StatusPending, token).
+		Scan(&subscriptionID)
 	if err != nil {
-		return err
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, apperr.ErrAlreadyExists
+		}
+		return 0, err
 	}
 
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return apperr.ErrAlreadyExists
-	}
-
-	return nil
+	return subscriptionID, nil
 }
 
 func (r *SubscriptionRepository) GetByToken(
@@ -91,6 +98,12 @@ func (r *SubscriptionRepository) Activate(ctx context.Context, token string) err
 func (r *SubscriptionRepository) DeleteByToken(ctx context.Context, token string) error {
 	query := `DELETE FROM subscriptions WHERE token = $1`
 	_, err := r.db.ExecContext(ctx, query, token)
+	return err
+}
+
+func (r *SubscriptionRepository) DeleteByID(ctx context.Context, id int) error {
+	query := `DELETE FROM subscriptions WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }
 
