@@ -12,10 +12,18 @@ type ActiveSubscriptionStore interface {
 
 type ListSubscriptions struct {
 	subscriptions ActiveSubscriptionStore
+	repositories  RepositoryMetadataReader
 }
 
-func NewListSubscriptions(subscriptions ActiveSubscriptionStore) *ListSubscriptions {
-	return &ListSubscriptions{subscriptions: subscriptions}
+type RepositoryMetadataReader interface {
+	GetRepository(ctx context.Context, name string) (*RepositoryView, error)
+}
+
+func NewListSubscriptions(
+	subscriptions ActiveSubscriptionStore,
+	repositories RepositoryMetadataReader,
+) *ListSubscriptions {
+	return &ListSubscriptions{subscriptions: subscriptions, repositories: repositories}
 }
 
 func (u *ListSubscriptions) Execute(
@@ -29,11 +37,15 @@ func (u *ListSubscriptions) Execute(
 
 	var result []SubscriptionView
 	for _, sub := range subs {
+		repository, err := u.repositories.GetRepository(ctx, sub.Repository.Name)
+		if err != nil {
+			return nil, err
+		}
 		result = append(result, SubscriptionView{
 			Email:       email,
 			Repo:        sub.Repository.Name,
 			Confirmed:   sub.SubscriptionStatus == domain.StatusActive,
-			LastSeenTag: sub.Repository.LastSeenTag,
+			LastSeenTag: repository.LastSeenTag,
 		})
 	}
 	return result, nil

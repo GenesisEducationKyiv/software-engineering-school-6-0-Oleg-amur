@@ -6,3 +6,8 @@ type SubscriptionView struct {
 	Confirmed   bool
 	LastSeenTag string
 }
+
+type RepositoryView struct {
+	Name        string
+	LastSeenTag string
+}

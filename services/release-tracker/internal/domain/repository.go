@@ -8,3 +8,8 @@ type Repository struct {
 	LastSeenTag string
 	CreatedAt   time.Time
 }
+
+type ActiveSubscription struct {
+	Email            string
+	UnsubscribeToken string
+}

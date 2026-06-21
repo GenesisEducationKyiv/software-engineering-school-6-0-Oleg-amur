@@ -7,7 +7,7 @@ import (
 )
 
 type ActiveSubscriptionsByRepositoryStore interface {
-	GetActiveByRepositoryID(ctx context.Context, repoID int) ([]domain.RepositorySubscription, error)
+	GetActiveByRepositoryName(ctx context.Context, repoName string) ([]domain.RepositorySubscription, error)
 }
 
 type ListActiveSubscriptionsByRepository struct {
@@ -22,7 +22,7 @@ func NewListActiveSubscriptionsByRepository(
 
 func (u *ListActiveSubscriptionsByRepository) Execute(
 	ctx context.Context,
-	repoID int,
+	repoName string,
 ) ([]domain.RepositorySubscription, error) {
-	return u.subscriptions.GetActiveByRepositoryID(ctx, repoID)
+	return u.subscriptions.GetActiveByRepositoryName(ctx, repoName)
 }

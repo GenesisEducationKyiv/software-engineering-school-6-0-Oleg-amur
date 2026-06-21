@@ -9,7 +9,7 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 - **Multi-Protocol Support**:
   - **REST API**: Standard HTTP endpoints for subscription management.
   - **gRPC API**: High-performance interface for service-to-service communication.
-- **Persistence**: Uses PostgreSQL to store subscribers, repositories, and subscription states.
+- **Database per service**: Subscription and repository tracking data are stored in separate PostgreSQL databases.
 - **Monitoring**: Includes structured JSON logs, Elasticsearch/Kibana log search, Prometheus RED metrics, and a Grafana dashboard.
 - **Dockerized**: Ready to run with Docker and Docker Compose.
 
@@ -42,6 +42,7 @@ The service is configured using environment variables or a YAML file. You can fi
 
 Key configuration options:
 - `DATABASE_URL`: PostgreSQL connection string.
+- `RELEASE_TRACKER_URL`: Internal HTTP address of the release tracker.
 - `SCAN_INTERVAL`: How often to check for new releases (e.g., `1m`, `1h`).
 - `GITHUB_TOKEN`: GitHub Personal Access Token (optional, but recommended to avoid rate limits).
 - `SMTP_HOST`/`SMTP_PORT`/`SMTP_TIMEOUT`: Email server configuration.
@@ -69,6 +70,7 @@ The easiest way to run the service along with its core dependencies (PostgreSQL 
 The service will be available at:
 - REST API: `http://localhost:8080`
 - gRPC API: `localhost:50051`
+- Release Tracker internal HTTP API: `http://localhost:8081`
 - Mailpit UI (Email testing): `http://localhost:8025`
 - Prometheus Metrics: `http://localhost:8080/metrics`
 
@@ -118,6 +120,11 @@ The API documentation is available in Swagger format at `api/swagger.yaml`.
 - `GET /api/v1/unsubscribe/{token}`: Unsubscribe from notifications.
 - `GET /api/v1/subscriptions?email=...`: List all subscriptions for an email.
 
+Internal HTTP communication:
+
+- `release-notifier -> release-tracker`: `POST /internal/v1/repositories/ensure` and `GET /internal/v1/repositories?repository=owner/repo`.
+- `release-tracker -> release-notifier`: `GET /internal/v1/subscriptions?repository=owner/repo`.
+
 ### gRPC API
 
 The gRPC definition is available at `api/proto/release_notifier.proto`.
@@ -134,7 +141,8 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 ├── shared/
 │   └── contracts/             # Shared event contracts module
 ├── services/
-│   ├── release-notifier/      # Main API/scanner service module
+│   ├── release-notifier/      # Subscription API and subscription database
+│   ├── release-tracker/       # GitHub scanner and repository database
 │   └── notification-worker/   # RabbitMQ consumer and SMTP delivery module
 ├── docs/                      # System design, C4 diagrams, and ADRs
 ├── test/e2e/                  # Whole-system Playwright tests
@@ -143,10 +151,10 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 
 ## Release Detection Logic
 
-The service maintains a `last_seen_tag` for every tracked repository:
+The release tracker maintains a `last_seen_tag` for every tracked repository:
 1. It fetches all active repositories from the database.
 2. For each, it queries the GitHub API for the latest release.
-3. If a new version is detected (different from `last_seen_tag`), it publishes notification jobs to RabbitMQ for all confirmed subscribers of that repository.
+3. If a new version is detected, it requests confirmed subscribers from `release-notifier` over HTTP and publishes notification jobs to RabbitMQ.
 4. If rate limits are hit, the scanner gracefully skips the current cycle to wait for the window reset.
 
 ## Technical Considerations

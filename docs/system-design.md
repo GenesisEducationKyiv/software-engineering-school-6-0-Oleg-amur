@@ -17,7 +17,7 @@
 - **Scalability**: The design should handle up to 10,000 active subscribers and 1,000 unique repositories without significant architectural changes.
 
 ### Constraints
-- **Modular Service Architecture**: The system is split into a core API/scanner service and a notification worker while keeping module boundaries explicit in code.
+- **Service Architecture**: Subscription management, release tracking, and notification delivery are independently deployable services.
 - **GitHub API Limits**: The system must operate within GitHub's rate limits (60/hr for unauthenticated, 5,000/hr for authenticated requests).
 - **Environment**: Must be containerized and with ability to run whole system using Docker Compose.
 
@@ -38,9 +38,9 @@
 
 ## 3. High Level Architecture
 
-The system follows a modular service architecture. The core service owns subscriptions, repository tracking, API endpoints, and release scanning. A separate notification worker owns email delivery. The services communicate through an event bus port implemented by RabbitMQ.
+The system has a subscription API, a release tracker, and a notification worker. The API and tracker use internal HTTP endpoints for synchronous repository/subscriber queries. Notification delivery remains asynchronous through RabbitMQ.
 
-The production codebase mirrors those boundaries with three Go modules: `shared/contracts`, `services/release-notifier`, and `services/notification-worker`. Packages under each service's `internal/` directory are private to that service. The root e2e fake GitHub service is a separate test-only module.
+The production codebase mirrors those boundaries with separate Go modules under `services/release-notifier`, `services/release-tracker`, and `services/notification-worker`, plus shared event and messaging modules. Each stateful service owns its PostgreSQL database.
 
 ### 3.1 C4 Diagrams
 
@@ -133,7 +133,7 @@ Consumes durable notification jobs from RabbitMQ and delivers them through SMTP.
 2. **Validation**: Service verifies repository format and queries GitHub API for existence.
 3. **Persist**: 
     - Subscriber record created (if new).
-    - Repository record created with the `latest_tag` (if new).
+    - Release tracker ensures the repository over internal HTTP and stores its latest tag in its own database.
     - Pending Subscription created with a random 32-character token.
 4. **Publish**: The core service publishes a `SubscriptionConfirmationRequested` event to RabbitMQ.
 5. **Notify**: The notification worker consumes the event and sends a confirmation email.

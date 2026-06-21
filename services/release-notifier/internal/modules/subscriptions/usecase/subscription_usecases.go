@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
 type SubscriptionUsecases struct {
@@ -9,6 +11,14 @@ type SubscriptionUsecases struct {
 	ConfirmSubscription       *ConfirmSubscription
 	UnsubscribeFromRepository *UnsubscribeFromRepository
 	ListSubscriptions         *ListSubscriptions
+	ListActiveByRepository    *ListActiveSubscriptionsByRepository
+}
+
+func (u SubscriptionUsecases) GetActiveSubscriptionsByRepository(
+	ctx context.Context,
+	repoName string,
+) ([]domain.RepositorySubscription, error) {
+	return u.ListActiveByRepository.Execute(ctx, repoName)
 }
 
 func (u SubscriptionUsecases) Subscribe(ctx context.Context, req SubscribeRequest) error {

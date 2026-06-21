@@ -10,7 +10,7 @@ const (
 type Subscription struct {
 	ID                 int
 	SubscriberID       int
-	RepositoryID       int
+	RepositoryName     string
 	SubscriptionStatus int
 	Token              string
 	CreatedAt          time.Time

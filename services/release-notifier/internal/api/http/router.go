@@ -25,6 +25,7 @@ func NewRouter(
 	mux.HandleFunc("/api/v1/confirm/{token}", h.Confirm)
 	mux.HandleFunc("/api/v1/unsubscribe/{token}", h.Unsubscribe)
 	mux.HandleFunc("/api/v1/subscriptions", h.GetSubscriptions)
+	mux.HandleFunc("/internal/v1/subscriptions", h.GetActiveSubscriptionsByRepository)
 
 	mux.Handle("/health", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())

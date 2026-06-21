@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
-	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	"github.com/google/uuid"
 )
@@ -17,11 +16,11 @@ type SubscriberRegistration interface {
 }
 
 type RepositoryTracker interface {
-	Execute(ctx context.Context, repoName string) (*releasetrackerdomain.Repository, error)
+	EnsureTracked(ctx context.Context, repoName string) (*RepositoryView, error)
 }
 
 type SubscriptionCreator interface {
-	StartSubscriptionConfirmation(ctx context.Context, subID, repoID int, email string, token string) error
+	StartSubscriptionConfirmation(ctx context.Context, subID int, repoName, email, token string) error
 }
 
 type SubscribeToRepository struct {
@@ -51,13 +50,13 @@ func (u *SubscribeToRepository) Execute(ctx context.Context, req SubscribeReques
 		return err
 	}
 
-	repo, err := u.repositoryTracker.Execute(ctx, req.Repo)
+	repo, err := u.repositoryTracker.EnsureTracked(ctx, req.Repo)
 	if err != nil {
 		return err
 	}
 
 	token := uuid.New().String()
-	err = u.subscriptions.StartSubscriptionConfirmation(ctx, subscriber.ID, repo.ID, req.Email, token)
+	err = u.subscriptions.StartSubscriptionConfirmation(ctx, subscriber.ID, repo.Name, req.Email, token)
 	if err != nil {
 		if errors.Is(err, apperr.ErrAlreadyExists) {
 			return apperr.ErrAlreadySubscribed

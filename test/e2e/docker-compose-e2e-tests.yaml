@@ -11,6 +11,18 @@ services:
       timeout: 5s
       retries: 20
 
+  release-tracker-postgres:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: release_tracker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d release_tracker -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
   mailpit:
     image: axllent/mailpit:v1.24
     container_name: mailpit
@@ -51,10 +63,8 @@ services:
       GRPC_PORT: 50051
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/release_notifier?sslmode=disable
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
-      SCAN_INTERVAL: 2s
-      GITHUB_TIMEOUT: 10s
-      GITHUB_URL: http://fake-github:8081
-      GITHUB_TOKEN: ""
+      RELEASE_TRACKER_URL: http://release-tracker:8081
+      RELEASE_TRACKER_TIMEOUT: 10s
     ports:
       - "8080:8080"
     depends_on:
@@ -64,8 +74,37 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      release-tracker:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  release-tracker:
+    build:
+      context: ../..
+      dockerfile: services/release-tracker/Dockerfile
+    environment:
+      SERVER_PORT: 8081
+      DATABASE_URL: postgres://postgres:postgres@release-tracker-postgres:5432/release_tracker?sslmode=disable
+      SUBSCRIPTIONS_URL: http://release-notifier:8080
+      SUBSCRIPTIONS_TIMEOUT: 10s
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+      SCAN_INTERVAL: 2s
+      GITHUB_TIMEOUT: 10s
+      GITHUB_URL: http://fake-github:8081
+      GITHUB_TOKEN: ""
+    depends_on:
+      release-tracker-postgres:
+        condition: service_healthy
+      fake-github:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
       interval: 2s
       timeout: 5s
       retries: 20

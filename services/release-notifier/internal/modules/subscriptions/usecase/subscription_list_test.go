@@ -56,7 +56,7 @@ func TestListSubscriptions_Execute(t *testing.T) {
 			usecase := NewListSubscriptions(&mockSubscriptionRepo{
 				getActiveByEmailSubs: tt.subs,
 				getActiveByEmailErr:  tt.repoErr,
-			})
+			}, &mockRepositoryTracker{})
 
 			subs, err := usecase.Execute(context.Background(), tt.email)
 

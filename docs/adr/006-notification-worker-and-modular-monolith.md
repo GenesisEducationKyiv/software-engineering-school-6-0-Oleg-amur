@@ -1,6 +1,6 @@
 # ADR 0006: Notification Worker and Modular Monolith
 
-* **Status:** Accepted
+* **Status:** Superseded by ADR 0008 for release tracking; notification worker decision remains valid
 * **Author:** Oleh Volkoboi
 * **Date:** 2026-06-07
 

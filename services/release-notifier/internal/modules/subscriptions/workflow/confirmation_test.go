@@ -26,7 +26,7 @@ func TestSubscriptionConfirmationSagaStarts(t *testing.T) {
 	).StartSubscriptionConfirmation(
 		context.Background(),
 		11,
-		19,
+		"owner/repo",
 		"user@example.com",
 		"confirmation-token",
 	)
@@ -36,7 +36,7 @@ func TestSubscriptionConfirmationSagaStarts(t *testing.T) {
 	if transactionManager.calls != 1 {
 		t.Fatalf("got %d transactions, want 1", transactionManager.calls)
 	}
-	if subscriptions.subscriberID != 11 || subscriptions.repositoryID != 19 {
+	if subscriptions.subscriberID != 11 || subscriptions.repositoryName != "owner/repo" {
 		t.Fatalf("unexpected subscription input: %+v", subscriptions)
 	}
 	if sagas.createdForSubscriptionID != 31 {
@@ -71,7 +71,7 @@ func TestSubscriptionConfirmationSagaStopsBeforeOutboxWhenSagaCreationFails(t *t
 	).StartSubscriptionConfirmation(
 		context.Background(),
 		11,
-		19,
+		"owner/repo",
 		"user@example.com",
 		"confirmation-token",
 	)
@@ -149,20 +149,21 @@ func (m *confirmationTransactionManager) Run(ctx context.Context, work func(cont
 }
 
 type confirmationSubscriptionStore struct {
-	id           int
-	subscriberID int
-	repositoryID int
-	token        string
-	deletedID    int
+	id             int
+	subscriberID   int
+	repositoryName string
+	token          string
+	deletedID      int
 }
 
 func (s *confirmationSubscriptionStore) Create(
 	_ context.Context,
-	subscriberID, repositoryID int,
+	subscriberID int,
+	repositoryName string,
 	token string,
 ) (int, error) {
 	s.subscriberID = subscriberID
-	s.repositoryID = repositoryID
+	s.repositoryName = repositoryName
 	s.token = token
 	return s.id, nil
 }

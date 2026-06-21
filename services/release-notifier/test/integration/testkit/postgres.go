@@ -92,8 +92,7 @@ func (p *Postgres) Reset(t testing.TB) {
 			outbox_messages,
 			subscription_sagas,
 			subscriptions,
-			subscribers,
-			repositories
+			subscribers
 		RESTART IDENTITY CASCADE`,
 	)
 	if err != nil {

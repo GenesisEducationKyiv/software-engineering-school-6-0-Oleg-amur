@@ -1,5 +1,14 @@
 package subscriptionhttp
 
+type ActiveSubscription struct {
+	Email            string `json:"email"`
+	UnsubscribeToken string `json:"unsubscribe_token"`
+}
+
+type ActiveSubscriptionsResponse struct {
+	Subscriptions []ActiveSubscription `json:"subscriptions"`
+}
+
 type SubscribeRequest struct {
 	Email string `json:"email"`
 	Repo  string `json:"repo"`

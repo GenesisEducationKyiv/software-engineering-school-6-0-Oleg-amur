@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"testing"
 
-	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 )
 
@@ -48,15 +47,28 @@ func (f *mockSubscriberRegistration) Execute(ctx context.Context, email string) 
 }
 
 type mockRepositoryTracker struct {
-	repository *releasetrackerdomain.Repository
+	repository *RepositoryView
 	err        error
 }
 
-func (f *mockRepositoryTracker) Execute(
+func (f *mockRepositoryTracker) EnsureTracked(
 	ctx context.Context,
 	repoName string,
-) (*releasetrackerdomain.Repository, error) {
+) (*RepositoryView, error) {
 	return f.repository, f.err
+}
+
+func (f *mockRepositoryTracker) GetRepository(
+	ctx context.Context,
+	repoName string,
+) (*RepositoryView, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.repository != nil {
+		return f.repository, nil
+	}
+	return &RepositoryView{Name: repoName}, nil
 }
 
 type mockSubscriptionRepo struct {
@@ -69,23 +81,23 @@ type mockSubscriptionRepo struct {
 }
 
 type startedConfirmation struct {
-	subID  int
-	repoID int
-	email  string
-	token  string
+	subID    int
+	repoName string
+	email    string
+	token    string
 }
 
 func (f *mockSubscriptionRepo) StartSubscriptionConfirmation(
 	ctx context.Context,
-	subID, repoID int,
-	email string,
+	subID int,
+	repoName, email string,
 	token string,
 ) error {
 	f.startedConfirmations = append(f.startedConfirmations, startedConfirmation{
-		subID:  subID,
-		repoID: repoID,
-		email:  email,
-		token:  token,
+		subID:    subID,
+		repoName: repoName,
+		email:    email,
+		token:    token,
 	})
 	return f.createErr
 }

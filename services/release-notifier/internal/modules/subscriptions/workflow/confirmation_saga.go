@@ -14,7 +14,7 @@ type TransactionManager interface {
 }
 
 type SubscriptionStore interface {
-	Create(ctx context.Context, subscriberID, repositoryID int, token string) (int, error)
+	Create(ctx context.Context, subscriberID int, repositoryName, token string) (int, error)
 	DeleteByID(ctx context.Context, subscriptionID int) error
 }
 
@@ -54,15 +54,15 @@ func NewSubscriptionConfirmationSaga(
 
 func (s *SubscriptionConfirmationSaga) StartSubscriptionConfirmation(
 	ctx context.Context,
-	subscriberID, repositoryID int,
-	email string,
+	subscriberID int,
+	repositoryName, email string,
 	token string,
 ) error {
 	return s.transactionManager.Run(ctx, func(txCtx context.Context) error {
 		subscriptionID, err := s.subscriptions.Create(
 			txCtx,
 			subscriberID,
-			repositoryID,
+			repositoryName,
 			token,
 		)
 		if err != nil {

@@ -18,9 +18,6 @@ import (
 func (s *RepositorySuite) TestTransactionManager_RollsBack() {
 	subscriber, err := s.subscriberStore.Create(s.ctx, "user@example.com")
 	s.Require().NoError(err, "create subscriber")
-	repository, err := s.repositoryStore.Create(s.ctx, "owner/repo", "v1.0.0")
-	s.Require().NoError(err, "create repository")
-
 	wantErr := errors.New("abort transaction")
 	transactionManager := postgresqladapter.NewTransactionManager(s.pg.DB)
 	err = transactionManager.Run(
@@ -29,7 +26,7 @@ func (s *RepositorySuite) TestTransactionManager_RollsBack() {
 			_, createErr := s.subscriptionStore.Create(
 				txCtx,
 				subscriber.ID,
-				repository.ID,
+				"owner/repo",
 				"confirmation-token",
 			)
 			s.Require().NoError(createErr, "create subscription in transaction")
@@ -61,9 +58,6 @@ func (s *RepositorySuite) TestTransactionManager_RejectsNestedTransaction() {
 func (s *RepositorySuite) TestSubscriptionConfirmationSaga_CompensationIsAtomicAndIdempotent() {
 	subscriber, err := s.subscriberStore.Create(s.ctx, "user@example.com")
 	s.Require().NoError(err, "create subscriber")
-	repository, err := s.repositoryStore.Create(s.ctx, "owner/repo", "v1.0.0")
-	s.Require().NoError(err, "create repository")
-
 	queryable := postgresqladapter.NewContextQueryable(s.pg.DB)
 	transactionManager := postgresqladapter.NewTransactionManager(s.pg.DB)
 	sagaStore := subscriptionpostgresql.NewSubscriptionSagaStore(queryable)
@@ -79,7 +73,7 @@ func (s *RepositorySuite) TestSubscriptionConfirmationSaga_CompensationIsAtomicA
 	err = saga.StartSubscriptionConfirmation(
 		s.ctx,
 		subscriber.ID,
-		repository.ID,
+		"owner/repo",
 		subscriber.Email,
 		"confirmation-token",
 	)

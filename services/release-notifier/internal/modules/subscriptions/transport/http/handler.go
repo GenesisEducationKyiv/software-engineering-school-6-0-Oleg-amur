@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
+	subscriptiondomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
 )
 
@@ -16,6 +17,40 @@ type SubscriptionUsecases interface {
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
 	GetSubscriptions(context.Context, string) ([]subscriptionusecase.SubscriptionView, error)
+	GetActiveSubscriptionsByRepository(context.Context, string) ([]subscriptiondomain.RepositorySubscription, error)
+}
+
+func (h *Handler) GetActiveSubscriptionsByRepository(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	repository := r.URL.Query().Get("repository")
+	if repository == "" {
+		h.sendError(w, "Repository parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	subscriptions, err := h.usecases.GetActiveSubscriptionsByRepository(r.Context(), repository)
+	if err != nil {
+		h.log.Error("get active subscriptions by repository failed", "repository", repository, "err", err)
+		h.sendError(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	response := ActiveSubscriptionsResponse{Subscriptions: make([]ActiveSubscription, 0, len(subscriptions))}
+	for _, subscription := range subscriptions {
+		response.Subscriptions = append(response.Subscriptions, ActiveSubscription{
+			Email:            subscription.Email,
+			UnsubscribeToken: subscription.UnsubscribeToken,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.log.Error("failed to encode active subscriptions response", "err", err)
+	}
 }
 
 type Handler struct {

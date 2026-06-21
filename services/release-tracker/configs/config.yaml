@@ -1,0 +1,18 @@
+database:
+  connectionString: "postgres://postgres:postgres@localhost:5433/release_tracker?sslmode=disable"
+server:
+  port: "8081"
+scanner:
+  interval: "1m"
+subscriptions:
+  url: "http://localhost:8080"
+  timeout: "10s"
+eventBus:
+  url: "amqp://guest:guest@localhost:5672/"
+  notificationExchange: "notifications"
+  notificationQueue: "notification-worker"
+  notificationDLQ: "notification-worker.dlq"
+github:
+  url: "https://api.github.com"
+  apiToken: ""
+  timeout: "10s"

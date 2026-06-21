@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/config"
@@ -71,12 +70,7 @@ func runApp(log *slog.Logger) error {
 	}
 
 	log.Debug("initializing dependencies")
-	githubClient, err := setupGithubClient(cfg.GithubClient, log)
-	if err != nil {
-		return err
-	}
-
-	modules, err := setupModules(log, db, cfg, githubClient)
+	modules, err := setupModules(log, db, cfg)
 	if err != nil {
 		return err
 	}
@@ -89,7 +83,6 @@ func runApp(log *slog.Logger) error {
 		}
 	}()
 
-	go modules.releaseScheduler.Start(ctx)
 	go modules.subscriptionOutboxRelay.Start(ctx)
 
 	log.Debug("setting up transport layers")
@@ -151,17 +144,6 @@ func runApp(log *slog.Logger) error {
 	log.Info("graceful shutdown complete")
 
 	return nil
-}
-
-func setupGithubClient(cfg config.GithubClient, log *slog.Logger) (*github.Client, error) {
-	timeout, err := time.ParseDuration(cfg.Timeout)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse github client timeout: %w", err)
-	}
-
-	httpClient := &http.Client{Timeout: timeout}
-
-	return github.NewClient(httpClient, cfg.Url, cfg.ApiToken, log), nil
 }
 
 func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {

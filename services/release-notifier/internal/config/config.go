@@ -3,11 +3,10 @@ package config
 import "github.com/ilyakaznacheev/cleanenv"
 
 type Config struct {
-	Database     Database     `yaml:"database"`
-	Server       Server       `yaml:"server"`
-	Scanner      Scanner      `yaml:"scanner"`
-	EventBus     EventBus     `yaml:"eventBus"`
-	GithubClient GithubClient `yaml:"github"`
+	Database       Database       `yaml:"database"`
+	Server         Server         `yaml:"server"`
+	EventBus       EventBus       `yaml:"eventBus"`
+	ReleaseTracker ReleaseTracker `yaml:"releaseTracker"`
 }
 
 type Database struct {
@@ -20,10 +19,6 @@ type Server struct {
 	GrpcPort string `yaml:"grpcPort" env:"GRPC_PORT"   env-default:"50051"`
 }
 
-type Scanner struct {
-	Interval string `yaml:"interval" env:"SCAN_INTERVAL" env-default:"1h"`
-}
-
 //nolint:golines // Environment tags must remain single string literals.
 type EventBus struct {
 	URL                   string `yaml:"url"                       env:"EVENT_BUS_URL"`
@@ -34,10 +29,9 @@ type EventBus struct {
 	SubscriptionSagaDLQ   string `yaml:"subscriptionSagaDLQ"       env:"SUBSCRIPTION_SAGA_DEAD_LETTER_QUEUE" env-default:"release-notifier.subscription-saga.dlq"`
 }
 
-type GithubClient struct {
-	Timeout  string `yaml:"timeout"  env:"GITHUB_TIMEOUT" env-default:"10s"`
-	Url      string `yaml:"url"      env:"GITHUB_URL"     env-default:"https://api.github.com"`
-	ApiToken string `yaml:"apiToken" env:"GITHUB_TOKEN"`
+type ReleaseTracker struct {
+	URL     string `yaml:"url"     env:"RELEASE_TRACKER_URL"     env-default:"http://localhost:8081"`
+	Timeout string `yaml:"timeout" env:"RELEASE_TRACKER_TIMEOUT" env-default:"10s"`
 }
 
 func LoadConfig(path string) (*Config, error) {

@@ -2,6 +2,7 @@ SHELL := /bin/sh
 
 COVERAGE_DIR := coverage
 RELEASE_NOTIFIER_DIR := services/release-notifier
+RELEASE_TRACKER_DIR := services/release-tracker
 NOTIFICATION_WORKER_DIR := services/notification-worker
 CONTRACTS_DIR := shared/contracts
 MESSAGING_DIR := shared/messaging
@@ -17,6 +18,7 @@ lint:
 	cd $(CONTRACTS_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(MESSAGING_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(RELEASE_NOTIFIER_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
+	cd $(RELEASE_TRACKER_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(NOTIFICATION_WORKER_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(FAKE_GITHUB_DIR) && golangci-lint run --config=../../../../.golangci.yml $(GO_PACKAGES)
 
@@ -26,6 +28,7 @@ test-unit:
 	cd $(CONTRACTS_DIR) && go test -v $(GO_PACKAGES)
 	cd $(MESSAGING_DIR) && go test -v $(GO_PACKAGES)
 	cd $(RELEASE_NOTIFIER_DIR) && go test -v $(GO_PACKAGES)
+	cd $(RELEASE_TRACKER_DIR) && go test -v $(GO_PACKAGES)
 	cd $(NOTIFICATION_WORKER_DIR) && go test -v $(GO_PACKAGES)
 	cd $(FAKE_GITHUB_DIR) && go test -v $(GO_PACKAGES)
 
@@ -43,8 +46,10 @@ coverage: coverage-unit coverage-integration coverage-summary
 coverage-unit:
 	mkdir -p $(COVERAGE_DIR)
 	cd $(RELEASE_NOTIFIER_DIR) && go test -count=1 -covermode=atomic -coverpkg=$(INTERNAL_PACKAGES) -coverprofile=../../$(COVERAGE_DIR)/unit-release-notifier.out $(GO_PACKAGES)
+	cd $(RELEASE_TRACKER_DIR) && go test -count=1 -covermode=atomic -coverpkg=$(INTERNAL_PACKAGES) -coverprofile=../../$(COVERAGE_DIR)/unit-release-tracker.out $(GO_PACKAGES)
 	cd $(NOTIFICATION_WORKER_DIR) && go test -count=1 -covermode=atomic -coverpkg=$(INTERNAL_PACKAGES) -coverprofile=../../$(COVERAGE_DIR)/unit-notification-worker.out $(GO_PACKAGES)
 	cd $(RELEASE_NOTIFIER_DIR) && go tool cover -func=../../$(COVERAGE_DIR)/unit-release-notifier.out
+	cd $(RELEASE_TRACKER_DIR) && go tool cover -func=../../$(COVERAGE_DIR)/unit-release-tracker.out
 	cd $(NOTIFICATION_WORKER_DIR) && go tool cover -func=../../$(COVERAGE_DIR)/unit-notification-worker.out
 
 coverage-integration:
@@ -55,6 +60,7 @@ coverage-integration:
 coverage-summary:
 	@echo "Coverage profiles:"
 	@echo "  $(COVERAGE_DIR)/unit-release-notifier.out"
+	@echo "  $(COVERAGE_DIR)/unit-release-tracker.out"
 	@echo "  $(COVERAGE_DIR)/unit-notification-worker.out"
 	@echo "  $(COVERAGE_DIR)/integration.out"
 

@@ -5,18 +5,18 @@ package testkit
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"testing"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/inmemory"
-	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/github"
 	postgresqladapter "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/http"
-	releasetrackerpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/persistence/postgresql"
-	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
 	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/transport/grpc"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
@@ -53,7 +53,6 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 	queryable := postgresqladapter.NewContextQueryable(cfg.DB)
 	transactionManager := postgresqladapter.NewTransactionManager(cfg.DB)
 	subscriberStore := subscriptionpostgresql.NewSubscriberStore(queryable)
-	repositoryStore := releasetrackerpostgresql.NewRepositoryStore(queryable)
 	subscriptionStore := subscriptionpostgresql.NewSubscriptionStore(queryable)
 	subscriptionSagaStore := subscriptionpostgresql.NewSubscriptionSagaStore(queryable)
 	subscriptionOutboxStore := subscriptionpostgresql.NewOutboxStore(queryable)
@@ -64,10 +63,8 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 		subscriptionSagaStore,
 		subscriptionOutboxStore,
 	)
-	githubClient := githubclient.NewClient(gitHubHTTPClient, cfg.GitHubURL, "test-token", cfg.Logger)
-
 	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberStore)
-	ensureRepositoryTracked := releasetrackerusecase.NewEnsureRepositoryTracked(cfg.Logger, repositoryStore, githubClient)
+	repositoryTracker := &testRepositoryTracker{httpClient: gitHubHTTPClient, baseURL: cfg.GitHubURL}
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
@@ -83,12 +80,13 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 		SubscribeToRepository: subscriptionusecase.NewSubscribeToRepository(
 			cfg.Logger,
 			getOrCreateSubscriber,
-			ensureRepositoryTracked,
+			repositoryTracker,
 			subscriptionStarter,
 		),
 		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionStore),
 		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionStore),
-		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionStore),
+		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionStore, repositoryTracker),
+		ListActiveByRepository:    subscriptionusecase.NewListActiveSubscriptionsByRepository(subscriptionStore),
 	}
 
 	return &App{
@@ -107,13 +105,65 @@ type testSubscriptionStarter struct {
 
 func (s *testSubscriptionStarter) StartSubscriptionConfirmation(
 	ctx context.Context,
-	subID, repoID int,
-	email string,
+	subID int,
+	repoName, email string,
 	token string,
 ) error {
-	if err := s.starter.StartSubscriptionConfirmation(ctx, subID, repoID, email, token); err != nil {
+	if err := s.starter.StartSubscriptionConfirmation(ctx, subID, repoName, email, token); err != nil {
 		return err
 	}
 	s.relay.Execute(ctx)
 	return nil
+}
+
+type testRepositoryTracker struct {
+	httpClient *http.Client
+	baseURL    string
+}
+
+func (t *testRepositoryTracker) EnsureTracked(
+	ctx context.Context,
+	repoName string,
+) (*subscriptionusecase.RepositoryView, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.baseURL+"/repos/"+repoName, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, apperr.ErrRepoNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub returned status %d", resp.StatusCode)
+	}
+	return t.GetRepository(ctx, repoName)
+}
+
+func (t *testRepositoryTracker) GetRepository(
+	ctx context.Context,
+	repoName string,
+) (*subscriptionusecase.RepositoryView, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.baseURL+"/repos/"+repoName+"/releases/latest", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, apperr.ErrRepoNotFound
+	}
+	var response struct {
+		Tag string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, err
+	}
+	return &subscriptionusecase.RepositoryView{Name: repoName, LastSeenTag: response.Tag}, nil
 }
