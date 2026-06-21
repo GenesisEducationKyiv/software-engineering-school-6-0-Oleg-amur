@@ -1,4 +1,4 @@
-package repository
+package postgresql
 
 import (
 	"context"
@@ -6,18 +6,18 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/domain"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
 )
 
 var ErrNotFound = errors.New("repository not found")
 
-type Store struct {
+type RepositoryStore struct {
 	db *sql.DB
 }
 
-func NewStore(db *sql.DB) *Store { return &Store{db: db} }
+func NewRepositoryStore(db *sql.DB) *RepositoryStore { return &RepositoryStore{db: db} }
 
-func (s *Store) Create(ctx context.Context, name, lastSeenTag string) (*domain.Repository, error) {
+func (s *RepositoryStore) Create(ctx context.Context, name, lastSeenTag string) (*domain.Repository, error) {
 	const query = `
 		INSERT INTO repositories (name, last_seen_tag)
 		VALUES ($1, $2)
@@ -36,7 +36,7 @@ func (s *Store) Create(ctx context.Context, name, lastSeenTag string) (*domain.R
 	return &repository, nil
 }
 
-func (s *Store) GetByName(ctx context.Context, name string) (*domain.Repository, error) {
+func (s *RepositoryStore) GetByName(ctx context.Context, name string) (*domain.Repository, error) {
 	const query = `SELECT id, name, last_seen_tag, created_at FROM repositories WHERE name = $1`
 	var repository domain.Repository
 	if err := s.db.QueryRowContext(ctx, query, name).Scan(
@@ -53,7 +53,7 @@ func (s *Store) GetByName(ctx context.Context, name string) (*domain.Repository,
 	return &repository, nil
 }
 
-func (s *Store) GetAll(ctx context.Context) (_ []domain.Repository, err error) {
+func (s *RepositoryStore) GetAll(ctx context.Context) (_ []domain.Repository, err error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, name, last_seen_tag, created_at FROM repositories`)
 	if err != nil {
 		return nil, fmt.Errorf("list repositories: %w", err)
@@ -76,7 +76,7 @@ func (s *Store) GetAll(ctx context.Context) (_ []domain.Repository, err error) {
 	return repositories, rows.Err()
 }
 
-func (s *Store) UpdateTag(ctx context.Context, id int, tag string) error {
+func (s *RepositoryStore) UpdateTag(ctx context.Context, id int, tag string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE repositories SET last_seen_tag = $1 WHERE id = $2`, tag, id)
 	return err
 }

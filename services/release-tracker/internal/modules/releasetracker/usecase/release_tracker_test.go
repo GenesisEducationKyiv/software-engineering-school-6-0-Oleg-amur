@@ -1,4 +1,4 @@
-package service
+package usecase
 
 import (
 	"context"
@@ -6,13 +6,13 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/domain"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/repository"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
+	repositorypostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/persistence/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
 func TestEnsureTrackedCreatesMissingRepository(t *testing.T) {
-	store := &repositoryStoreFake{getErr: repository.ErrNotFound}
+	store := &repositoryStoreFake{getErr: repositorypostgresql.ErrNotFound}
 	github := &githubFake{exists: true, latestTag: "v1.0.0"}
 	tracker := New(testLogger(), store, github, &subscriptionsFake{}, &publisherFake{})
 

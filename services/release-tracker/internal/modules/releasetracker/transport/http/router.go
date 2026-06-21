@@ -1,4 +1,4 @@
-package httpapi
+package releasetrackerhttp
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/domain"
-	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/repository"
+	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/github"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
+	repositorypostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/persistence/postgresql"
 )
 
 type RepositoryService interface {
@@ -79,7 +79,7 @@ func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, repository.ErrNotFound), errors.Is(err, githubclient.ErrNotFound):
+	case errors.Is(err, repositorypostgresql.ErrNotFound), errors.Is(err, githubclient.ErrNotFound):
 		writeError(w, http.StatusNotFound, "repository not found")
 	case errors.Is(err, githubclient.ErrRateLimit):
 		writeError(w, http.StatusTooManyRequests, "GitHub rate limit exceeded")

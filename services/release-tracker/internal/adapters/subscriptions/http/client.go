@@ -1,4 +1,4 @@
-package subscriptions
+package subscriptionhttp
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/domain"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
 )
 
 type Client struct {

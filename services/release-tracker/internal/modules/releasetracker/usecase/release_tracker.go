@@ -1,15 +1,14 @@
-package service
+package usecase
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/domain"
-	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/repository"
+	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/github"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
+	repositorypostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/persistence/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/google/uuid"
 )
@@ -34,7 +33,7 @@ type NotificationPublisher interface {
 	Publish(context.Context, events.ReleaseNotificationRequested) error
 }
 
-type Service struct {
+type ReleaseTracker struct {
 	log           *slog.Logger
 	repositories  RepositoryStore
 	github        GitHub
@@ -48,8 +47,8 @@ func New(
 	github GitHub,
 	subscriptions Subscriptions,
 	publisher NotificationPublisher,
-) *Service {
-	return &Service{
+) *ReleaseTracker {
+	return &ReleaseTracker{
 		log:           log,
 		repositories:  repositories,
 		github:        github,
@@ -58,12 +57,12 @@ func New(
 	}
 }
 
-func (s *Service) EnsureTracked(ctx context.Context, name string) (*domain.Repository, error) {
+func (s *ReleaseTracker) EnsureTracked(ctx context.Context, name string) (*domain.Repository, error) {
 	tracked, err := s.repositories.GetByName(ctx, name)
 	if err == nil {
 		return tracked, nil
 	}
-	if !errors.Is(err, repository.ErrNotFound) {
+	if !errors.Is(err, repositorypostgresql.ErrNotFound) {
 		return nil, err
 	}
 
@@ -82,11 +81,11 @@ func (s *Service) EnsureTracked(ctx context.Context, name string) (*domain.Repos
 	return s.repositories.Create(ctx, name, tag)
 }
 
-func (s *Service) GetRepository(ctx context.Context, name string) (*domain.Repository, error) {
+func (s *ReleaseTracker) GetRepository(ctx context.Context, name string) (*domain.Repository, error) {
 	return s.repositories.GetByName(ctx, name)
 }
 
-func (s *Service) Scan(ctx context.Context) {
+func (s *ReleaseTracker) Scan(ctx context.Context) {
 	repositories, err := s.repositories.GetAll(ctx)
 	if err != nil {
 		s.log.Error("list repositories for scan", "err", err)
@@ -102,7 +101,7 @@ func (s *Service) Scan(ctx context.Context) {
 	}
 }
 
-func (s *Service) scanRepository(ctx context.Context, tracked domain.Repository) error {
+func (s *ReleaseTracker) scanRepository(ctx context.Context, tracked domain.Repository) error {
 	tag, err := s.github.LatestTag(ctx, tracked.Name)
 	if err != nil {
 		return err
@@ -129,18 +128,4 @@ func (s *Service) scanRepository(ctx context.Context, tracked domain.Repository)
 		}
 	}
 	return s.repositories.UpdateTag(ctx, tracked.ID, tag)
-}
-
-func (s *Service) RunScheduler(ctx context.Context, interval time.Duration) {
-	s.Scan(ctx)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.Scan(ctx)
-		}
-	}
 }

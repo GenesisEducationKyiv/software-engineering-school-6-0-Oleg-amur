@@ -11,14 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/eventbus/rabbitmq"
+	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/github"
+	subscriptionhttp "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/subscriptions/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/database"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/eventbus"
-	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/github"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/httpapi"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/repository"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/service"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/subscriptions"
+	repositorypostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/persistence/postgresql"
+	releasetrackerhttp "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/transport/http"
+	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/usecase"
+	releasetrackerworker "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/worker"
 	sharedrabbitmq "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging/rabbitmq"
 )
 
@@ -66,7 +67,7 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("parse scan interval: %w", err)
 	}
 
-	publisher, err := eventbus.NewPublisher(sharedrabbitmq.Config{
+	publisher, err := rabbitmq.NewPublisher(sharedrabbitmq.Config{
 		URL:      cfg.EventBus.URL,
 		Exchange: cfg.EventBus.NotificationExchange,
 		Queue:    cfg.EventBus.NotificationQueue,
@@ -81,20 +82,21 @@ func run(log *slog.Logger) error {
 		}
 	}()
 
-	tracker := service.New(
+	tracker := releasetrackerusecase.New(
 		log,
-		repository.NewStore(db),
+		repositorypostgresql.NewRepositoryStore(db),
 		githubclient.NewClient(&http.Client{Timeout: githubTimeout}, cfg.GitHub.URL, cfg.GitHub.APIToken),
-		subscriptions.NewClient(&http.Client{Timeout: subscriptionsTimeout}, cfg.Subscriptions.URL),
+		subscriptionhttp.NewClient(&http.Client{Timeout: subscriptionsTimeout}, cfg.Subscriptions.URL),
 		publisher,
 	)
+	scheduler := releasetrackerworker.NewScheduler(tracker, scanInterval)
 	server := &http.Server{
 		Addr:              ":" + cfg.Server.Port,
-		Handler:           httpapi.NewRouter(log, db, tracker),
+		Handler:           releasetrackerhttp.NewRouter(log, db, tracker),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	go tracker.RunScheduler(ctx, scanInterval)
+	go scheduler.Start(ctx)
 	serverErrors := make(chan error, 1)
 	go func() {
 		log.Info("HTTP server starting", "addr", server.Addr)
