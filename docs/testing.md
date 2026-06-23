@@ -13,7 +13,7 @@ make test
 Without `make`:
 
 ```sh
-sh -c 'go test -v ./... && go test -tags=integration -count=1 -v ./test/integration/... && docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abort-on-container-exit --exit-code-from playwright; code=$?; docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans; exit $code'
+sh -c 'cd shared/contracts && go test -v ./... && cd ../../services/release-notifier && go test -v ./... && go test -tags=integration -count=1 -v ./test/integration/... && cd ../notification-worker && go test -v ./... && cd ../.. && docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abort-on-container-exit --exit-code-from playwright; code=$?; docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans; exit $code'
 ```
 
 ## Unit Tests
@@ -25,14 +25,17 @@ make test-unit
 Without `make`:
 
 ```sh
-go test -v ./...
+cd shared/contracts && go test -v ./...
+cd services/release-notifier && go test -v ./...
+cd services/notification-worker && go test -v ./...
+cd test/e2e/fakes/github && go test -v ./...
 ```
 
 Unit tests live next to the code they cover, for example:
 
-- `internal/service/*_test.go`
-- `internal/scanner/*_test.go`
-- `internal/client/github/*_test.go`
+- `services/release-notifier/internal/service/*_test.go`
+- `services/release-notifier/internal/scanner/*_test.go`
+- `services/notification-worker/internal/service/*_test.go`
 
 ## Integration Tests
 
@@ -43,10 +46,10 @@ make test-integration
 Without `make`:
 
 ```sh
-go test -tags=integration -count=1 -v ./test/integration/...
+cd services/release-notifier && go test -tags=integration -count=1 -v ./test/integration/...
 ```
 
-Integration tests live under `test/integration`:
+Integration tests live under `services/release-notifier/test/integration`:
 
 - `http` covers HTTP API endpoint behavior.
 - `grpc` covers gRPC API endpoint behavior.
@@ -67,7 +70,7 @@ Without `make`:
 sh -c 'docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abort-on-container-exit --exit-code-from playwright; code=$?; docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans; exit $code'
 ```
 
-E2E tests live under `test/e2e`. Docker Compose starts PostgreSQL, Mailpit, a controlled fake GitHub HTTP service, the application, and a Playwright runner.
+E2E tests live under `test/e2e` because they cover the whole deployed system. Docker Compose starts PostgreSQL, Mailpit, RabbitMQ, a controlled fake GitHub HTTP service, the main service, the notification worker, and a Playwright runner.
 
 ## Coverage
 
@@ -78,16 +81,16 @@ make coverage
 Without `make`:
 
 ```sh
-sh -c 'mkdir -p coverage && go test -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage/unit.out ./... && go test -tags=integration -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage/integration.out ./test/integration/... && go tool cover -func=coverage/unit.out && go tool cover -func=coverage/integration.out'
+make coverage
 ```
 
-Unit and integration coverage profiles are written to `coverage/unit.out` and `coverage/integration.out`. CI uploads both profiles as workflow artifacts.
+Unit and integration coverage profiles are written to `coverage/`. CI uploads those profiles as workflow artifacts.
 
 ## Naming Conventions
 
 Go test functions use the `TestType_Method` pattern for unit tests, for example `TestRepositoryService_GetOrCreate`. More specific scenarios can append behavior after another underscore, for example `TestNotificationService_ProcessReleaseEvent_BuildsReleaseMessage`.
 
-Integration tests live under `test/integration` and use the `integration` build tag, so test names do not repeat `Integration`. Prefer names like `TestHTTPSubscribe_CreatesPendingSubscription`, `TestGRPCSubscribe_CreatesPendingSubscription`, and `TestSubscriptionRepository`.
+Integration tests live under `services/release-notifier/test/integration` and use the `integration` build tag, so test names do not repeat `Integration`. Prefer names like `TestHTTPSubscribe_CreatesPendingSubscription`, `TestGRPCSubscribe_CreatesPendingSubscription`, and `TestSubscriptionRepository`.
 
 Table-driven tests use `name` for the case description and `want*` fields for expected values:
 

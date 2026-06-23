@@ -23,6 +23,14 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
   fake-github:
     build:
       context: ../..
@@ -36,15 +44,13 @@ services:
   release-notifier:
     build:
       context: ../..
+      dockerfile: services/release-notifier/Dockerfile
     environment:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 8080
       GRPC_PORT: 50051
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/release_notifier?sslmode=disable
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
-      FROM_EMAIL: no-reply@test.com
-      BASE_URL: http://release-notifier:8080
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: 2s
       GITHUB_TIMEOUT: 10s
       GITHUB_URL: http://fake-github:8081
@@ -56,10 +62,31 @@ services:
         condition: service_healthy
       fake-github:
         condition: service_healthy
-      mailpit:
-        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  notification-worker:
+    build:
+      context: ../..
+      dockerfile: services/notification-worker/Dockerfile
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      FROM_EMAIL: no-reply@test.com
+      BASE_URL: http://release-notifier:8080
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      mailpit:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof notification-worker"]
       interval: 2s
       timeout: 5s
       retries: 20
@@ -78,6 +105,8 @@ services:
     command: sh -c "npm ci --no-audit --no-fund && npx playwright test"
     depends_on:
       release-notifier:
+        condition: service_healthy
+      notification-worker:
         condition: service_healthy
 
 volumes:

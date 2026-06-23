@@ -19,10 +19,33 @@ jobs:
           go-version: 1.25.3
           cache: true
 
-      - name: lint
+      - name: lint shared contracts
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.1
+          working-directory: shared/contracts
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint release notifier
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: services/release-notifier
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint notification worker
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: services/notification-worker
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint e2e fake github
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: test/e2e/fakes/github
+          args: --config=../../../../.golangci.yml ./...
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -43,7 +66,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-coverage
-          path: coverage/unit.out
+          path: coverage/unit-*.out
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -90,5 +113,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v6
 
-      - name: build image
-        run: docker build -t release-notifier .
+      - name: build release notifier image
+        run: docker build -f services/release-notifier/Dockerfile -t release-notifier .
+
+      - name: build notification worker image
+        run: docker build -f services/notification-worker/Dockerfile -t notification-worker .
