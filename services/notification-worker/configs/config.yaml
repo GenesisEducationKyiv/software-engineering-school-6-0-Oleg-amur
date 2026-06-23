@@ -4,6 +4,9 @@ notifier:
   fromEmail: "noreply@release-notifier.com"
   baseUrl: "http://localhost:8080"
   timeout: "10s"
+  retryMaxAttempts: 3
+  retryInitialDelay: "500ms"
+  retryMaxDelay: "5s"
 eventBus:
   url: "amqp://guest:guest@localhost:5672/"
   notificationExchange: "notifications"

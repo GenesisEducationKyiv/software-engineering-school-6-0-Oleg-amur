@@ -36,7 +36,7 @@ func runWorker(log *slog.Logger) error {
 		return fmt.Errorf("failed to load config from %s: %w", configPath, err)
 	}
 
-	emailClient, err := setupEmailClient(cfg.Notifier)
+	emailClient, err := setupEmailClient(log, cfg.Notifier)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,12 @@ func runWorker(log *slog.Logger) error {
 		}
 	}()
 
-	notificationService := notification.NewNotificationService(log, emailClient, msgBuilder, sagaResultPublisher)
+	notificationService := notification.NewNotificationService(
+		log,
+		emailClient,
+		msgBuilder,
+		sagaResultPublisher,
+	)
 
 	consumer, err := rabbitmq.NewNotificationConsumer(log, rabbitmq.Config{
 		URL:      cfg.EventBus.URL,
@@ -75,7 +80,7 @@ func runWorker(log *slog.Logger) error {
 	return consumer.Subscribe(ctx, notificationService)
 }
 
-func setupEmailClient(cfg config.Notifier) (*email.Client, error) {
+func setupEmailClient(log *slog.Logger, cfg config.Notifier) (*email.Client, error) {
 	timeout, err := time.ParseDuration(cfg.Timeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse smtp timeout: %w", err)
@@ -84,5 +89,19 @@ func setupEmailClient(cfg config.Notifier) (*email.Client, error) {
 		return nil, fmt.Errorf("smtp timeout must be positive")
 	}
 
-	return email.NewClient(cfg.SMTPHost, cfg.SMTPPort, cfg.FromEmail, timeout), nil
+	initialDelay, err := time.ParseDuration(cfg.RetryInitialDelay)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SMTP retry initial delay: %w", err)
+	}
+	maxDelay, err := time.ParseDuration(cfg.RetryMaxDelay)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SMTP retry max delay: %w", err)
+	}
+
+	policy, err := email.NewRetryPolicy(cfg.RetryMaxAttempts, initialDelay, maxDelay)
+	if err != nil {
+		return nil, fmt.Errorf("invalid SMTP retry policy: %w", err)
+	}
+
+	return email.NewClient(log, cfg.SMTPHost, cfg.SMTPPort, cfg.FromEmail, timeout, policy), nil
 }

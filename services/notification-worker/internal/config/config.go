@@ -8,11 +8,14 @@ type Config struct {
 }
 
 type Notifier struct {
-	SMTPHost  string `yaml:"smtpHost"  env:"SMTP_HOST"`
-	SMTPPort  string `yaml:"smtpPort"  env:"SMTP_PORT"`
-	FromEmail string `yaml:"fromEmail" env:"FROM_EMAIL"`
-	BaseUrl   string `yaml:"baseUrl"   env:"BASE_URL"`
-	Timeout   string `yaml:"timeout"   env:"SMTP_TIMEOUT" env-default:"10s"`
+	SMTPHost          string `yaml:"smtpHost"          env:"SMTP_HOST"`
+	SMTPPort          string `yaml:"smtpPort"          env:"SMTP_PORT"`
+	FromEmail         string `yaml:"fromEmail"         env:"FROM_EMAIL"`
+	BaseUrl           string `yaml:"baseUrl"           env:"BASE_URL"`
+	Timeout           string `yaml:"timeout"           env:"SMTP_TIMEOUT"             env-default:"10s"`
+	RetryMaxAttempts  int    `yaml:"retryMaxAttempts"  env:"SMTP_RETRY_MAX_ATTEMPTS"  env-default:"3"`
+	RetryInitialDelay string `yaml:"retryInitialDelay" env:"SMTP_RETRY_INITIAL_DELAY" env-default:"500ms"`
+	RetryMaxDelay     string `yaml:"retryMaxDelay"     env:"SMTP_RETRY_MAX_DELAY"     env-default:"5s"`
 }
 
 type EventBus struct {

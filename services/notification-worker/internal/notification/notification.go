@@ -70,6 +70,9 @@ func (s *NotificationService) HandleSubscriptionConfirmationRequested(
 
 	if err := s.emailSender.Send(ctx, event.Email, subject, body); err != nil {
 		s.log.Error("failed to send confirmation", "email", event.Email, "err", err)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if s.results == nil {
 			return err
 		}
