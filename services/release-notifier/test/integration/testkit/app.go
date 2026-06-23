@@ -134,8 +134,11 @@ func (t *testRepositoryTracker) EnsureTracked(
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
+	switch resp.StatusCode {
+	case http.StatusNotFound:
 		return nil, apperr.ErrRepoNotFound
+	case http.StatusTooManyRequests:
+		return nil, apperr.ErrRateLimitExceeded
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub returned status %d", resp.StatusCode)

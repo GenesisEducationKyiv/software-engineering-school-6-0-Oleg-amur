@@ -67,6 +67,7 @@ func (r *SubscriptionStore) GetByToken(
 		}
 		return nil, err
 	}
+	s.Repository.Name = s.RepositoryName
 	return &s, nil
 }
 
