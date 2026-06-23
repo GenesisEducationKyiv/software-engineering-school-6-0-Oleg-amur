@@ -19,6 +19,7 @@ const (
 
 	OutboxStatusPending   OutboxStatus = 1
 	OutboxStatusPublished OutboxStatus = 2
+	OutboxStatusFailed    OutboxStatus = 3
 )
 
 type SubscriptionSaga struct {

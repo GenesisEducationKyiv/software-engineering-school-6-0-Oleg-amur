@@ -61,12 +61,34 @@ func (r *OutboxStore) MarkOutboxPublished(ctx context.Context, id int) error {
 	return err
 }
 
-func (r *OutboxStore) MarkOutboxPublishFailed(ctx context.Context, id int, cause error) error {
+func (r *OutboxStore) RecordOutboxFailure(
+	ctx context.Context,
+	id int,
+	cause error,
+	maxAttempts int,
+) error {
+	if maxAttempts <= 0 {
+		return fmt.Errorf("outbox max attempts must be positive")
+	}
+
 	query := `
 		UPDATE outbox_messages
-		SET attempts = attempts + 1, last_error = $1
-		WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, cause.Error(), id)
+		SET attempts = attempts + 1,
+			last_error = $1,
+			outbox_status = CASE
+				WHEN attempts + 1 >= $2 THEN $3
+				ELSE outbox_status
+			END
+		WHERE id = $4 AND outbox_status = $5`
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		cause.Error(),
+		maxAttempts,
+		subscriptiondomain.OutboxStatusFailed,
+		id,
+		subscriptiondomain.OutboxStatusPending,
+	)
 	return err
 }
 
