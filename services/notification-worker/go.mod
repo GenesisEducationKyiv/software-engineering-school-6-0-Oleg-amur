@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts v0.0.0
+	github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging v0.0.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 )
@@ -16,3 +17,5 @@ require (
 )
 
 replace github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts => ../../shared/contracts
+
+replace github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging => ../../shared/messaging

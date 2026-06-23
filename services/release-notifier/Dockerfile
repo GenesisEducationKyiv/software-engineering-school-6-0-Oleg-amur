@@ -3,6 +3,7 @@ ARG CGO_ENABLED=0
 WORKDIR /workspace
 
 COPY shared/contracts ./shared/contracts
+COPY shared/messaging ./shared/messaging
 COPY services/release-notifier ./services/release-notifier
 
 WORKDIR /workspace/services/release-notifier

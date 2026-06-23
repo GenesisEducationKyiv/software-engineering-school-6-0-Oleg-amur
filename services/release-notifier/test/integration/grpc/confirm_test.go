@@ -7,6 +7,7 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/api/grpc/pb"
 	subscriptionmodels "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/test/integration/testkit"
 	"google.golang.org/grpc/codes"
 )
 
@@ -22,18 +23,5 @@ func (s *GRPCSuite) TestConfirm_ActivatesSubscription() {
 	_, err = s.client.Confirm(context.Background(), &pb.ConfirmRequest{Token: token})
 	s.assertGRPCCode(err, codes.OK)
 
-	s.assertSubscriptionStatus(token, subscriptionmodels.StatusActive)
-}
-
-func (s *GRPCSuite) assertSubscriptionStatus(token string, want int) {
-	s.T().Helper()
-
-	var got int
-	err := s.app.DB.QueryRowContext(
-		context.Background(),
-		`SELECT subscription_status FROM subscriptions WHERE token = $1`,
-		token,
-	).Scan(&got)
-	s.Require().NoError(err, "get subscription status by token")
-	s.Equal(want, got)
+	testkit.AssertSubscriptionStatus(s.T(), s.app.DB, token, subscriptionmodels.StatusActive)
 }

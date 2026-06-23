@@ -4,6 +4,7 @@ COVERAGE_DIR := coverage
 RELEASE_NOTIFIER_DIR := services/release-notifier
 NOTIFICATION_WORKER_DIR := services/notification-worker
 CONTRACTS_DIR := shared/contracts
+MESSAGING_DIR := shared/messaging
 FAKE_GITHUB_DIR := test/e2e/fakes/github
 E2E_COMPOSE := test/e2e/docker-compose-e2e-tests.yaml
 GO_PACKAGES := ./...
@@ -14,6 +15,7 @@ INTEGRATION_PACKAGES := ./test/integration/...
 
 lint:
 	cd $(CONTRACTS_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
+	cd $(MESSAGING_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(RELEASE_NOTIFIER_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(NOTIFICATION_WORKER_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(FAKE_GITHUB_DIR) && golangci-lint run --config=../../../../.golangci.yml $(GO_PACKAGES)
@@ -22,6 +24,7 @@ test: test-unit test-integration test-e2e
 
 test-unit:
 	cd $(CONTRACTS_DIR) && go test -v $(GO_PACKAGES)
+	cd $(MESSAGING_DIR) && go test -v $(GO_PACKAGES)
 	cd $(RELEASE_NOTIFIER_DIR) && go test -v $(GO_PACKAGES)
 	cd $(NOTIFICATION_WORKER_DIR) && go test -v $(GO_PACKAGES)
 	cd $(FAKE_GITHUB_DIR) && go test -v $(GO_PACKAGES)

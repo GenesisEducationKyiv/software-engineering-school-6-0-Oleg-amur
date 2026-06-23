@@ -75,6 +75,7 @@ func (u *SubscribeToRepository) Execute(ctx context.Context, req SubscribeReques
 
 	event := events.SubscriptionConfirmationRequested{
 		EventID:           uuid.New().String(),
+		SchemaVersion:     events.NotificationSchemaVersion,
 		Email:             req.Email,
 		ConfirmationToken: token,
 	}

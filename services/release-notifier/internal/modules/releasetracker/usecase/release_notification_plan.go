@@ -46,6 +46,7 @@ func (p *PlanReleaseNotifications) Execute(ctx context.Context, event domain.Rel
 	for _, subscription := range subscriptions {
 		notification := events.ReleaseNotificationRequested{
 			EventID:          uuid.New().String(),
+			SchemaVersion:    events.NotificationSchemaVersion,
 			Email:            subscription.Email,
 			Repo:             event.RepoName,
 			Tag:              event.Tag,

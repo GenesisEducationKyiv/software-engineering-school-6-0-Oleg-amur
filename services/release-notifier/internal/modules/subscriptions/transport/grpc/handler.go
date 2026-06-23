@@ -47,7 +47,8 @@ func (h *Handler) Subscribe(
 
 	err := h.usecases.Subscribe(ctx, subReq)
 	if err != nil {
-		if errors.Is(err, apperr.ErrInvalidFormat) {
+		if errors.Is(err, apperr.ErrInvalidEmailFormat) ||
+			errors.Is(err, apperr.ErrInvalidRepositoryFormat) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		if errors.Is(err, apperr.ErrRepoNotFound) {
