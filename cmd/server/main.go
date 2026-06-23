@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -20,6 +21,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/database"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/model"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/observability"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/repository/postgresql"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/scanner"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/internal/service"
@@ -34,7 +36,8 @@ const (
 )
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "release-notifier")
+	slog.SetDefault(log)
 
 	if err := runApp(log); err != nil {
 		log.Error("fatal error", "error", err)
@@ -57,6 +60,9 @@ func runApp(log *slog.Logger) error {
 	db, err := database.InitDb(ctx, cfg.Database.ConnectionString, log)
 	if err != nil {
 		return err
+	}
+	if err := observability.RegisterDatabaseMetrics(db, log); err != nil {
+		log.Error("failed to register database metrics; continuing without database metrics", "error", err)
 	}
 	defer func(db *sql.DB) {
 		log.Debug("closing database connection")
@@ -123,11 +129,12 @@ func runApp(log *slog.Logger) error {
 	go scheduler.Start(ctx)
 
 	log.Debug("setting up transport layers")
-	router := httpapi.NewRouter(log, subscriptionSvc)
+	healthHandler := httpapi.NewHealthHandler(log, db)
+	router := httpapi.NewRouter(log, subscriptionSvc, healthHandler)
 	httpServer := setupHttpServer(cfg.Server, router)
 
 	grpcHandler := grpcapi.NewGrpcHandler(log, subscriptionSvc)
-	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcHandler)
+	grpcServer, grpcLis, err := setupGrpcServer(ctx, cfg.Server, grpcHandler, log)
 	if err != nil {
 		return err
 	}
@@ -136,7 +143,7 @@ func runApp(log *slog.Logger) error {
 
 	go func() {
 		log.Info("HTTP server starting", "addr", httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
@@ -204,6 +211,7 @@ func setupGrpcServer(
 	ctx context.Context,
 	cfg config.Server,
 	handler *grpcapi.GrpcHandler,
+	log *slog.Logger,
 ) (*grpc.Server, net.Listener, error) {
 	grpcAddr := ":" + cfg.GrpcPort
 
@@ -213,7 +221,7 @@ func setupGrpcServer(
 		return nil, nil, fmt.Errorf("failed to listen for gRPC: %w", err)
 	}
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.UnaryInterceptor(observability.UnaryServerInterceptor(log)))
 	pb.RegisterReleaseNotifierServer(srv, handler)
 
 	return srv, lis, nil

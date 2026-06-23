@@ -10,7 +10,7 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
   - **REST API**: Standard HTTP endpoints for subscription management.
   - **gRPC API**: High-performance interface for service-to-service communication.
 - **Persistence**: Uses PostgreSQL to store subscribers, repositories, and subscription states.
-- **Monitoring**: Includes Prometheus metrics for service observability.
+- **Monitoring**: Includes structured JSON logs, Elasticsearch/Kibana log search, Prometheus RED metrics, and a Grafana dashboard.
 - **Dockerized**: Ready to run with Docker and Docker Compose.
 
 ## Documentation
@@ -25,6 +25,8 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 - **Communication**: [gRPC](https://grpc.io/), [net/http](https://pkg.go.dev/net/http)
 - **Configuration**: [cleanenv](https://github.com/ilyakaznacheev/cleanenv)
 - **Metrics**: [Prometheus](https://prometheus.io/)
+- **Logs**: [Elasticsearch](https://www.elastic.co/elasticsearch), [Kibana](https://www.elastic.co/kibana), [Filebeat](https://www.elastic.co/beats/filebeat)
+- **Dashboards**: [Grafana](https://grafana.com/)
 - **Containerization**: [Docker](https://www.docker.com/)
 
 ## Getting Started
@@ -46,7 +48,7 @@ Key configuration options:
 
 ### Running with Docker Compose
 
-The easiest way to run the service along with its dependencies (PostgreSQL and Mailpit):
+The easiest way to run the service along with its core dependencies (PostgreSQL and Mailpit):
 
 1. Clone the repository:
    ```bash
@@ -61,7 +63,7 @@ The easiest way to run the service along with its dependencies (PostgreSQL and M
 
 3. Start the services:
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 The service will be available at:
@@ -69,6 +71,40 @@ The service will be available at:
 - gRPC API: `localhost:50051`
 - Mailpit UI (Email testing): `http://localhost:8025`
 - Prometheus Metrics: `http://localhost:8080/metrics`
+
+To start the full observability stack as well:
+
+```bash
+docker compose --profile observability up -d
+```
+
+Additional observability services will be available at:
+- Prometheus UI: `http://localhost:9090`
+- Grafana UI: `http://localhost:3000` (`admin` / `admin`)
+- Elasticsearch: `http://localhost:9200`
+- Kibana UI: `http://localhost:5601`
+
+## Logging and Metrics
+
+The application writes structured JSON logs to stdout. The `observability` Compose profile runs Filebeat, which tails Docker logs for the `release-notifier` Compose service, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch using Filebeat-managed storage.
+
+The Kibana init container creates a `filebeat-*` data view and imports a `Release Notifier Logs` dashboard with recent structured log events filtered to `service.name: "release-notifier"`.
+
+In Kibana, open logs in **Analytics -> Discover** and select the `Release Notifier Logs` data view. The imported log dashboard is under **Analytics -> Dashboard -> Release Notifier Logs**. If the data view is empty, generate at least one app request, for example `curl http://localhost:8080/health`, then wait a few seconds for Filebeat to publish the Docker log event.
+
+Prometheus scrapes `release-notifier:8080/metrics` every 15 seconds. The application exposes RED metrics for both HTTP and gRPC traffic:
+- `release_notifier_http_requests_total`
+- `release_notifier_http_request_errors_total`
+- `release_notifier_http_request_duration_seconds`
+- `release_notifier_grpc_requests_total`
+- `release_notifier_grpc_request_errors_total`
+- `release_notifier_grpc_request_duration_seconds`
+
+The same endpoint also exposes default Go runtime and process metrics, including CPU, RAM usage, heap usage, goroutines, and GC pauses. Grafana is provisioned automatically with Prometheus as the default datasource and a `Release Notifier Metrics` dashboard. The dashboard has an editable `rate_window` variable at the top for rate and percentile queries.
+
+The Kibana init container is intentionally separate from Kibana itself so the dashboard/data-view import is repeatable and fails visibly when saved object import fails.
+
+The `/health` endpoint checks database connectivity and returns `200 OK` when PostgreSQL is reachable or `503 Service Unavailable` when the database ping fails. Prometheus also exposes `release_notifier_database_up` and `release_notifier_database_ping_duration_seconds`; the dashboard shows the database up/down state.
 
 ## API Documentation
 
@@ -109,6 +145,7 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 │   ├── scanner/       # Release monitoring logic
 │   └── service/       # Business logic layer
 ├── migrations/        # SQL migration files
+├── observability/     # Prometheus, Grafana, Filebeat, Elasticsearch, and Kibana assets
 └── docs/              # System design, C4 diagrams, and ADRs
 ```
 
