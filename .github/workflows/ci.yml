@@ -26,11 +26,25 @@ jobs:
           working-directory: shared/contracts
           args: --config=../../.golangci.yml ./...
 
+      - name: lint shared messaging
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: shared/messaging
+          args: --config=../../.golangci.yml ./...
+
       - name: lint release notifier
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.1
           working-directory: services/release-notifier
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint release tracker
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: services/release-tracker
           args: --config=../../.golangci.yml ./...
 
       - name: lint notification worker
@@ -115,6 +129,9 @@ jobs:
 
       - name: build release notifier image
         run: docker build -f services/release-notifier/Dockerfile -t release-notifier .
+
+      - name: build release tracker image
+        run: docker build -f services/release-tracker/Dockerfile -t release-tracker .
 
       - name: build notification worker image
         run: docker build -f services/notification-worker/Dockerfile -t notification-worker .

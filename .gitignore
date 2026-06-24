@@ -6,9 +6,6 @@ main
 .DS_store
 Thumbs.db
 
-# Go workspace
-go.work
-
 # Node and Playwright artifacts
 node_modules/
 test-results/
