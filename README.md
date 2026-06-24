@@ -75,7 +75,8 @@ The service will be available at:
 - gRPC API: `localhost:50051`
 - Release Tracker internal HTTP API: `http://localhost:8081`
 - Mailpit UI (Email testing): `http://localhost:8025`
-- Prometheus Metrics: `http://localhost:8080/metrics`
+- Subscription Service Metrics: `http://localhost:8080/metrics`
+- Release Tracker Metrics: `http://localhost:8081/metrics`
 
 To start the full observability stack as well:
 
@@ -91,19 +92,26 @@ Additional observability services will be available at:
 
 ## Logging and Metrics
 
-The application writes structured JSON logs to stdout. The `observability` Compose profile runs Filebeat, which tails Docker logs for the `subscription-service` Compose service, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch using Filebeat-managed storage.
+The services write structured JSON logs to stdout. The `observability` Compose profile runs Filebeat, which tails Docker logs for `subscription-service` and `release-tracker`, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch using Filebeat-managed storage.
 
 The Kibana init container creates a `filebeat-*` data view and imports a `Subscription Service Logs` dashboard with recent structured log events filtered to `service.name: "subscription-service"`.
 
 In Kibana, open logs in **Analytics -> Discover** and select the `Subscription Service Logs` data view. The imported log dashboard is under **Analytics -> Dashboard -> Subscription Service Logs**. If the data view is empty, generate at least one app request, for example `curl http://localhost:8080/health`, then wait a few seconds for Filebeat to publish the Docker log event.
 
-Prometheus scrapes `subscription-service:8080/metrics` every 15 seconds. The application exposes RED metrics for both HTTP and gRPC traffic:
+Prometheus scrapes both `subscription-service:8080/metrics` and `release-tracker:8081/metrics` every 15 seconds. The subscription service exposes RED metrics for both HTTP and gRPC traffic:
 - `subscription_service_http_requests_total`
 - `subscription_service_http_request_errors_total`
 - `subscription_service_http_request_duration_seconds`
 - `subscription_service_grpc_requests_total`
 - `subscription_service_grpc_request_errors_total`
 - `subscription_service_grpc_request_duration_seconds`
+
+The release tracker exposes HTTP and database metrics:
+- `release_tracker_http_requests_total`
+- `release_tracker_http_request_errors_total`
+- `release_tracker_http_request_duration_seconds`
+- `release_tracker_database_up`
+- `release_tracker_database_ping_duration_seconds`
 
 The same endpoint also exposes default Go runtime and process metrics, including CPU, RAM usage, heap usage, goroutines, and GC pauses. Grafana is provisioned automatically with Prometheus as the default datasource and a `Subscription Service Metrics` dashboard. The dashboard has an editable `rate_window` variable at the top for rate and percentile queries.
 
@@ -152,9 +160,10 @@ The gRPC definition is available at `shared/contracts/proto/subscriptions/v1/sub
 ├── shared/
 │   └── contracts/             # Shared event contracts module
 ├── services/
-│   ├── subscription-service/      # Subscription API and subscription database
+│   ├── subscription-service/  # Subscription API and subscription database
 │   ├── release-tracker/       # GitHub scanner and repository database
 │   └── notification-worker/   # RabbitMQ consumer and SMTP delivery module
+├── observability/             # Filebeat, Prometheus, Grafana, and Kibana setup
 ├── docs/                      # System design, C4 diagrams, and ADRs
 ├── test/e2e/                  # Whole-system Playwright tests
 └── docker-compose.yaml        # Local runtime stack
@@ -165,7 +174,7 @@ The gRPC definition is available at `shared/contracts/proto/subscriptions/v1/sub
 The release tracker maintains a `last_seen_tag` for every tracked repository:
 1. It fetches all active repositories from the database.
 2. For each, it queries the GitHub API for the latest release.
-3. If a new version is detected, it requests confirmed subscribers from `subscription-service` over HTTP and publishes notification jobs to RabbitMQ.
+3. If a new version is detected, it requests confirmed subscribers from `subscription-service` through the selected HTTP or gRPC adapter and publishes notification jobs to RabbitMQ.
 4. If rate limits are hit, the scanner gracefully skips the current cycle to wait for the window reset.
 
 ## Technical Considerations

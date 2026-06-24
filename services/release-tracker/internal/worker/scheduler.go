@@ -5,21 +5,21 @@ import (
 	"time"
 )
 
-type Scanner interface {
-	Scan(context.Context)
+type Job interface {
+	Execute(context.Context)
 }
 
 type Scheduler struct {
-	scanner  Scanner
+	job      Job
 	interval time.Duration
 }
 
-func NewScheduler(scanner Scanner, interval time.Duration) *Scheduler {
-	return &Scheduler{scanner: scanner, interval: interval}
+func NewScheduler(job Job, interval time.Duration) *Scheduler {
+	return &Scheduler{job: job, interval: interval}
 }
 
 func (s *Scheduler) Start(ctx context.Context) {
-	s.scanner.Scan(ctx)
+	s.job.Execute(ctx)
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 	for {
@@ -27,7 +27,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.scanner.Scan(ctx)
+			s.job.Execute(ctx)
 		}
 	}
 }

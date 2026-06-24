@@ -3,15 +3,11 @@ package github
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-)
 
-var (
-	ErrNotFound  = errors.New("repository not found")
-	ErrRateLimit = errors.New("GitHub rate limit exceeded")
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/apperr"
 )
 
 type Client struct {
@@ -46,7 +42,7 @@ func (c *Client) LatestTag(ctx context.Context, name string) (string, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound {
-		return "", ErrNotFound
+		return "", apperr.ErrRepositoryNotFound
 	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GitHub release request returned %d", resp.StatusCode)
@@ -76,7 +72,7 @@ func (c *Client) get(ctx context.Context, endpoint string) (*http.Response, erro
 	}
 	if resp.StatusCode == http.StatusTooManyRequests {
 		_ = resp.Body.Close()
-		return nil, ErrRateLimit
+		return nil, apperr.ErrRateLimitExceeded
 	}
 	return resp, nil
 }

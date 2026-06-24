@@ -169,8 +169,8 @@ services:
       KIBANA_URL: http://kibana:5601
     command: ["/usr/local/bin/init-kibana.sh"]
     volumes:
-      - ./services/subscription-service/observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
-      - ./services/subscription-service/observability/kibana/subscription-service-logs.ndjson:/usr/local/share/kibana/subscription-service-logs.ndjson:ro
+      - ./observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
+      - ./observability/kibana/subscription-service-logs.ndjson:/usr/local/share/kibana/subscription-service-logs.ndjson:ro
 
   filebeat:
     image: elastic/filebeat:8.15.3
@@ -181,11 +181,13 @@ services:
         condition: service_healthy
       subscription-service:
         condition: service_started
+      release-tracker:
+        condition: service_started
       notification-worker:
         condition: service_healthy
     command: ["--strict.perms=false"]
     volumes:
-      - ./services/subscription-service/observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
@@ -195,11 +197,13 @@ services:
     depends_on:
       subscription-service:
         condition: service_started
+      release-tracker:
+        condition: service_started
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
     volumes:
-      - ./services/subscription-service/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
@@ -215,8 +219,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_DEFAULT_THEME: light
     volumes:
-      - ./services/subscription-service/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./services/subscription-service/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
       - "3000:3000"

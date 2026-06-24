@@ -1,6 +1,6 @@
 filebeat.inputs:
   - type: filestream
-    id: subscription-service-container-logs
+    id: application-service-container-logs
     paths:
       - /var/lib/docker/containers/*/*.log
     parsers:
@@ -18,6 +18,12 @@ filebeat.inputs:
                     container.labels.com.docker.compose.service: subscription-service
                 - regexp:
                     container.name: ".*subscription-service.*"
+                - equals:
+                    container.labels.com_docker_compose_service: release-tracker
+                - equals:
+                    container.labels.com.docker.compose.service: release-tracker
+                - regexp:
+                    container.name: ".*release-tracker.*"
       - decode_json_fields:
           fields: ["message"]
           target: ""
@@ -31,9 +37,29 @@ filebeat.inputs:
           ignore_missing: true
           ignore_failure: true
       - add_fields:
+          when:
+            or:
+              - equals:
+                  container.labels.com_docker_compose_service: subscription-service
+              - equals:
+                  container.labels.com.docker.compose.service: subscription-service
+              - regexp:
+                  container.name: ".*subscription-service.*"
           target: service
           fields:
             name: subscription-service
+      - add_fields:
+          when:
+            or:
+              - equals:
+                  container.labels.com_docker_compose_service: release-tracker
+              - equals:
+                  container.labels.com.docker.compose.service: release-tracker
+              - regexp:
+                  container.name: ".*release-tracker.*"
+          target: service
+          fields:
+            name: release-tracker
       - drop_fields:
           fields:
             - agent

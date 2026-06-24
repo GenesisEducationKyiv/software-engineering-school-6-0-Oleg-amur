@@ -6,10 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
 )
-
-var ErrNotFound = errors.New("repository not found")
 
 type RepositoryStore struct {
 	db *sql.DB
@@ -46,7 +45,7 @@ func (s *RepositoryStore) GetByName(ctx context.Context, name string) (*domain.R
 		&repository.CreatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, apperr.ErrRepositoryNotFound
 		}
 		return nil, fmt.Errorf("get repository: %w", err)
 	}

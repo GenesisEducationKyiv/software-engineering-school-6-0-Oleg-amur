@@ -2,39 +2,31 @@ package releasetrackerhttp
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 
-	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/github"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
-	repositorypostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/persistence/postgresql"
 )
 
-type RepositoryService interface {
+type RepositoryUsecases interface {
 	EnsureTracked(context.Context, string) (*domain.Repository, error)
 	GetRepository(context.Context, string) (*domain.Repository, error)
 }
 
 type Handler struct {
-	log     *slog.Logger
-	db      *sql.DB
-	service RepositoryService
+	log      *slog.Logger
+	usecases RepositoryUsecases
 }
 
-func NewRouter(log *slog.Logger, db *sql.DB, service RepositoryService) http.Handler {
-	handler := &Handler{log: log, db: db, service: service}
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /internal/v1/repositories/ensure", handler.ensureTracked)
-	mux.HandleFunc("GET /internal/v1/repositories", handler.getRepository)
-	mux.HandleFunc("GET /health", handler.health)
-	return mux
+func NewHandler(log *slog.Logger, usecases RepositoryUsecases) *Handler {
+	return &Handler{log: log, usecases: usecases}
 }
 
-func (h *Handler) ensureTracked(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) EnsureTracked(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		Repository string `json:"repository"`
 	}
@@ -47,7 +39,7 @@ func (h *Handler) ensureTracked(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tracked, err := h.service.EnsureTracked(r.Context(), request.Repository)
+	tracked, err := h.usecases.EnsureTracked(r.Context(), request.Repository)
 	if err != nil {
 		h.handleError(w, err)
 		return
@@ -55,13 +47,13 @@ func (h *Handler) ensureTracked(w http.ResponseWriter, r *http.Request) {
 	writeRepository(w, tracked)
 }
 
-func (h *Handler) getRepository(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetRepository(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("repository")
 	if !validRepository(name) {
 		writeError(w, http.StatusBadRequest, "repository must have owner/repo format")
 		return
 	}
-	tracked, err := h.service.GetRepository(r.Context(), name)
+	tracked, err := h.usecases.GetRepository(r.Context(), name)
 	if err != nil {
 		h.handleError(w, err)
 		return
@@ -69,19 +61,11 @@ func (h *Handler) getRepository(w http.ResponseWriter, r *http.Request) {
 	writeRepository(w, tracked)
 }
 
-func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
-	if err := h.db.PingContext(r.Context()); err != nil {
-		writeError(w, http.StatusServiceUnavailable, "database unavailable")
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-}
-
 func (h *Handler) handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, repositorypostgresql.ErrNotFound), errors.Is(err, githubclient.ErrNotFound):
+	case errors.Is(err, apperr.ErrRepositoryNotFound):
 		writeError(w, http.StatusNotFound, "repository not found")
-	case errors.Is(err, githubclient.ErrRateLimit):
+	case errors.Is(err, apperr.ErrRateLimitExceeded):
 		writeError(w, http.StatusTooManyRequests, "GitHub rate limit exceeded")
 	default:
 		h.log.Error("repository request failed", "err", err)

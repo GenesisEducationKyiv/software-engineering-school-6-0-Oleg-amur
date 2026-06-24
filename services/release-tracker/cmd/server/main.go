@@ -16,12 +16,14 @@ import (
 	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/github"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/subscriptions/grpc"
 	subscriptionhttp "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/subscriptions/http"
+	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/api/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/database"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
 	repositorypostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/persistence/postgresql"
-	releasetrackerhttp "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/transport/http"
 	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/usecase"
-	releasetrackerworker "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/worker"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/observability"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/worker"
 	subscriptionsv1 "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/gen/subscriptions/v1"
 	sharedrabbitmq "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging/rabbitmq"
 	"google.golang.org/grpc"
@@ -32,6 +34,10 @@ const (
 	configPath                 = "configs/config.yaml"
 	useGRPCSubscriptionQueries = true
 )
+
+type subscriptionClient interface {
+	ListActiveByRepository(context.Context, string) ([]domain.ActiveSubscription, error)
+}
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "release-tracker")
@@ -52,6 +58,9 @@ func run(log *slog.Logger) error {
 	db, err := database.Open(ctx, cfg.Database.ConnectionString)
 	if err != nil {
 		return err
+	}
+	if err := observability.RegisterDatabaseMetrics(db, log); err != nil {
+		log.Error("register database metrics; continuing without database metrics", "err", err)
 	}
 	defer func() {
 		if err := db.Close(); err != nil {
@@ -100,17 +109,24 @@ func run(log *slog.Logger) error {
 		}
 	}()
 
-	tracker := releasetrackerusecase.New(
-		log,
-		repositorypostgresql.NewRepositoryStore(db),
-		githubclient.NewClient(&http.Client{Timeout: githubTimeout}, cfg.GitHub.URL, cfg.GitHub.APIToken),
-		subscriptions,
-		publisher,
-	)
-	scheduler := releasetrackerworker.NewScheduler(tracker, scanInterval)
+	repositories := repositorypostgresql.NewRepositoryStore(db)
+	github := githubclient.NewClient(&http.Client{Timeout: githubTimeout}, cfg.GitHub.URL, cfg.GitHub.APIToken)
+	usecases := releasetrackerusecase.Usecases{
+		EnsureRepository: releasetrackerusecase.NewEnsureRepository(repositories, github),
+		RepositoryQuery:  releasetrackerusecase.NewGetRepository(repositories),
+		ScanRepositories: releasetrackerusecase.NewScanRepositories(
+			log,
+			repositories,
+			github,
+			subscriptions,
+			publisher,
+		),
+	}
+	scheduler := worker.NewScheduler(usecases.ScanRepositories, scanInterval)
+	healthHandler := httpapi.NewHealthHandler(log, db)
 	server := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),
-		Handler:           releasetrackerhttp.NewRouter(log, db, tracker),
+		Handler:           httpapi.NewRouter(log, usecases, healthHandler),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -137,7 +153,7 @@ func run(log *slog.Logger) error {
 func newSubscriptionsClient(
 	cfg config.Subscriptions,
 	timeout time.Duration,
-) (releasetrackerusecase.Subscriptions, func() error, error) {
+) (subscriptionClient, func() error, error) {
 	if !useGRPCSubscriptionQueries {
 		client := subscriptionhttp.NewClient(&http.Client{Timeout: timeout}, cfg.URL)
 		return client, func() error { return nil }, nil

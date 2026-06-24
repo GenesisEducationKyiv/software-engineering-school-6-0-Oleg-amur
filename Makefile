@@ -40,6 +40,7 @@ test-unit:
 
 test-integration:
 	cd $(SUBSCRIPTION_SERVICE_DIR) && go test -tags=integration -count=1 -v $(INTEGRATION_PACKAGES)
+	cd $(RELEASE_TRACKER_DIR) && go test -tags=integration -count=1 -v $(INTEGRATION_PACKAGES)
 
 test-e2e:
 	docker compose -f $(E2E_COMPOSE) up --build --abort-on-container-exit --exit-code-from playwright; \
@@ -60,15 +61,18 @@ coverage-unit:
 
 coverage-integration:
 	mkdir -p $(COVERAGE_DIR)
-	cd $(SUBSCRIPTION_SERVICE_DIR) && go test -tags=integration -count=1 -covermode=atomic -coverpkg=$(INTERNAL_PACKAGES) -coverprofile=../../$(COVERAGE_DIR)/integration.out $(INTEGRATION_PACKAGES)
-	cd $(SUBSCRIPTION_SERVICE_DIR) && go tool cover -func=../../$(COVERAGE_DIR)/integration.out
+	cd $(SUBSCRIPTION_SERVICE_DIR) && go test -tags=integration -count=1 -covermode=atomic -coverpkg=$(INTERNAL_PACKAGES) -coverprofile=../../$(COVERAGE_DIR)/integration-subscription-service.out $(INTEGRATION_PACKAGES)
+	cd $(RELEASE_TRACKER_DIR) && go test -tags=integration -count=1 -covermode=atomic -coverpkg=$(INTERNAL_PACKAGES) -coverprofile=../../$(COVERAGE_DIR)/integration-release-tracker.out $(INTEGRATION_PACKAGES)
+	cd $(SUBSCRIPTION_SERVICE_DIR) && go tool cover -func=../../$(COVERAGE_DIR)/integration-subscription-service.out
+	cd $(RELEASE_TRACKER_DIR) && go tool cover -func=../../$(COVERAGE_DIR)/integration-release-tracker.out
 
 coverage-summary:
 	@echo "Coverage profiles:"
 	@echo "  $(COVERAGE_DIR)/unit-subscription-service.out"
 	@echo "  $(COVERAGE_DIR)/unit-release-tracker.out"
 	@echo "  $(COVERAGE_DIR)/unit-notification-worker.out"
-	@echo "  $(COVERAGE_DIR)/integration.out"
+	@echo "  $(COVERAGE_DIR)/integration-subscription-service.out"
+	@echo "  $(COVERAGE_DIR)/integration-release-tracker.out"
 
 clean-test-artifacts:
 	rm -rf $(COVERAGE_DIR)
