@@ -33,11 +33,11 @@ jobs:
           working-directory: shared/messaging
           args: --config=../../.golangci.yml ./...
 
-      - name: lint release notifier
+      - name: lint subscription service
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.1
-          working-directory: services/release-notifier
+          working-directory: services/subscription-service
           args: --config=../../.golangci.yml ./...
 
       - name: lint release tracker
@@ -127,8 +127,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v6
 
-      - name: build release notifier image
-        run: docker build -f services/release-notifier/Dockerfile -t release-notifier .
+      - name: build subscription service image
+        run: docker build -f services/subscription-service/Dockerfile -t subscription-service .
 
       - name: build release tracker image
         run: docker build -f services/release-tracker/Dockerfile -t release-tracker .

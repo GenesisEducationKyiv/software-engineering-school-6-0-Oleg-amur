@@ -40,7 +40,7 @@
 
 The system has a subscription API, a release tracker, and a notification worker. The API and tracker use internal HTTP endpoints for synchronous repository/subscriber queries. Notification delivery remains asynchronous through RabbitMQ.
 
-The production codebase mirrors those boundaries with separate Go modules under `services/release-notifier`, `services/release-tracker`, and `services/notification-worker`, plus shared event and messaging modules. Each stateful service owns its PostgreSQL database.
+The production codebase mirrors those boundaries with separate Go modules under `services/subscription-service`, `services/release-tracker`, and `services/notification-worker`, plus shared event and messaging modules. Each stateful service owns its PostgreSQL database.
 
 ### 3.1 C4 Diagrams
 

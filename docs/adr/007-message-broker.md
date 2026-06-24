@@ -15,7 +15,7 @@ The notification worker consumes those commands and sends emails through SMTP.
 This communication should not be in-process. Email delivery can be slow or temporarily unavailable, and the API/scanner process should not block on SMTP delivery. Notification jobs also need acknowledgement semantics: if the worker fails to process a message, the message should not be silently lost.
 
 We need a broker that supports:
-- asynchronous communication between `release-notifier` and `notification-worker`;
+- asynchronous communication between `subscription-service` and `notification-worker`;
 - durable notification jobs;
 - manual acknowledgement after SMTP delivery;
 - dead-lettering failed jobs for inspection;
@@ -42,7 +42,7 @@ We need a broker that supports:
 ## Decision
 We chose **Option 4: RabbitMQ**.
 
-The system publishes notification commands to RabbitMQ from `release-notifier`, and `notification-worker` consumes them. The current command types are:
+The system publishes notification commands to RabbitMQ from `subscription-service`, and `notification-worker` consumes them. The current command types are:
 
 - `notification.subscription_confirmation_requested`
 - `notification.release_notification_requested`

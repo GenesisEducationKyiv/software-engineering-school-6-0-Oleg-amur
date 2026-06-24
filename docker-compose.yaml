@@ -1,6 +1,6 @@
 services:
 
-  postgresql:
+  subscription-service-postgresql:
     image: postgres:18.3-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -51,13 +51,13 @@ services:
       timeout: 5s
       retries: 12
 
-  release-notifier:
+  subscription-service:
     build:
       context: .
-      dockerfile: services/release-notifier/Dockerfile
-    image: release-notifier:latest
+      dockerfile: services/subscription-service/Dockerfile
+    image: subscription-service:latest
     depends_on:
-      postgresql:
+      subscription-service-postgresql:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -90,7 +90,7 @@ services:
     environment:
       SERVER_PORT: 8081
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@release-tracker-postgresql:5432/release_tracker?sslmode=disable
-      SUBSCRIPTIONS_URL: http://release-notifier:8080
+      SUBSCRIPTIONS_URL: http://subscription-service:8080
       SUBSCRIPTIONS_TIMEOUT: 10s
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: ${SCAN_INTERVAL}
@@ -167,8 +167,8 @@ services:
       KIBANA_URL: http://kibana:5601
     command: ["/usr/local/bin/init-kibana.sh"]
     volumes:
-      - ./services/release-notifier/observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
-      - ./services/release-notifier/observability/kibana/release-notifier-logs.ndjson:/usr/local/share/kibana/release-notifier-logs.ndjson:ro
+      - ./services/subscription-service/observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
+      - ./services/subscription-service/observability/kibana/subscription-service-logs.ndjson:/usr/local/share/kibana/subscription-service-logs.ndjson:ro
 
   filebeat:
     image: elastic/filebeat:8.15.3
@@ -177,13 +177,13 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      release-notifier:
+      subscription-service:
         condition: service_started
       notification-worker:
         condition: service_healthy
     command: ["--strict.perms=false"]
     volumes:
-      - ./services/release-notifier/observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./services/subscription-service/observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
@@ -191,13 +191,13 @@ services:
     image: prom/prometheus:v2.55.1
     profiles: ["observability"]
     depends_on:
-      release-notifier:
+      subscription-service:
         condition: service_started
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
     volumes:
-      - ./services/release-notifier/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/subscription-service/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
@@ -213,8 +213,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_DEFAULT_THEME: light
     volumes:
-      - ./services/release-notifier/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./services/release-notifier/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./services/subscription-service/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./services/subscription-service/observability/grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
       - "3000:3000"

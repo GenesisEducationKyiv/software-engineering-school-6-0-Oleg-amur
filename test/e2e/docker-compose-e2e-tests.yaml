@@ -1,12 +1,12 @@
 services:
-  postgres:
+  subscription-service-postgres:
     image: postgres:18.3-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: release_notifier
+      POSTGRES_DB: subscription_service
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d release_notifier -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -d subscription_service -U postgres"]
       interval: 2s
       timeout: 5s
       retries: 20
@@ -53,22 +53,22 @@ services:
       timeout: 5s
       retries: 20
 
-  release-notifier:
+  subscription-service:
     build:
       context: ../..
-      dockerfile: services/release-notifier/Dockerfile
+      dockerfile: services/subscription-service/Dockerfile
     environment:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 8080
       GRPC_PORT: 50051
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/release_notifier?sslmode=disable
+      DATABASE_URL: postgres://postgres:postgres@subscription-service-postgres:5432/subscription_service?sslmode=disable
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       RELEASE_TRACKER_URL: http://release-tracker:8081
       RELEASE_TRACKER_TIMEOUT: 10s
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
+      subscription-service-postgres:
         condition: service_healthy
       fake-github:
         condition: service_healthy
@@ -89,7 +89,7 @@ services:
     environment:
       SERVER_PORT: 8081
       DATABASE_URL: postgres://postgres:postgres@release-tracker-postgres:5432/release_tracker?sslmode=disable
-      SUBSCRIPTIONS_URL: http://release-notifier:8080
+      SUBSCRIPTIONS_URL: http://subscription-service:8080
       SUBSCRIPTIONS_TIMEOUT: 10s
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: 2s
@@ -117,7 +117,7 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       FROM_EMAIL: no-reply@test.com
-      BASE_URL: http://release-notifier:8080
+      BASE_URL: http://subscription-service:8080
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
     depends_on:
       mailpit:
@@ -137,13 +137,13 @@ services:
       - ../..:/work
       - node_modules:/work/test/e2e/node_modules
     environment:
-      PLAYWRIGHT_BASE_URL: http://release-notifier:8080
+      PLAYWRIGHT_BASE_URL: http://subscription-service:8080
       MAILPIT_URL: http://mailpit:8025
       FAKE_GITHUB_URL: http://fake-github:8081
       PLAYWRIGHT_OUTPUT_DIR: /tmp/playwright-results
     command: sh -c "npm ci --no-audit --no-fund && npx playwright test"
     depends_on:
-      release-notifier:
+      subscription-service:
         condition: service_healthy
       notification-worker:
         condition: service_healthy

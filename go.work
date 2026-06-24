@@ -3,7 +3,7 @@ go 1.25.3
 use (
 	.
 	./services/notification-worker
-	./services/release-notifier
+	./services/subscription-service
 	./services/release-tracker
 	./shared/contracts
 	./shared/messaging

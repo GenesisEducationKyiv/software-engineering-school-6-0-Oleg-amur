@@ -12,11 +12,11 @@ Release tracking and subscription management previously ran in one process and s
 
 Extract release tracking into `services/release-tracker`.
 
-- `release-notifier` owns subscribers, subscriptions, confirmation sagas, and their outbox.
+- `subscription-service` owns subscribers, subscriptions, confirmation sagas, and their outbox.
 - `release-tracker` owns tracked repositories, GitHub polling, and `last_seen_tag`.
 - Each service has a separate PostgreSQL database and does not expose database IDs across the boundary.
-- `release-notifier` calls release tracker over HTTP to ensure and read repository metadata.
-- release tracker calls `release-notifier` over HTTP to list active subscriptions by repository name.
+- `subscription-service` calls release tracker over HTTP to ensure and read repository metadata.
+- release tracker calls `subscription-service` over HTTP to list active subscriptions by repository name.
 - release notification delivery remains asynchronous through RabbitMQ.
 
 The internal HTTP contracts use the stable `owner/repo` repository name. The later gRPC implementation must preserve these use cases and leave the HTTP implementation available for comparison.
