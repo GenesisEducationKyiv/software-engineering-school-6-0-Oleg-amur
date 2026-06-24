@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -91,7 +92,7 @@ func run(log *slog.Logger) error {
 	)
 	scheduler := releasetrackerworker.NewScheduler(tracker, scanInterval)
 	server := &http.Server{
-		Addr:              ":" + cfg.Server.Port,
+		Addr:              net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),
 		Handler:           releasetrackerhttp.NewRouter(log, db, tracker),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

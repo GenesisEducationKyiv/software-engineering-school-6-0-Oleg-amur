@@ -3,13 +3,13 @@ services:
   subscription-service-postgresql:
     image: postgres:18.3-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${SUBSCRIPTION_SERVICE_DB_USER}
+      POSTGRES_PASSWORD: ${SUBSCRIPTION_SERVICE_DB_PASSWORD}
+      POSTGRES_DB: ${SUBSCRIPTION_SERVICE_DB_NAME}
     ports:
-      - "5432:5432"
+      - "${SUBSCRIPTION_SERVICE_DB_HOST_PORT}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -d ${SUBSCRIPTION_SERVICE_DB_NAME} -U ${SUBSCRIPTION_SERVICE_DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -17,13 +17,13 @@ services:
   release-tracker-postgresql:
     image: postgres:18.3-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: release_tracker
+      POSTGRES_USER: ${RELEASE_TRACKER_DB_USER}
+      POSTGRES_PASSWORD: ${RELEASE_TRACKER_DB_PASSWORD}
+      POSTGRES_DB: ${RELEASE_TRACKER_DB_NAME}
     ports:
-      - "5433:5432"
+      - "${RELEASE_TRACKER_DB_HOST_PORT}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d release_tracker -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -d ${RELEASE_TRACKER_DB_NAME} -U ${RELEASE_TRACKER_DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -64,15 +64,15 @@ services:
       release-tracker:
         condition: service_healthy
     ports:
-      - "8080:8080"
-      - "50051:50051"
+      - "${SUBSCRIPTION_SERVICE_HTTP_PORT}:${SUBSCRIPTION_SERVICE_HTTP_PORT}"
+      - "${SUBSCRIPTION_SERVICE_GRPC_PORT}:${SUBSCRIPTION_SERVICE_GRPC_PORT}"
     environment:
-      SERVER_HOST: ${SERVER_HOST}
-      SERVER_PORT: ${SERVER_PORT}
-      GRPC_PORT: ${GRPC_PORT}
-      DATABASE_URL: ${DATABASE_URL}
+      SERVER_HOST: ${SUBSCRIPTION_SERVICE_HOST}
+      SERVER_PORT: ${SUBSCRIPTION_SERVICE_HTTP_PORT}
+      GRPC_PORT: ${SUBSCRIPTION_SERVICE_GRPC_PORT}
+      DATABASE_URL: postgres://${SUBSCRIPTION_SERVICE_DB_USER}:${SUBSCRIPTION_SERVICE_DB_PASSWORD}@subscription-service-postgresql:5432/${SUBSCRIPTION_SERVICE_DB_NAME}?sslmode=disable
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
-      RELEASE_TRACKER_URL: http://release-tracker:8081
+      RELEASE_TRACKER_URL: http://release-tracker:${RELEASE_TRACKER_HTTP_PORT}
       RELEASE_TRACKER_TIMEOUT: 10s
 
   release-tracker:
@@ -86,11 +86,12 @@ services:
       rabbitmq:
         condition: service_healthy
     ports:
-      - "8081:8081"
+      - "${RELEASE_TRACKER_HTTP_PORT}:${RELEASE_TRACKER_HTTP_PORT}"
     environment:
-      SERVER_PORT: 8081
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@release-tracker-postgresql:5432/release_tracker?sslmode=disable
-      SUBSCRIPTIONS_URL: http://subscription-service:8080
+      SERVER_HOST: ${RELEASE_TRACKER_HOST}
+      SERVER_PORT: ${RELEASE_TRACKER_HTTP_PORT}
+      DATABASE_URL: postgres://${RELEASE_TRACKER_DB_USER}:${RELEASE_TRACKER_DB_PASSWORD}@release-tracker-postgresql:5432/${RELEASE_TRACKER_DB_NAME}?sslmode=disable
+      SUBSCRIPTIONS_URL: http://subscription-service:${SUBSCRIPTION_SERVICE_HTTP_PORT}
       SUBSCRIPTIONS_TIMEOUT: 10s
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: ${SCAN_INTERVAL}
@@ -98,7 +99,7 @@ services:
       GITHUB_URL: ${GITHUB_URL}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${RELEASE_TRACKER_HTTP_PORT}/health"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -119,7 +120,7 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_TIMEOUT: ${SMTP_TIMEOUT}
       FROM_EMAIL: ${FROM_EMAIL}
-      BASE_URL: ${BASE_URL}
+      BASE_URL: ${PUBLIC_BASE_URL}
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
     healthcheck:
       test: ["CMD-SHELL", "pidof notification-worker"]

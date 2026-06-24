@@ -41,8 +41,10 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 The service is configured using environment variables or a YAML file. You can find an example configuration in `.env.example`.
 
 Key configuration options:
-- `DATABASE_URL`: PostgreSQL connection string.
-- `RELEASE_TRACKER_URL`: Internal HTTP address of the release tracker.
+- `SUBSCRIPTION_SERVICE_HTTP_PORT`/`SUBSCRIPTION_SERVICE_GRPC_PORT`: Public API ports.
+- `SUBSCRIPTION_SERVICE_DB_*`: Subscription database credentials, name, and host port.
+- `RELEASE_TRACKER_HTTP_PORT`: Internal release tracker HTTP port.
+- `RELEASE_TRACKER_DB_*`: Release tracker database credentials, name, and host port.
 - `SCAN_INTERVAL`: How often to check for new releases (e.g., `1m`, `1h`).
 - `GITHUB_TOKEN`: GitHub Personal Access Token (optional, but recommended to avoid rate limits).
 - `SMTP_HOST`/`SMTP_PORT`/`SMTP_TIMEOUT`: Email server configuration.

@@ -148,7 +148,7 @@ func runApp(log *slog.Logger) error {
 
 func setupHttpServer(cfg config.Server, handler http.Handler) *http.Server {
 	return &http.Server{
-		Addr:              ":" + cfg.Port,
+		Addr:              net.JoinHostPort(cfg.Host, cfg.Port),
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -160,7 +160,7 @@ func setupGrpcServer(
 	handler *subscriptiongrpc.Handler,
 	log *slog.Logger,
 ) (*grpc.Server, net.Listener, error) {
-	grpcAddr := ":" + cfg.GrpcPort
+	grpcAddr := net.JoinHostPort(cfg.Host, cfg.GrpcPort)
 
 	lc := net.ListenConfig{}
 	lis, err := lc.Listen(ctx, "tcp", grpcAddr)

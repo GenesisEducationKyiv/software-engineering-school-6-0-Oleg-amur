@@ -16,6 +16,7 @@ type Database struct {
 }
 
 type Server struct {
+	Host string `yaml:"host" env:"SERVER_HOST" env-default:"0.0.0.0"`
 	Port string `yaml:"port" env:"SERVER_PORT" env-default:"8081"`
 }
 
