@@ -64,7 +64,11 @@ func NewApp(t testing.TB, cfg AppConfig) *App {
 		subscriptionOutboxStore,
 	)
 	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(cfg.Logger, subscriberStore)
-	repositoryTracker := &testRepositoryTracker{httpClient: gitHubHTTPClient, baseURL: cfg.GitHubURL}
+	repositoryTracker := &testRepositoryTracker{
+		httpClient:   gitHubHTTPClient,
+		baseURL:      cfg.GitHubURL,
+		repositories: make(map[int64]string),
+	}
 	subscriptionEvents := make(chan events.SubscriptionConfirmationRequested, 10)
 	releaseEvents := make(chan events.ReleaseNotificationRequested, 10)
 	eventPublisher := inmemory.NewNotificationPublisher(subscriptionEvents, releaseEvents)
@@ -106,10 +110,11 @@ type testSubscriptionStarter struct {
 func (s *testSubscriptionStarter) StartSubscriptionConfirmation(
 	ctx context.Context,
 	subID int,
-	repoName, email string,
+	repositoryID int64,
+	email string,
 	token string,
 ) error {
-	if err := s.starter.StartSubscriptionConfirmation(ctx, subID, repoName, email, token); err != nil {
+	if err := s.starter.StartSubscriptionConfirmation(ctx, subID, repositoryID, email, token); err != nil {
 		return err
 	}
 	s.relay.Execute(ctx)
@@ -117,8 +122,10 @@ func (s *testSubscriptionStarter) StartSubscriptionConfirmation(
 }
 
 type testRepositoryTracker struct {
-	httpClient *http.Client
-	baseURL    string
+	httpClient   *http.Client
+	baseURL      string
+	repositories map[int64]string
+	nextID       int64
 }
 
 func (t *testRepositoryTracker) EnsureTracked(
@@ -143,13 +150,24 @@ func (t *testRepositoryTracker) EnsureTracked(
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub returned status %d", resp.StatusCode)
 	}
-	return t.GetRepository(ctx, repoName)
+	for id, name := range t.repositories {
+		if name == repoName {
+			return t.GetRepository(ctx, id)
+		}
+	}
+	t.nextID++
+	t.repositories[t.nextID] = repoName
+	return t.GetRepository(ctx, t.nextID)
 }
 
 func (t *testRepositoryTracker) GetRepository(
 	ctx context.Context,
-	repoName string,
+	repositoryID int64,
 ) (*subscriptionusecase.RepositoryView, error) {
+	repoName, ok := t.repositories[repositoryID]
+	if !ok {
+		return nil, apperr.ErrRepoNotFound
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.baseURL+"/repos/"+repoName+"/releases/latest", nil)
 	if err != nil {
 		return nil, err
@@ -168,5 +186,5 @@ func (t *testRepositoryTracker) GetRepository(
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, err
 	}
-	return &subscriptionusecase.RepositoryView{Name: repoName, LastSeenTag: response.Tag}, nil
+	return &subscriptionusecase.RepositoryView{ID: repositoryID, Name: repoName, LastSeenTag: response.Tag}, nil
 }

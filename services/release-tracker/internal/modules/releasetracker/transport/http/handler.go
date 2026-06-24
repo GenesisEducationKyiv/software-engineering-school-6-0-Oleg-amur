@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/apperr"
@@ -14,7 +15,7 @@ import (
 
 type RepositoryUsecases interface {
 	EnsureTracked(context.Context, string) (*domain.Repository, error)
-	GetRepository(context.Context, string) (*domain.Repository, error)
+	GetRepository(context.Context, int64) (*domain.Repository, error)
 }
 
 type Handler struct {
@@ -48,12 +49,12 @@ func (h *Handler) EnsureTracked(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetRepository(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("repository")
-	if !validRepository(name) {
-		writeError(w, http.StatusBadRequest, "repository must have owner/repo format")
+	id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeError(w, http.StatusBadRequest, "positive repository id is required")
 		return
 	}
-	tracked, err := h.usecases.GetRepository(r.Context(), name)
+	tracked, err := h.usecases.GetRepository(r.Context(), id)
 	if err != nil {
 		h.handleError(w, err)
 		return
@@ -81,9 +82,10 @@ func validRepository(value string) bool {
 func writeRepository(w http.ResponseWriter, tracked *domain.Repository) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(struct {
+		ID          int64  `json:"id"`
 		Name        string `json:"name"`
 		LastSeenTag string `json:"last_seen_tag"`
-	}{Name: tracked.Name, LastSeenTag: tracked.LastSeenTag})
+	}{ID: tracked.ID, Name: tracked.Name, LastSeenTag: tracked.LastSeenTag})
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

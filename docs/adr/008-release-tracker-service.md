@@ -1,6 +1,6 @@
 # ADR 0008: Extract Release Tracker Service
 
-* **Status:** Accepted
+* **Status:** Accepted 
 * **Author:** Oleh Volkoboi
 * **Date:** 2026-06-21
 
@@ -16,10 +16,10 @@ Extract release tracking into `services/release-tracker`.
 - `release-tracker` owns tracked repositories, GitHub polling, and `last_seen_tag`.
 - Each service has a separate PostgreSQL database and does not expose database IDs across the boundary.
 - `subscription-service` calls release tracker over HTTP to ensure and read repository metadata.
-- release tracker calls `subscription-service` over HTTP to list active subscriptions by repository name.
+- release tracker calls `subscription-service` over HTTP to list active subscriptions by repository id.
 - release notification delivery remains asynchronous through RabbitMQ.
 
-The internal contracts use the stable `owner/repo` repository name. The gRPC subscription query introduced in ADR 0009 preserves the REST use case and leaves the HTTP implementation available for comparison.
+The internal contracts use repository id. The gRPC subscription query introduced in ADR 0009 preserves the REST use case and leaves the HTTP implementation available for comparison.
 
 ## Consequences
 

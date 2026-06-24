@@ -26,7 +26,7 @@ func (s *RepositorySuite) TestTransactionManager_RollsBack() {
 			_, createErr := s.subscriptionStore.Create(
 				txCtx,
 				subscriber.ID,
-				"owner/repo",
+				7,
 				"confirmation-token",
 			)
 			s.Require().NoError(createErr, "create subscription in transaction")
@@ -73,7 +73,7 @@ func (s *RepositorySuite) TestSubscriptionConfirmationSaga_CompensationIsAtomicA
 	err = saga.StartSubscriptionConfirmation(
 		s.ctx,
 		subscriber.ID,
-		"owner/repo",
+		7,
 		subscriber.Email,
 		"confirmation-token",
 	)

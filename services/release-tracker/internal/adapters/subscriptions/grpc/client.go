@@ -20,7 +20,7 @@ func NewClient(rpc subscriptionsv1.SubscriptionServiceClient, timeout time.Durat
 
 func (c *Client) ListActiveByRepository(
 	ctx context.Context,
-	repository string,
+	repositoryID int64,
 ) ([]domain.ActiveSubscription, error) {
 	callCtx := ctx
 	if c.timeout > 0 {
@@ -31,7 +31,7 @@ func (c *Client) ListActiveByRepository(
 
 	response, err := c.rpc.ListActiveSubscriptionsByRepository(
 		callCtx,
-		&subscriptionsv1.ListActiveSubscriptionsByRepositoryRequest{Repository: repository},
+		&subscriptionsv1.ListActiveSubscriptionsByRepositoryRequest{RepositoryId: repositoryID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list active subscriptions over gRPC: %w", err)

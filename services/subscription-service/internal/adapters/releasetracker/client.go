@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/apperr"
@@ -23,6 +23,7 @@ type repositoryRequest struct {
 }
 
 type repositoryResponse struct {
+	ID          int64  `json:"id"`
 	Name        string `json:"name"`
 	LastSeenTag string `json:"last_seen_tag"`
 }
@@ -56,9 +57,9 @@ func (c *Client) EnsureTracked(
 
 func (c *Client) GetRepository(
 	ctx context.Context,
-	repoName string,
+	repositoryID int64,
 ) (*subscriptionusecase.RepositoryView, error) {
-	endpoint := c.baseURL + "/internal/v1/repositories?repository=" + url.QueryEscape(repoName)
+	endpoint := c.baseURL + "/internal/v1/repositories?id=" + strconv.FormatInt(repositoryID, 10)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create release tracker request: %w", err)
@@ -92,6 +93,7 @@ func (c *Client) doRepositoryRequest(req *http.Request) (*subscriptionusecase.Re
 		return nil, fmt.Errorf("decode release tracker response: %w", err)
 	}
 	return &subscriptionusecase.RepositoryView{
+		ID:          response.ID,
 		Name:        response.Name,
 		LastSeenTag: response.LastSeenTag,
 	}, nil

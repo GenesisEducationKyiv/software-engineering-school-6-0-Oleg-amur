@@ -14,6 +14,6 @@ func NewGetRepository(repositories repositoryStore) *GetRepository {
 	return &GetRepository{repositories: repositories}
 }
 
-func (u *GetRepository) Execute(ctx context.Context, name string) (*domain.Repository, error) {
-	return u.repositories.GetByName(ctx, name)
+func (u *GetRepository) Execute(ctx context.Context, id int64) (*domain.Repository, error) {
+	return u.repositories.GetByID(ctx, id)
 }

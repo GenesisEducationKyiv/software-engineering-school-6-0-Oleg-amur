@@ -16,7 +16,7 @@ type ListSubscriptions struct {
 }
 
 type RepositoryMetadataReader interface {
-	GetRepository(ctx context.Context, name string) (*RepositoryView, error)
+	GetRepository(ctx context.Context, id int64) (*RepositoryView, error)
 }
 
 func NewListSubscriptions(
@@ -37,13 +37,13 @@ func (u *ListSubscriptions) Execute(
 
 	var result []SubscriptionView
 	for _, sub := range subs {
-		repository, err := u.repositories.GetRepository(ctx, sub.Repository.Name)
+		repository, err := u.repositories.GetRepository(ctx, sub.RepositoryID)
 		if err != nil {
 			return nil, err
 		}
 		result = append(result, SubscriptionView{
 			Email:       email,
-			Repo:        sub.Repository.Name,
+			Repo:        repository.Name,
 			Confirmed:   sub.SubscriptionStatus == domain.StatusActive,
 			LastSeenTag: repository.LastSeenTag,
 		})

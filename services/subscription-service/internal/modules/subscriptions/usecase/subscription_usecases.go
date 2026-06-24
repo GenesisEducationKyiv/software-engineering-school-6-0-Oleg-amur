@@ -16,9 +16,9 @@ type SubscriptionUsecases struct {
 
 func (u SubscriptionUsecases) GetActiveSubscriptionsByRepository(
 	ctx context.Context,
-	repoName string,
+	repositoryID int64,
 ) ([]domain.RepositorySubscription, error) {
-	return u.ListActiveByRepository.Execute(ctx, repoName)
+	return u.ListActiveByRepository.Execute(ctx, repositoryID)
 }
 
 func (u SubscriptionUsecases) Subscribe(ctx context.Context, req SubscribeRequest) error {

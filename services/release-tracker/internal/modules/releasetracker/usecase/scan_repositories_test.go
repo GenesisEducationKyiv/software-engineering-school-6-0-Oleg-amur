@@ -19,6 +19,9 @@ func TestScanRepositoriesPublishesNotificationsAndUpdatesTag(t *testing.T) {
 
 	usecase.Execute(t.Context())
 
+	if subscriptions.repositoryID != 7 {
+		t.Fatalf("repository ID = %d, want 7", subscriptions.repositoryID)
+	}
 	if len(publisher.events) != 1 {
 		t.Fatalf("published %d events, want 1", len(publisher.events))
 	}

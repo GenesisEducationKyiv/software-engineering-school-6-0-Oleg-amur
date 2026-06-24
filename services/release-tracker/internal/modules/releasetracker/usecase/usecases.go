@@ -16,6 +16,6 @@ func (u Usecases) EnsureTracked(ctx context.Context, name string) (*domain.Repos
 	return u.EnsureRepository.Execute(ctx, name)
 }
 
-func (u Usecases) GetRepository(ctx context.Context, name string) (*domain.Repository, error) {
-	return u.RepositoryQuery.Execute(ctx, name)
+func (u Usecases) GetRepository(ctx context.Context, id int64) (*domain.Repository, error) {
+	return u.RepositoryQuery.Execute(ctx, id)
 }

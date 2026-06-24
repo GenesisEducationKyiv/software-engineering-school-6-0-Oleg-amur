@@ -52,6 +52,23 @@ func (s *RepositoryStore) GetByName(ctx context.Context, name string) (*domain.R
 	return &repository, nil
 }
 
+func (s *RepositoryStore) GetByID(ctx context.Context, id int64) (*domain.Repository, error) {
+	const query = `SELECT id, name, last_seen_tag, created_at FROM repositories WHERE id = $1`
+	var repository domain.Repository
+	if err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&repository.ID,
+		&repository.Name,
+		&repository.LastSeenTag,
+		&repository.CreatedAt,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperr.ErrRepositoryNotFound
+		}
+		return nil, fmt.Errorf("get repository by ID: %w", err)
+	}
+	return &repository, nil
+}
+
 func (s *RepositoryStore) GetAll(ctx context.Context) (_ []domain.Repository, err error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, name, last_seen_tag, created_at FROM repositories`)
 	if err != nil {
@@ -75,7 +92,7 @@ func (s *RepositoryStore) GetAll(ctx context.Context) (_ []domain.Repository, er
 	return repositories, rows.Err()
 }
 
-func (s *RepositoryStore) UpdateTag(ctx context.Context, id int, tag string) error {
+func (s *RepositoryStore) UpdateTag(ctx context.Context, id int64, tag string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE repositories SET last_seen_tag = $1 WHERE id = $2`, tag, id)
 	return err
 }

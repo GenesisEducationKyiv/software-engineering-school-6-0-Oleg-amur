@@ -46,7 +46,7 @@ func (s *GRPCSuite) TestListActiveSubscriptionsByRepository_ReturnsConfirmedSubs
 
 	resp, err := s.client.ListActiveSubscriptionsByRepository(
 		context.Background(),
-		&pb.ListActiveSubscriptionsByRepositoryRequest{Repository: "owner/repo"},
+		&pb.ListActiveSubscriptionsByRepositoryRequest{RepositoryId: 1},
 	)
 	s.assertGRPCCode(err, codes.OK)
 	s.Require().Len(resp.GetSubscriptions(), 1, "active subscriptions")

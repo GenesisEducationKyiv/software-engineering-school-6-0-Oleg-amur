@@ -25,13 +25,13 @@ func TestHandlerListsActiveSubscriptions(t *testing.T) {
 
 	response, err := handler.ListActiveSubscriptionsByRepository(
 		t.Context(),
-		&subscriptionsv1.ListActiveSubscriptionsByRepositoryRequest{Repository: "owner/repo"},
+		&subscriptionsv1.ListActiveSubscriptionsByRepositoryRequest{RepositoryId: 7},
 	)
 	if err != nil {
 		t.Fatalf("list active subscriptions: %v", err)
 	}
-	if queries.repository != "owner/repo" {
-		t.Fatalf("repository = %q, want owner/repo", queries.repository)
+	if queries.repositoryID != 7 {
+		t.Fatalf("repository ID = %d, want 7", queries.repositoryID)
 	}
 	if len(response.GetSubscriptions()) != 1 {
 		t.Fatalf("subscriptions length = %d, want 1", len(response.GetSubscriptions()))
@@ -59,7 +59,7 @@ func TestHandlerMapsQueryFailureToInternal(t *testing.T) {
 
 	_, err := handler.ListActiveSubscriptionsByRepository(
 		t.Context(),
-		&subscriptionsv1.ListActiveSubscriptionsByRepositoryRequest{Repository: "owner/repo"},
+		&subscriptionsv1.ListActiveSubscriptionsByRepositoryRequest{RepositoryId: 7},
 	)
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("status code = %s, want %s", status.Code(err), codes.Internal)
@@ -67,16 +67,16 @@ func TestHandlerMapsQueryFailureToInternal(t *testing.T) {
 }
 
 type activeSubscriptionsQueryFake struct {
-	repository    string
+	repositoryID  int64
 	subscriptions []domain.RepositorySubscription
 	err           error
 }
 
 func (f *activeSubscriptionsQueryFake) GetActiveSubscriptionsByRepository(
 	_ context.Context,
-	repository string,
+	repositoryID int64,
 ) ([]domain.RepositorySubscription, error) {
-	f.repository = repository
+	f.repositoryID = repositoryID
 	return f.subscriptions, f.err
 }
 

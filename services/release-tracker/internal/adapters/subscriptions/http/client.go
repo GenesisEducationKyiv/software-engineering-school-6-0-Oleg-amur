@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/domain"
@@ -22,9 +22,9 @@ func NewClient(httpClient *http.Client, baseURL string) *Client {
 
 func (c *Client) ListActiveByRepository(
 	ctx context.Context,
-	repository string,
+	repositoryID int64,
 ) ([]domain.ActiveSubscription, error) {
-	endpoint := c.baseURL + "/internal/v1/subscriptions?repository=" + url.QueryEscape(repository)
+	endpoint := c.baseURL + "/internal/v1/subscriptions?repository_id=" + strconv.FormatInt(repositoryID, 10)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create subscriptions request: %w", err)

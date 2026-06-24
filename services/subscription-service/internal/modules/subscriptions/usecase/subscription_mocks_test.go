@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -60,7 +61,7 @@ func (f *mockRepositoryTracker) EnsureTracked(
 
 func (f *mockRepositoryTracker) GetRepository(
 	ctx context.Context,
-	repoName string,
+	repositoryID int64,
 ) (*RepositoryView, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -68,7 +69,7 @@ func (f *mockRepositoryTracker) GetRepository(
 	if f.repository != nil {
 		return f.repository, nil
 	}
-	return &RepositoryView{Name: repoName}, nil
+	return &RepositoryView{ID: repositoryID, Name: fmt.Sprintf("owner/repo%d", repositoryID)}, nil
 }
 
 type mockSubscriptionRepo struct {
@@ -81,23 +82,24 @@ type mockSubscriptionRepo struct {
 }
 
 type startedConfirmation struct {
-	subID    int
-	repoName string
-	email    string
-	token    string
+	subID        int
+	repositoryID int64
+	email        string
+	token        string
 }
 
 func (f *mockSubscriptionRepo) StartSubscriptionConfirmation(
 	ctx context.Context,
 	subID int,
-	repoName, email string,
+	repositoryID int64,
+	email string,
 	token string,
 ) error {
 	f.startedConfirmations = append(f.startedConfirmations, startedConfirmation{
-		subID:    subID,
-		repoName: repoName,
-		email:    email,
-		token:    token,
+		subID:        subID,
+		repositoryID: repositoryID,
+		email:        email,
+		token:        token,
 	})
 	return f.createErr
 }

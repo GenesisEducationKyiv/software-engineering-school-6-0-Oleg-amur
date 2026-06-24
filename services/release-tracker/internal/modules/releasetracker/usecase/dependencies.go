@@ -10,8 +10,9 @@ import (
 type repositoryStore interface {
 	Create(context.Context, string, string) (*domain.Repository, error)
 	GetByName(context.Context, string) (*domain.Repository, error)
+	GetByID(context.Context, int64) (*domain.Repository, error)
 	GetAll(context.Context) ([]domain.Repository, error)
-	UpdateTag(context.Context, int, string) error
+	UpdateTag(context.Context, int64, string) error
 }
 
 type githubClient interface {
@@ -20,7 +21,7 @@ type githubClient interface {
 }
 
 type subscriptionClient interface {
-	ListActiveByRepository(context.Context, string) ([]domain.ActiveSubscription, error)
+	ListActiveByRepository(context.Context, int64) ([]domain.ActiveSubscription, error)
 }
 
 type notificationPublisher interface {

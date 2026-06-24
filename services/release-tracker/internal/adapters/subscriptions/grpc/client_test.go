@@ -23,12 +23,12 @@ func TestClientListsActiveSubscriptions(t *testing.T) {
 	}
 	client := NewClient(rpc, time.Second)
 
-	subscriptions, err := client.ListActiveByRepository(t.Context(), "owner/repo")
+	subscriptions, err := client.ListActiveByRepository(t.Context(), 7)
 	if err != nil {
 		t.Fatalf("list active subscriptions: %v", err)
 	}
-	if rpc.repository != "owner/repo" {
-		t.Fatalf("repository = %q, want owner/repo", rpc.repository)
+	if rpc.repositoryID != 7 {
+		t.Fatalf("repository ID = %d, want 7", rpc.repositoryID)
 	}
 	if len(subscriptions) != 1 {
 		t.Fatalf("subscriptions length = %d, want 1", len(subscriptions))
@@ -42,7 +42,7 @@ func TestClientPreservesGRPCStatus(t *testing.T) {
 	rpc := &subscriptionQueryClientFake{err: status.Error(codes.Unavailable, "service unavailable")}
 	client := NewClient(rpc, time.Second)
 
-	_, err := client.ListActiveByRepository(t.Context(), "owner/repo")
+	_, err := client.ListActiveByRepository(t.Context(), 7)
 	if !errors.Is(err, rpc.err) {
 		t.Fatalf("error does not wrap RPC failure: %v", err)
 	}
@@ -53,9 +53,9 @@ func TestClientPreservesGRPCStatus(t *testing.T) {
 
 type subscriptionQueryClientFake struct {
 	subscriptionsv1.SubscriptionServiceClient
-	repository string
-	response   *subscriptionsv1.ListActiveSubscriptionsByRepositoryResponse
-	err        error
+	repositoryID int64
+	response     *subscriptionsv1.ListActiveSubscriptionsByRepositoryResponse
+	err          error
 }
 
 func (f *subscriptionQueryClientFake) ListActiveSubscriptionsByRepository(
@@ -63,6 +63,6 @@ func (f *subscriptionQueryClientFake) ListActiveSubscriptionsByRepository(
 	req *subscriptionsv1.ListActiveSubscriptionsByRepositoryRequest,
 	_ ...grpc.CallOption,
 ) (*subscriptionsv1.ListActiveSubscriptionsByRepositoryResponse, error) {
-	f.repository = req.GetRepository()
+	f.repositoryID = req.GetRepositoryId()
 	return f.response, f.err
 }

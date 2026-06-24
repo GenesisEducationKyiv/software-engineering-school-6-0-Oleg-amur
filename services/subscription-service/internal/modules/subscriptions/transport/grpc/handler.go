@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/modules/subscriptions/domain"
@@ -19,7 +18,7 @@ type SubscriptionUsecases interface {
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
 	GetSubscriptions(context.Context, string) ([]subscriptionusecase.SubscriptionView, error)
-	GetActiveSubscriptionsByRepository(context.Context, string) ([]domain.RepositorySubscription, error)
+	GetActiveSubscriptionsByRepository(context.Context, int64) ([]domain.RepositorySubscription, error)
 }
 
 type Handler struct {
@@ -128,14 +127,14 @@ func (h *Handler) ListActiveSubscriptionsByRepository(
 	ctx context.Context,
 	req *pb.ListActiveSubscriptionsByRepositoryRequest,
 ) (*pb.ListActiveSubscriptionsByRepositoryResponse, error) {
-	repository := strings.TrimSpace(req.GetRepository())
-	if repository == "" {
-		return nil, status.Error(codes.InvalidArgument, "repository is required")
+	repositoryID := req.GetRepositoryId()
+	if repositoryID <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "positive repository_id is required")
 	}
 
-	subscriptions, err := h.usecases.GetActiveSubscriptionsByRepository(ctx, repository)
+	subscriptions, err := h.usecases.GetActiveSubscriptionsByRepository(ctx, repositoryID)
 	if err != nil {
-		h.log.Error("get active subscriptions by repository failed", "repository", repository, "err", err)
+		h.log.Error("get active subscriptions by repository failed", "repository_id", repositoryID, "err", err)
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 

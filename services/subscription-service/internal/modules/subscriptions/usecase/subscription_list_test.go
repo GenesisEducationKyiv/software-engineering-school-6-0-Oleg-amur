@@ -34,16 +34,16 @@ func TestListSubscriptions_Execute(t *testing.T) {
 			subs: []domain.Subscription{
 				{
 					SubscriptionStatus: domain.StatusActive,
+					RepositoryID:       1,
 					Repository: &domain.Repository{
-						Name:        "owner/repo1",
-						LastSeenTag: "v1.0",
+						ID: 1,
 					},
 				},
 				{
 					SubscriptionStatus: domain.StatusActive,
+					RepositoryID:       2,
 					Repository: &domain.Repository{
-						Name:        "owner/repo2",
-						LastSeenTag: "v2.0",
+						ID: 2,
 					},
 				},
 			},

@@ -8,6 +8,7 @@ type SubscriptionView struct {
 }
 
 type RepositoryView struct {
+	ID          int64
 	Name        string
 	LastSeenTag string
 }

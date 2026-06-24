@@ -133,8 +133,9 @@ The API documentation is available in Swagger format at `api/swagger.yaml`.
 
 Internal HTTP communication:
 
-- `subscription-service -> release-tracker`: `POST /internal/v1/repositories/ensure` and `GET /internal/v1/repositories?repository=owner/repo`.
-- REST baseline for `release-tracker -> subscription-service`: `GET /internal/v1/subscriptions?repository=owner/repo`.
+- `subscription-service -> release-tracker`: `POST /internal/v1/repositories/ensure` and `GET /internal/v1/repositories?id=...`.
+- REST baseline for `release-tracker -> subscription-service`: `GET /internal/v1/subscriptions?repository_id=...`.
+- `release-tracker` owns repository IDs; `subscription-service` stores them without a cross-database foreign key.
 
 Internal gRPC communication:
 

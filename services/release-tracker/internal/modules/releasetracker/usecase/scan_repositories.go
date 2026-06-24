@@ -61,7 +61,7 @@ func (u *ScanRepositories) scanRepository(ctx context.Context, tracked domain.Re
 		return nil
 	}
 
-	subscriptions, err := u.subscriptions.ListActiveByRepository(ctx, tracked.Name)
+	subscriptions, err := u.subscriptions.ListActiveByRepository(ctx, tracked.ID)
 	if err != nil {
 		return err
 	}

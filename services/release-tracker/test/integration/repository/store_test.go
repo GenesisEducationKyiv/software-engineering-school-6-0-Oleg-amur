@@ -38,6 +38,13 @@ func TestRepositoryStoreLifecycle(t *testing.T) {
 	if got.LastSeenTag != "v2" {
 		t.Fatalf("last seen tag = %q, want v2", got.LastSeenTag)
 	}
+	got, err = store.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get repository by ID: %v", err)
+	}
+	if got.Name != "owner/repo" {
+		t.Fatalf("repository name = %q, want owner/repo", got.Name)
+	}
 
 	repositories, err := store.GetAll(ctx)
 	if err != nil {

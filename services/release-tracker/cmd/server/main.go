@@ -36,7 +36,7 @@ const (
 )
 
 type subscriptionClient interface {
-	ListActiveByRepository(context.Context, string) ([]domain.ActiveSubscription, error)
+	ListActiveByRepository(context.Context, int64) ([]domain.ActiveSubscription, error)
 }
 
 func main() {

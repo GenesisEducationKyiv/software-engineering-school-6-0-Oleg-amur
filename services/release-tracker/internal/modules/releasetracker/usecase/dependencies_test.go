@@ -11,6 +11,7 @@ import (
 
 type repositoryStoreFake struct {
 	getName      string
+	getID        int64
 	repository   *domain.Repository
 	getErr       error
 	repositories []domain.Repository
@@ -18,7 +19,7 @@ type repositoryStoreFake struct {
 	created      string
 	createdTag   string
 	createErr    error
-	updatedID    int
+	updatedID    int64
 	updatedTag   string
 	updateErr    error
 }
@@ -41,11 +42,19 @@ func (f *repositoryStoreFake) GetByName(
 	return f.repository, f.getErr
 }
 
+func (f *repositoryStoreFake) GetByID(
+	_ context.Context,
+	id int64,
+) (*domain.Repository, error) {
+	f.getID = id
+	return f.repository, f.getErr
+}
+
 func (f *repositoryStoreFake) GetAll(context.Context) ([]domain.Repository, error) {
 	return f.repositories, f.getAllErr
 }
 
-func (f *repositoryStoreFake) UpdateTag(_ context.Context, id int, tag string) error {
+func (f *repositoryStoreFake) UpdateTag(_ context.Context, id int64, tag string) error {
 	f.updatedID = id
 	f.updatedTag = tag
 	return f.updateErr
@@ -67,13 +76,15 @@ func (f *githubClientFake) LatestTag(context.Context, string) (string, error) {
 
 type subscriptionClientFake struct {
 	subscriptions []domain.ActiveSubscription
+	repositoryID  int64
 	err           error
 }
 
 func (f *subscriptionClientFake) ListActiveByRepository(
-	context.Context,
-	string,
+	_ context.Context,
+	repositoryID int64,
 ) ([]domain.ActiveSubscription, error) {
+	f.repositoryID = repositoryID
 	return f.subscriptions, f.err
 }
 

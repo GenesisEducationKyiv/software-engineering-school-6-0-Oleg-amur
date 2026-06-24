@@ -427,7 +427,7 @@ func (x *GetSubscriptionsResponse) GetSubscriptions() []*Subscription {
 
 type ListActiveSubscriptionsByRepositoryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Repository    string                 `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	RepositoryId  int64                  `protobuf:"varint,1,opt,name=repository_id,json=repositoryId,proto3" json:"repository_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -462,11 +462,11 @@ func (*ListActiveSubscriptionsByRepositoryRequest) Descriptor() ([]byte, []int) 
 	return file_subscriptions_v1_subscription_service_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *ListActiveSubscriptionsByRepositoryRequest) GetRepository() string {
+func (x *ListActiveSubscriptionsByRepositoryRequest) GetRepositoryId() int64 {
 	if x != nil {
-		return x.Repository
+		return x.RepositoryId
 	}
-	return ""
+	return 0
 }
 
 type ListActiveSubscriptionsByRepositoryResponse struct {
@@ -588,11 +588,9 @@ const file_subscriptions_v1_subscription_service_proto_rawDesc = "" +
 	"\tconfirmed\x18\x03 \x01(\bR\tconfirmed\x12\"\n" +
 	"\rlast_seen_tag\x18\x04 \x01(\tR\vlastSeenTag\"`\n" +
 	"\x18GetSubscriptionsResponse\x12D\n" +
-	"\rsubscriptions\x18\x01 \x03(\v2\x1e.subscriptions.v1.SubscriptionR\rsubscriptions\"L\n" +
-	"*ListActiveSubscriptionsByRepositoryRequest\x12\x1e\n" +
-	"\n" +
-	"repository\x18\x01 \x01(\tR\n" +
-	"repository\"y\n" +
+	"\rsubscriptions\x18\x01 \x03(\v2\x1e.subscriptions.v1.SubscriptionR\rsubscriptions\"Q\n" +
+	"*ListActiveSubscriptionsByRepositoryRequest\x12#\n" +
+	"\rrepository_id\x18\x01 \x01(\x03R\frepositoryId\"y\n" +
 	"+ListActiveSubscriptionsByRepositoryResponse\x12J\n" +
 	"\rsubscriptions\x18\x01 \x03(\v2$.subscriptions.v1.ActiveSubscriptionR\rsubscriptions\"W\n" +
 	"\x12ActiveSubscription\x12\x14\n" +

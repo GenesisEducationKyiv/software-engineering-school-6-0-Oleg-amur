@@ -21,17 +21,17 @@ func NewSubscriptionStore(db postgresqladapter.Queryable) *SubscriptionStore {
 func (r *SubscriptionStore) Create(
 	ctx context.Context,
 	subID int,
-	repoName string,
+	repositoryID int64,
 	token string,
 ) (int, error) {
 	query := `
-		INSERT INTO subscriptions (subscriber_id, repository_name, subscription_status, token)
+		INSERT INTO subscriptions (subscriber_id, repository_id, subscription_status, token)
 		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (subscriber_id, repository_name) DO NOTHING
+		ON CONFLICT (subscriber_id, repository_id) DO NOTHING
 		RETURNING id`
 
 	var subscriptionID int
-	err := r.db.QueryRowContext(ctx, query, subID, repoName, subscriptionmodels.StatusPending, token).
+	err := r.db.QueryRowContext(ctx, query, subID, repositoryID, subscriptionmodels.StatusPending, token).
 		Scan(&subscriptionID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -48,7 +48,7 @@ func (r *SubscriptionStore) GetByToken(
 	token string,
 ) (*subscriptionmodels.Subscription, error) {
 	query := `
-		SELECT s.id, s.subscriber_id, s.repository_name, s.subscription_status, s.token, s.created_at, sub.email
+		SELECT s.id, s.subscriber_id, s.repository_id, s.subscription_status, s.token, s.created_at, sub.email
 		FROM subscriptions s
 		JOIN subscribers sub ON s.subscriber_id = sub.id
 		WHERE s.token = $1`
@@ -58,7 +58,7 @@ func (r *SubscriptionStore) GetByToken(
 	s.Repository = &subscriptionmodels.Repository{}
 
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&s.ID, &s.SubscriberID, &s.RepositoryName, &s.SubscriptionStatus, &s.Token, &s.CreatedAt,
+		&s.ID, &s.SubscriberID, &s.RepositoryID, &s.SubscriptionStatus, &s.Token, &s.CreatedAt,
 		&s.Subscriber.Email,
 	)
 	if err != nil {
@@ -67,7 +67,7 @@ func (r *SubscriptionStore) GetByToken(
 		}
 		return nil, err
 	}
-	s.Repository.Name = s.RepositoryName
+	s.Repository.ID = s.RepositoryID
 	return &s, nil
 }
 
@@ -104,7 +104,7 @@ func (r *SubscriptionStore) GetActiveByEmail(
 	email string,
 ) ([]subscriptionmodels.Subscription, error) {
 	query := `
-		SELECT s.id, s.token, s.subscription_status, sub.email, s.repository_name
+		SELECT s.id, s.token, s.subscription_status, sub.email, s.repository_id
 		FROM subscriptions s
 		JOIN subscribers sub ON s.subscriber_id = sub.id
 		WHERE sub.email = $1 AND s.subscription_status = $2`
@@ -129,11 +129,12 @@ func (r *SubscriptionStore) GetActiveByEmail(
 			&s.Token,
 			&s.SubscriptionStatus,
 			&s.Subscriber.Email,
-			&s.Repository.Name,
+			&s.RepositoryID,
 		)
 		if err != nil {
 			return nil, err
 		}
+		s.Repository.ID = s.RepositoryID
 		subs = append(subs, s)
 	}
 	if err := rows.Err(); err != nil {
@@ -143,17 +144,17 @@ func (r *SubscriptionStore) GetActiveByEmail(
 	return subs, nil
 }
 
-func (r *SubscriptionStore) GetActiveByRepositoryName(
+func (r *SubscriptionStore) GetActiveByRepositoryID(
 	ctx context.Context,
-	repoName string,
+	repositoryID int64,
 ) ([]subscriptionmodels.RepositorySubscription, error) {
 	query := `
 		SELECT s.token, sub.email
 		FROM subscriptions s
 		JOIN subscribers sub ON s.subscriber_id = sub.id
-		WHERE s.repository_name = $1 AND s.subscription_status = $2`
+		WHERE s.repository_id = $1 AND s.subscription_status = $2`
 
-	rows, err := r.db.QueryContext(ctx, query, repoName, subscriptionmodels.StatusActive)
+	rows, err := r.db.QueryContext(ctx, query, repositoryID, subscriptionmodels.StatusActive)
 	if err != nil {
 		return nil, err
 	}

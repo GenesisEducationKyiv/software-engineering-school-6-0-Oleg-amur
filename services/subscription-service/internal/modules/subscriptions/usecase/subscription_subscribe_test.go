@@ -39,7 +39,7 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 			name:       "returns already subscribed when repository rejects duplicate",
 			req:        SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
 			subscriber: &domain.Subscriber{ID: 1},
-			repository: &RepositoryView{Name: "owner/repo"},
+			repository: &RepositoryView{ID: 7, Name: "owner/repo"},
 			createErr:  apperr.ErrAlreadyExists,
 			wantErr:    apperr.ErrAlreadySubscribed,
 		},
@@ -47,7 +47,7 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 			name:       "starts subscription confirmation saga after successful subscription",
 			req:        SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
 			subscriber: &domain.Subscriber{ID: 1},
-			repository: &RepositoryView{Name: "owner/repo"},
+			repository: &RepositoryView{ID: 7, Name: "owner/repo"},
 		},
 	}
 

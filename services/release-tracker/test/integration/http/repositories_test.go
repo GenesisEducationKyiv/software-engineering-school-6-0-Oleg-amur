@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,10 +32,16 @@ func TestEnsureAndGetRepository(t *testing.T) {
 	if ensureResponse.Code != http.StatusOK {
 		t.Fatalf("ensure status = %d, body = %s", ensureResponse.Code, ensureResponse.Body.String())
 	}
+	var ensured struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.NewDecoder(ensureResponse.Body).Decode(&ensured); err != nil {
+		t.Fatalf("decode ensure response: %v", err)
+	}
 
 	getRequest := httptest.NewRequest(
 		http.MethodGet,
-		"/internal/v1/repositories?repository=owner/repo",
+		fmt.Sprintf("/internal/v1/repositories?id=%d", ensured.ID),
 		nil,
 	)
 	getResponse := httptest.NewRecorder()
@@ -44,13 +51,14 @@ func TestEnsureAndGetRepository(t *testing.T) {
 	}
 
 	var response struct {
+		ID          int64  `json:"id"`
 		Name        string `json:"name"`
 		LastSeenTag string `json:"last_seen_tag"`
 	}
 	if err := json.NewDecoder(getResponse.Body).Decode(&response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if response.Name != "owner/repo" || response.LastSeenTag != "v1.0.0" {
+	if response.ID != ensured.ID || response.Name != "owner/repo" || response.LastSeenTag != "v1.0.0" {
 		t.Fatalf("unexpected response: %+v", response)
 	}
 }

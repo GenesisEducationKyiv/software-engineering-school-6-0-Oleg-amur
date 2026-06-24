@@ -11,14 +11,14 @@ func TestGetRepositoryReturnsTrackedRepository(t *testing.T) {
 	store := &repositoryStoreFake{repository: want}
 	usecase := NewGetRepository(store)
 
-	got, err := usecase.Execute(t.Context(), "owner/repo")
+	got, err := usecase.Execute(t.Context(), 7)
 	if err != nil {
 		t.Fatalf("get repository: %v", err)
 	}
 	if got != want {
 		t.Fatalf("repository = %+v, want %+v", got, want)
 	}
-	if store.getName != "owner/repo" {
-		t.Fatalf("repository name = %q, want owner/repo", store.getName)
+	if store.getID != 7 {
+		t.Fatalf("repository ID = %d, want 7", store.getID)
 	}
 }

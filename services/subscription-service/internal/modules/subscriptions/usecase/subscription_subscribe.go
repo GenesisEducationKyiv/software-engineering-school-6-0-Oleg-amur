@@ -20,7 +20,7 @@ type RepositoryTracker interface {
 }
 
 type SubscriptionCreator interface {
-	StartSubscriptionConfirmation(ctx context.Context, subID int, repoName, email, token string) error
+	StartSubscriptionConfirmation(ctx context.Context, subID int, repositoryID int64, email, token string) error
 }
 
 type SubscribeToRepository struct {
@@ -56,7 +56,7 @@ func (u *SubscribeToRepository) Execute(ctx context.Context, req SubscribeReques
 	}
 
 	token := uuid.New().String()
-	err = u.subscriptions.StartSubscriptionConfirmation(ctx, subscriber.ID, repo.Name, req.Email, token)
+	err = u.subscriptions.StartSubscriptionConfirmation(ctx, subscriber.ID, repo.ID, req.Email, token)
 	if err != nil {
 		if errors.Is(err, apperr.ErrAlreadyExists) {
 			return apperr.ErrAlreadySubscribed
