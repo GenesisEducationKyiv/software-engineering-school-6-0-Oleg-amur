@@ -7,6 +7,7 @@ scanner:
   interval: "1m"
 subscriptions:
   url: "http://localhost:8080"
+  grpcAddress: "localhost:50051"
   timeout: "10s"
 eventBus:
   url: "amqp://guest:guest@localhost:5672/"

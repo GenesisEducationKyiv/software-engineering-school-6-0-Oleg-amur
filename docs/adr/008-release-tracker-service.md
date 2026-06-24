@@ -19,7 +19,7 @@ Extract release tracking into `services/release-tracker`.
 - release tracker calls `subscription-service` over HTTP to list active subscriptions by repository name.
 - release notification delivery remains asynchronous through RabbitMQ.
 
-The internal HTTP contracts use the stable `owner/repo` repository name. The later gRPC implementation must preserve these use cases and leave the HTTP implementation available for comparison.
+The internal contracts use the stable `owner/repo` repository name. The gRPC subscription query introduced in ADR 0009 preserves the REST use case and leaves the HTTP implementation available for comparison.
 
 ## Consequences
 

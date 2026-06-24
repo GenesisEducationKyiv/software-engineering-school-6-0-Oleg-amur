@@ -1,0 +1,12 @@
+version: v2
+
+modules:
+  - path: shared/contracts/proto
+
+lint:
+  use:
+    - STANDARD
+
+breaking:
+  use:
+    - FILE

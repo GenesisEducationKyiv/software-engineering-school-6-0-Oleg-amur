@@ -38,7 +38,7 @@
 
 ## 3. High Level Architecture
 
-The system has a subscription API, a release tracker, and a notification worker. The API and tracker use internal HTTP endpoints for synchronous repository/subscriber queries. Notification delivery remains asynchronous through RabbitMQ.
+The system has a subscription API, a release tracker, and a notification worker. The subscription service calls the release tracker over HTTP for repository metadata. The release tracker keeps both REST and gRPC adapters for synchronous subscription queries, with gRPC selected in the composition root. Notification delivery remains asynchronous through RabbitMQ.
 
 The production codebase mirrors those boundaries with separate Go modules under `services/subscription-service`, `services/release-tracker`, and `services/notification-worker`, plus shared event and messaging modules. Each stateful service owns its PostgreSQL database.
 

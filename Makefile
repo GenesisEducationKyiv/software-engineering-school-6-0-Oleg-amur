@@ -12,7 +12,13 @@ GO_PACKAGES := ./...
 INTERNAL_PACKAGES := ./internal/...
 INTEGRATION_PACKAGES := ./test/integration/...
 
-.PHONY: lint test test-unit test-integration test-e2e coverage coverage-unit coverage-integration coverage-summary clean-test-artifacts
+.PHONY: proto-lint proto-generate lint test test-unit test-integration test-e2e coverage coverage-unit coverage-integration coverage-summary clean-test-artifacts
+
+proto-lint:
+	buf lint
+
+proto-generate:
+	buf generate
 
 lint:
 	cd $(CONTRACTS_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)

@@ -35,6 +35,7 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 
 - [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
 - [Go](https://go.dev/doc/install) (optional, for local development)
+- [Buf CLI](https://buf.build/docs/cli/installation/) and the Go protobuf generators (for contract changes)
 
 ### Configuration
 
@@ -125,17 +126,25 @@ The API documentation is available in Swagger format at `api/swagger.yaml`.
 Internal HTTP communication:
 
 - `subscription-service -> release-tracker`: `POST /internal/v1/repositories/ensure` and `GET /internal/v1/repositories?repository=owner/repo`.
-- `release-tracker -> subscription-service`: `GET /internal/v1/subscriptions?repository=owner/repo`.
+- REST baseline for `release-tracker -> subscription-service`: `GET /internal/v1/subscriptions?repository=owner/repo`.
+
+Internal gRPC communication:
+
+- `release-tracker -> subscription-service`: `subscriptions.v1.SubscriptionService/ListActiveSubscriptionsByRepository`.
+- Change `useGRPCSubscriptionQueries` in `services/release-tracker/cmd/server/main.go` to switch the release tracker between the gRPC implementation and the preserved REST baseline.
+- The shared contract is `shared/contracts/proto/subscriptions/v1/subscription_service.proto`.
+- Run `buf lint` and `buf generate` (or `make proto-lint` and `make proto-generate`) after contract changes.
 
 ### gRPC API
 
-The gRPC definition is available at `api/proto/subscription_service.proto`.
+The gRPC definition is available at `shared/contracts/proto/subscriptions/v1/subscription_service.proto`.
 
 **Services:**
 - `Subscribe`: Create a new subscription.
 - `Confirm`: Confirm a subscription.
 - `Unsubscribe`: Remove a subscription.
 - `GetSubscriptions`: List all subscriptions for an email.
+- `ListActiveSubscriptionsByRepository`: List active subscriptions for internal release processing.
 
 ## Project Structure
 

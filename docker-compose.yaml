@@ -92,6 +92,7 @@ services:
       SERVER_PORT: ${RELEASE_TRACKER_HTTP_PORT}
       DATABASE_URL: postgres://${RELEASE_TRACKER_DB_USER}:${RELEASE_TRACKER_DB_PASSWORD}@release-tracker-postgresql:5432/${RELEASE_TRACKER_DB_NAME}?sslmode=disable
       SUBSCRIPTIONS_URL: http://subscription-service:${SUBSCRIPTION_SERVICE_HTTP_PORT}
+      SUBSCRIPTIONS_GRPC_ADDRESS: subscription-service:${SUBSCRIPTION_SERVICE_GRPC_PORT}
       SUBSCRIPTIONS_TIMEOUT: 10s
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: ${SCAN_INTERVAL}

@@ -24,10 +24,10 @@ type Scanner struct {
 	Interval string `yaml:"interval" env:"SCAN_INTERVAL" env-default:"1h"`
 }
 
-//nolint:golines // Environment tags must remain single string literals.
 type Subscriptions struct {
-	URL     string `yaml:"url" env:"SUBSCRIPTIONS_URL" env-default:"http://localhost:8080"`
-	Timeout string `yaml:"timeout" env:"SUBSCRIPTIONS_TIMEOUT" env-default:"10s"`
+	URL         string `yaml:"url"         env:"SUBSCRIPTIONS_URL"          env-default:"http://localhost:8080"`
+	GRPCAddress string `yaml:"grpcAddress" env:"SUBSCRIPTIONS_GRPC_ADDRESS" env-default:"localhost:50051"`
+	Timeout     string `yaml:"timeout"     env:"SUBSCRIPTIONS_TIMEOUT"      env-default:"10s"`
 }
 
 type EventBus struct {

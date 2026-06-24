@@ -14,6 +14,7 @@ import (
 
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/eventbus/rabbitmq"
 	githubclient "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/github"
+	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/subscriptions/grpc"
 	subscriptionhttp "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/adapters/subscriptions/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/database"
@@ -21,10 +22,16 @@ import (
 	releasetrackerhttp "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/transport/http"
 	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/usecase"
 	releasetrackerworker "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/modules/releasetracker/worker"
+	subscriptionsv1 "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/gen/subscriptions/v1"
 	sharedrabbitmq "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging/rabbitmq"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-const configPath = "configs/config.yaml"
+const (
+	configPath                 = "configs/config.yaml"
+	useGRPCSubscriptionQueries = true
+)
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "release-tracker")
@@ -68,6 +75,16 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("parse scan interval: %w", err)
 	}
 
+	subscriptions, closeSubscriptions, err := newSubscriptionsClient(cfg.Subscriptions, subscriptionsTimeout)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := closeSubscriptions(); err != nil {
+			log.Error("close subscriptions client", "err", err)
+		}
+	}()
+
 	publisher, err := rabbitmq.NewPublisher(sharedrabbitmq.Config{
 		URL:      cfg.EventBus.URL,
 		Exchange: cfg.EventBus.NotificationExchange,
@@ -87,7 +104,7 @@ func run(log *slog.Logger) error {
 		log,
 		repositorypostgresql.NewRepositoryStore(db),
 		githubclient.NewClient(&http.Client{Timeout: githubTimeout}, cfg.GitHub.URL, cfg.GitHub.APIToken),
-		subscriptionhttp.NewClient(&http.Client{Timeout: subscriptionsTimeout}, cfg.Subscriptions.URL),
+		subscriptions,
 		publisher,
 	)
 	scheduler := releasetrackerworker.NewScheduler(tracker, scanInterval)
@@ -115,4 +132,28 @@ func run(log *slog.Logger) error {
 		}
 		return err
 	}
+}
+
+func newSubscriptionsClient(
+	cfg config.Subscriptions,
+	timeout time.Duration,
+) (releasetrackerusecase.Subscriptions, func() error, error) {
+	if !useGRPCSubscriptionQueries {
+		client := subscriptionhttp.NewClient(&http.Client{Timeout: timeout}, cfg.URL)
+		return client, func() error { return nil }, nil
+	}
+
+	connection, err := grpc.NewClient(
+		cfg.GRPCAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create subscriptions gRPC connection: %w", err)
+	}
+
+	client := subscriptiongrpc.NewClient(
+		subscriptionsv1.NewSubscriptionServiceClient(connection),
+		timeout,
+	)
+	return client, connection.Close, nil
 }

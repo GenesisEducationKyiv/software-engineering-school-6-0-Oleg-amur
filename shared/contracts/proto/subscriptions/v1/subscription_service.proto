@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package subscriptions.v1;
+
+option go_package = "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/gen/subscriptions/v1;subscriptionsv1";
+
+service SubscriptionService {
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+  rpc Confirm(ConfirmRequest) returns (ConfirmResponse);
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+  rpc GetSubscriptions(GetSubscriptionsRequest) returns (GetSubscriptionsResponse);
+  rpc ListActiveSubscriptionsByRepository(ListActiveSubscriptionsByRepositoryRequest)
+      returns (ListActiveSubscriptionsByRepositoryResponse);
+}
+
+message SubscribeRequest {
+  string email = 1;
+  string repo = 2;
+}
+
+message SubscribeResponse {}
+
+message ConfirmRequest {
+  string token = 1;
+}
+
+message ConfirmResponse {}
+
+message UnsubscribeRequest {
+  string token = 1;
+}
+
+message UnsubscribeResponse {}
+
+message GetSubscriptionsRequest {
+  string email = 1;
+}
+
+message Subscription {
+  string email = 1;
+  string repo = 2;
+  bool confirmed = 3;
+  string last_seen_tag = 4;
+}
+
+message GetSubscriptionsResponse {
+  repeated Subscription subscriptions = 1;
+}
+
+message ListActiveSubscriptionsByRepositoryRequest {
+  string repository = 1;
+}
+
+message ListActiveSubscriptionsByRepositoryResponse {
+  repeated ActiveSubscription subscriptions = 1;
+}
+
+message ActiveSubscription {
+  string email = 1;
+  string unsubscribe_token = 2;
+}

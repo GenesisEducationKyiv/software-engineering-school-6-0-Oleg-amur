@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/api/grpc/pb"
 	httpapi "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/api/http"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/config"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/database"
 	subscriptiongrpc "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/modules/subscriptions/transport/grpc"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/observability"
+	subscriptionsv1 "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/gen/subscriptions/v1"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -107,7 +107,7 @@ func runApp(log *slog.Logger) error {
 	})
 
 	group.Go(func() error {
-		log.Info("gRPC server starting", "addr", ":"+cfg.Server.GrpcPort)
+		log.Info("gRPC server starting", "addr", grpcLis.Addr())
 		if err := grpcServer.Serve(grpcLis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			return fmt.Errorf("gRPC server failed: %w", err)
 		}
@@ -169,7 +169,7 @@ func setupGrpcServer(
 	}
 
 	srv := grpc.NewServer(grpc.UnaryInterceptor(observability.UnaryServerInterceptor(log)))
-	pb.RegisterSubscriptionServiceServer(srv, handler)
+	subscriptionsv1.RegisterSubscriptionServiceServer(srv, handler)
 
 	return srv, lis, nil
 }

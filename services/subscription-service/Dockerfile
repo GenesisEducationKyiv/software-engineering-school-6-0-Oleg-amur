@@ -14,5 +14,5 @@ FROM alpine:latest
 COPY --from=builder /app/server .
 COPY --from=builder /workspace/services/subscription-service/configs ./configs
 
-EXPOSE 8080
+EXPOSE 8080 50051
 CMD ["./server"]

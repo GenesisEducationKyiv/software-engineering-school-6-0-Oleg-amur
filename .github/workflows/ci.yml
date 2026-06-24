@@ -19,6 +19,24 @@ jobs:
           go-version: 1.25.3
           cache: true
 
+      - name: setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: 1.68.3
+
+      - name: lint protobuf contracts
+        run: buf lint
+
+      - name: install protobuf generators
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+
+      - name: verify generated protobuf code
+        run: |
+          buf generate
+          git diff --exit-code -- shared/contracts/gen
+
       - name: lint shared contracts
         uses: golangci/golangci-lint-action@v9
         with:

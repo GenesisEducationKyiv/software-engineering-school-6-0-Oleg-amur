@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/api/grpc/pb"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/apperr"
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/modules/subscriptions/domain"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/modules/subscriptions/usecase"
+	pb "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/gen/subscriptions/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -17,6 +19,7 @@ type SubscriptionUsecases interface {
 	Confirm(context.Context, string) error
 	Unsubscribe(context.Context, string) error
 	GetSubscriptions(context.Context, string) ([]subscriptionusecase.SubscriptionView, error)
+	GetActiveSubscriptionsByRepository(context.Context, string) ([]domain.RepositorySubscription, error)
 }
 
 type Handler struct {
@@ -119,4 +122,32 @@ func (h *Handler) GetSubscriptions(
 	return &pb.GetSubscriptionsResponse{
 		Subscriptions: pbSubs,
 	}, nil
+}
+
+func (h *Handler) ListActiveSubscriptionsByRepository(
+	ctx context.Context,
+	req *pb.ListActiveSubscriptionsByRepositoryRequest,
+) (*pb.ListActiveSubscriptionsByRepositoryResponse, error) {
+	repository := strings.TrimSpace(req.GetRepository())
+	if repository == "" {
+		return nil, status.Error(codes.InvalidArgument, "repository is required")
+	}
+
+	subscriptions, err := h.usecases.GetActiveSubscriptionsByRepository(ctx, repository)
+	if err != nil {
+		h.log.Error("get active subscriptions by repository failed", "repository", repository, "err", err)
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+
+	response := &pb.ListActiveSubscriptionsByRepositoryResponse{
+		Subscriptions: make([]*pb.ActiveSubscription, 0, len(subscriptions)),
+	}
+	for _, subscription := range subscriptions {
+		response.Subscriptions = append(response.Subscriptions, &pb.ActiveSubscription{
+			Email:            subscription.Email,
+			UnsubscribeToken: subscription.UnsubscribeToken,
+		})
+	}
+
+	return response, nil
 }

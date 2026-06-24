@@ -90,6 +90,7 @@ services:
       SERVER_PORT: 8081
       DATABASE_URL: postgres://postgres:postgres@release-tracker-postgres:5432/release_tracker?sslmode=disable
       SUBSCRIPTIONS_URL: http://subscription-service:8080
+      SUBSCRIPTIONS_GRPC_ADDRESS: subscription-service:50051
       SUBSCRIPTIONS_TIMEOUT: 10s
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: 2s
