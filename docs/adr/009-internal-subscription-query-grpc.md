@@ -18,6 +18,7 @@ Add a unary gRPC operation, `SubscriptionService.ListActiveSubscriptionsByReposi
 - The release tracker keeps both client adapters behind its existing `Subscriptions` interface.
 - The composition root selects the active adapter through `useGRPCSubscriptionQueries`; changing one constant switches between the implementations without changing domain code.
 - Internal traffic uses plaintext gRPC inside the Compose network, matching the existing plaintext HTTP baseline.
+- In the production-like Go client benchmark, gRPC handled 997 req/s while HTTP with JSON decoding handled 826 req/s, about `1.21x` higher throughput for the replaced call.
 
 ## Consequences
 

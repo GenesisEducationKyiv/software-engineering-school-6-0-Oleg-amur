@@ -12,7 +12,7 @@ GO_PACKAGES := ./...
 INTERNAL_PACKAGES := ./internal/...
 INTEGRATION_PACKAGES := ./test/integration/...
 
-.PHONY: proto-lint proto-generate lint test test-unit test-integration test-e2e coverage coverage-unit coverage-integration coverage-summary clean-test-artifacts
+.PHONY: proto-lint proto-generate lint test test-unit test-integration test-e2e coverage coverage-unit coverage-integration coverage-summary benchmark-seed benchmark-http benchmark-grpc benchmark-client clean-test-artifacts
 
 proto-lint:
 	buf lint
@@ -73,6 +73,18 @@ coverage-summary:
 	@echo "  $(COVERAGE_DIR)/unit-notification-worker.out"
 	@echo "  $(COVERAGE_DIR)/integration-subscription-service.out"
 	@echo "  $(COVERAGE_DIR)/integration-release-tracker.out"
+
+benchmark-seed:
+	./scripts/benchmark/seed-subscription-data.sh
+
+benchmark-http:
+	./scripts/benchmark/http-autocannon.sh
+
+benchmark-grpc:
+	./scripts/benchmark/grpc-ghz.sh
+
+benchmark-client:
+	go run ./benchmarks/subscription-client-compare
 
 clean-test-artifacts:
 	rm -rf $(COVERAGE_DIR)

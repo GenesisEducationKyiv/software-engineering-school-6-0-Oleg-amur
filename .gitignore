@@ -13,6 +13,7 @@ playwright-report/
 
 # Test coverage artifacts
 coverage/
+benchmarks/results/
 
 # Environment variables
 .env

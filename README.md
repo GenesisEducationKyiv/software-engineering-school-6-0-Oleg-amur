@@ -144,6 +144,10 @@ Internal gRPC communication:
 - The shared contract is `shared/contracts/proto/subscriptions/v1/subscription_service.proto`.
 - Run `buf lint` and `buf generate` (or `make proto-lint` and `make proto-generate`) after contract changes.
 
+HTTP/gRPC throughput comparison:
+
+- Benchmark instructions and results are in [`docs/benchmarks.md`](docs/benchmarks.md).
+
 ### gRPC API
 
 The gRPC definition is available at `shared/contracts/proto/subscriptions/v1/subscription_service.proto`.
