@@ -26,6 +26,7 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-tracker/internal/worker"
 	subscriptionsv1 "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/gen/subscriptions/v1"
 	sharedrabbitmq "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/messaging/rabbitmq"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -130,24 +131,44 @@ func run(log *slog.Logger) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	go scheduler.Start(ctx)
-	serverErrors := make(chan error, 1)
-	go func() {
-		log.Info("HTTP server starting", "addr", server.Addr)
-		serverErrors <- server.ListenAndServe()
-	}()
+	group, groupCtx := errgroup.WithContext(ctx)
 
-	select {
-	case <-ctx.Done():
+	group.Go(func() error {
+		scheduler.Start(groupCtx)
+		return nil
+	})
+
+	group.Go(func() error {
+		log.Info("HTTP server starting", "addr", server.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("HTTP server failed: %w", err)
+		}
+		return nil
+	})
+
+	group.Go(func() error {
+		<-groupCtx.Done()
+		if errors.Is(ctx.Err(), context.Canceled) {
+			log.Info("shutting down signal received")
+		}
+
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		return server.Shutdown(shutdownCtx)
-	case err := <-serverErrors:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
+
+		log.Info("shutting down HTTP server...")
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("shutdown HTTP server: %w", err)
 		}
+		return nil
+	})
+
+	if err := group.Wait(); err != nil {
 		return err
 	}
+
+	log.Info("graceful shutdown complete")
+
+	return nil
 }
 
 func newSubscriptionsClient(
