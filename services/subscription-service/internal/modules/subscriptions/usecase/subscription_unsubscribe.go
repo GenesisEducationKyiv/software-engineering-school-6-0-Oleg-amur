@@ -1,6 +1,11 @@
 package usecase
 
-import "context"
+import (
+	"context"
+	"errors"
+
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/apperr"
+)
 
 type SubscriptionDeleter interface {
 	DeleteByToken(ctx context.Context, token string) error
@@ -15,5 +20,12 @@ func NewUnsubscribeFromRepository(subscriptions SubscriptionDeleter) *Unsubscrib
 }
 
 func (u *UnsubscribeFromRepository) Execute(ctx context.Context, token string) error {
-	return u.subscriptions.DeleteByToken(ctx, token)
+	err := u.subscriptions.DeleteByToken(ctx, token)
+	if err != nil {
+		if errors.Is(err, apperr.ErrNotFound) {
+			return apperr.ErrTokenNotFound
+		}
+		return err
+	}
+	return nil
 }

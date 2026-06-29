@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/apperr"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/modules/subscriptions/domain"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/modules/subscriptions/usecase"
 	subscriptionsv1 "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/gen/subscriptions/v1"
@@ -66,10 +67,44 @@ func TestHandlerMapsQueryFailureToInternal(t *testing.T) {
 	}
 }
 
+func TestHandlerRejectsMissingConfirmToken(t *testing.T) {
+	handler := NewHandler(discardLogger(), &activeSubscriptionsQueryFake{})
+
+	_, err := handler.Confirm(t.Context(), &subscriptionsv1.ConfirmRequest{})
+
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("status code = %s, want %s", status.Code(err), codes.InvalidArgument)
+	}
+}
+
+func TestHandlerRejectsMissingUnsubscribeToken(t *testing.T) {
+	handler := NewHandler(discardLogger(), &activeSubscriptionsQueryFake{})
+
+	_, err := handler.Unsubscribe(t.Context(), &subscriptionsv1.UnsubscribeRequest{})
+
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("status code = %s, want %s", status.Code(err), codes.InvalidArgument)
+	}
+}
+
+func TestHandlerMapsUnsubscribeMissingTokenToNotFound(t *testing.T) {
+	handler := NewHandler(discardLogger(), &activeSubscriptionsQueryFake{unsubscribeErr: apperr.ErrTokenNotFound})
+
+	_, err := handler.Unsubscribe(
+		t.Context(),
+		&subscriptionsv1.UnsubscribeRequest{Token: "unknown-token"},
+	)
+
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("status code = %s, want %s", status.Code(err), codes.NotFound)
+	}
+}
+
 type activeSubscriptionsQueryFake struct {
-	repositoryID  int64
-	subscriptions []domain.RepositorySubscription
-	err           error
+	repositoryID   int64
+	subscriptions  []domain.RepositorySubscription
+	err            error
+	unsubscribeErr error
 }
 
 func (f *activeSubscriptionsQueryFake) GetActiveSubscriptionsByRepository(
@@ -89,7 +124,7 @@ func (f *activeSubscriptionsQueryFake) Confirm(context.Context, string) error {
 }
 
 func (f *activeSubscriptionsQueryFake) Unsubscribe(context.Context, string) error {
-	return nil
+	return f.unsubscribeErr
 }
 
 func (f *activeSubscriptionsQueryFake) GetSubscriptions(

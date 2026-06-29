@@ -89,8 +89,18 @@ func (r *SubscriptionStore) Activate(ctx context.Context, token string) error {
 
 func (r *SubscriptionStore) DeleteByToken(ctx context.Context, token string) error {
 	query := `DELETE FROM subscriptions WHERE token = $1`
-	_, err := r.db.ExecContext(ctx, query, token)
-	return err
+	result, err := r.db.ExecContext(ctx, query, token)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return apperr.ErrNotFound
+	}
+	return nil
 }
 
 func (r *SubscriptionStore) DeleteByID(ctx context.Context, id int) error {

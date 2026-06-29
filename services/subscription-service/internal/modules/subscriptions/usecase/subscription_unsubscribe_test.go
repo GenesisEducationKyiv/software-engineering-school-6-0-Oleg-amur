@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+
+	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/subscription-service/internal/apperr"
 )
 
 func TestUnsubscribeFromRepository_Execute(t *testing.T) {
@@ -18,6 +20,12 @@ func TestUnsubscribeFromRepository_Execute(t *testing.T) {
 			token:     "test-token",
 			deleteErr: sql.ErrConnDone,
 			wantErr:   sql.ErrConnDone,
+		},
+		{
+			name:      "returns token not found when repository has no token",
+			token:     "test-token",
+			deleteErr: apperr.ErrNotFound,
+			wantErr:   apperr.ErrTokenNotFound,
 		},
 		{
 			name:  "deletes subscription by token",

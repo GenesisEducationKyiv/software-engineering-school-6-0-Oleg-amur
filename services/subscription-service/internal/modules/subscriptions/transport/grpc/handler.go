@@ -73,7 +73,12 @@ func (h *Handler) Confirm(
 	ctx context.Context,
 	req *pb.ConfirmRequest,
 ) (*pb.ConfirmResponse, error) {
-	err := h.usecases.Confirm(ctx, req.GetToken())
+	token := req.GetToken()
+	if token == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing token")
+	}
+
+	err := h.usecases.Confirm(ctx, token)
 	if err != nil {
 		if errors.Is(err, apperr.ErrTokenNotFound) {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -89,8 +94,16 @@ func (h *Handler) Unsubscribe(
 	ctx context.Context,
 	req *pb.UnsubscribeRequest,
 ) (*pb.UnsubscribeResponse, error) {
-	err := h.usecases.Unsubscribe(ctx, req.GetToken())
+	token := req.GetToken()
+	if token == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing token")
+	}
+
+	err := h.usecases.Unsubscribe(ctx, token)
 	if err != nil {
+		if errors.Is(err, apperr.ErrTokenNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
 		h.log.Error("unsubscription failed", "err", err)
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
