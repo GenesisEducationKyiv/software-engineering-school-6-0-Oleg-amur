@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 const databasePingTimeout = time.Second
+const databasePingCacheTTL = 5 * time.Second
 
 type DatabasePinger interface {
 	PingContext(context.Context) error
@@ -21,6 +23,13 @@ type databaseCollector struct {
 	up           *prometheus.Desc
 	pingDuration *prometheus.Desc
 	pingTimeout  time.Duration
+	pingCacheTTL time.Duration
+
+	mu             sync.Mutex
+	cached         bool
+	cachedAt       time.Time
+	cachedUp       float64
+	cachedDuration float64
 }
 
 func RegisterDatabaseMetrics(db DatabasePinger, log *slog.Logger) error {
@@ -39,7 +48,8 @@ func RegisterDatabaseMetrics(db DatabasePinger, log *slog.Logger) error {
 			nil,
 			nil,
 		),
-		pingTimeout: databasePingTimeout,
+		pingTimeout:  databasePingTimeout,
+		pingCacheTTL: databasePingCacheTTL,
 	}
 
 	if err := prometheus.Register(collector); err != nil {
@@ -58,6 +68,22 @@ func (c *databaseCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *databaseCollector) Collect(ch chan<- prometheus.Metric) {
+	up, duration := c.ping()
+
+	ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, up)
+	ch <- prometheus.MustNewConstMetric(c.pingDuration, prometheus.GaugeValue, duration)
+}
+
+func (c *databaseCollector) ping() (float64, float64) {
+	now := time.Now()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.cached && c.pingCacheTTL > 0 && now.Sub(c.cachedAt) < c.pingCacheTTL {
+		return c.cachedUp, c.cachedDuration
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), c.pingTimeout)
 	defer cancel()
 
@@ -70,6 +96,10 @@ func (c *databaseCollector) Collect(ch chan<- prometheus.Metric) {
 		c.log.Error("database ping metric collection failed", "err", err)
 	}
 
-	ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, up)
-	ch <- prometheus.MustNewConstMetric(c.pingDuration, prometheus.GaugeValue, duration)
+	c.cached = true
+	c.cachedAt = now
+	c.cachedUp = up
+	c.cachedDuration = duration
+
+	return up, duration
 }
