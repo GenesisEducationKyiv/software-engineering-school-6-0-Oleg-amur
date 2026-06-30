@@ -18,7 +18,7 @@ var (
 			Namespace: "subscription_service",
 			Subsystem: "http",
 			Name:      "request_errors_total",
-			Help:      "Total number of HTTP requests that ended with a 4xx or 5xx status.",
+			Help:      "Total number of HTTP requests that ended with a 5xx status.",
 		},
 		[]string{"method", "route", "status"},
 	)
@@ -49,7 +49,7 @@ var (
 			Namespace: "subscription_service",
 			Subsystem: "grpc",
 			Name:      "request_errors_total",
-			Help:      "Total number of gRPC requests that ended with a non-OK status code.",
+			Help:      "Total number of gRPC requests that ended with a server error status code.",
 		},
 		[]string{"method", "status_code"},
 	)
