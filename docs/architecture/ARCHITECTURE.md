@@ -16,13 +16,20 @@ C4Context
     System_Ext(smtp, "SMTP Server / Mailpit", "Email delivery")
     System_Ext(observability, "Observability Tools", "Metrics and logs")
 
-    Rel_R(user, system, "Uses", "HTTP")
-    Rel_D(system, github, "Reads releases", "HTTPS/REST")
-    Rel_D(system, smtp, "Sends emails", "SMTP")
-    Rel_L(observability, system, "Reads telemetry", "HTTP / logs")
+    Rel_R(user, system, "")
+    Rel_D(system, github, "")
+    Rel_D(system, smtp, "")
+    Rel_L(observability, system, "")
 
     UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
+
+| From | To | Interaction |
+| --- | --- | --- |
+| Subscriber | GitHub Release Notifier | Uses web UI and subscription endpoints over HTTP |
+| GitHub Release Notifier | GitHub API | Reads repository and release data over HTTPS/REST |
+| GitHub Release Notifier | SMTP Server / Mailpit | Sends confirmation and release emails over SMTP |
+| Observability Tools | GitHub Release Notifier | Reads metrics and logs |
 
 ## Level 2: Containers
 
@@ -46,19 +53,32 @@ C4Container
     System_Ext(github, "GitHub API", "Repository releases")
     System_Ext(smtp, "SMTP Server / Mailpit", "Email delivery")
 
-    Rel_R(user, subscription, "Uses", "HTTP")
-    Rel_R(subscription, releaseTracker, "Ensures repos", "HTTP")
-    Rel_L(releaseTracker, subscription, "Reads subscribers", "gRPC")
-    Rel_D(subscription, subscriptionDb, "Reads/Writes", "SQL")
-    Rel_D(releaseTracker, releaseDb, "Reads/Writes", "SQL")
-    Rel_R(releaseTracker, github, "Polls releases", "HTTPS")
-    Rel_D(subscription, rabbitmq, "Confirmation events", "AMQP")
-    Rel_D(releaseTracker, rabbitmq, "Release events", "AMQP")
-    Rel_U(notificationWorker, rabbitmq, "Consumes events", "AMQP")
-    Rel_R(notificationWorker, smtp, "Sends emails", "SMTP")
+    Rel_R(user, subscription, "")
+    Rel_R(subscription, releaseTracker, "")
+    Rel_L(releaseTracker, subscription, "")
+    Rel_D(subscription, subscriptionDb, "")
+    Rel_D(releaseTracker, releaseDb, "")
+    Rel_R(releaseTracker, github, "")
+    Rel_D(subscription, rabbitmq, "")
+    Rel_D(releaseTracker, rabbitmq, "")
+    Rel_U(notificationWorker, rabbitmq, "")
+    Rel_R(notificationWorker, smtp, "")
 
     UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
+
+| From | To | Interaction |
+| --- | --- | --- |
+| Subscriber | Subscription Service | Uses static UI and public subscription endpoints over HTTP |
+| Subscription Service | Release Tracker | Ensures repositories and reads metadata over HTTP |
+| Release Tracker | Subscription Service | Reads active subscribers over gRPC; HTTP adapter remains for comparison |
+| Subscription Service | Subscription DB | Reads and writes subscribers, subscriptions, sagas, and outbox records over SQL |
+| Release Tracker | Release Tracker DB | Reads and writes tracked repositories over SQL |
+| Release Tracker | GitHub API | Polls latest release tags over HTTPS |
+| Subscription Service | RabbitMQ | Publishes confirmation events and consumes saga results over AMQP |
+| Release Tracker | RabbitMQ | Publishes release notification events over AMQP |
+| Notification Worker | RabbitMQ | Consumes notification events and publishes saga results over AMQP |
+| Notification Worker | SMTP Server / Mailpit | Sends emails over SMTP |
 
 Observability containers are available through the Compose `observability` profile and scrape `/metrics` from the Go services.
 
@@ -85,20 +105,34 @@ C4Component
         Component(eventbus, "RabbitMQ Adapters", "AMQP", "Confirmation and saga events")
     }
 
-    Rel_D(httpRouter, usecases, "Calls")
-    Rel_D(grpcHandler, usecases, "Calls")
-    Rel_R(usecases, domain, "Uses")
-    Rel_D(usecases, workflows, "Starts saga")
-    Rel_D(workflows, stores, "Persists")
-    Rel_R(usecases, stores, "Reads/Writes")
-    Rel_D(usecases, releaseClient, "Tracks repo")
-    Rel_D(releaseClient, releaseTracker, "Calls", "HTTP")
-    Rel_D(stores, subscriptionDb, "Reads/Writes", "SQL")
-    Rel_R(workflows, eventbus, "Publishes")
-    Rel_D(eventbus, rabbitmq, "AMQP")
+    Rel_D(httpRouter, usecases, "")
+    Rel_D(grpcHandler, usecases, "")
+    Rel_R(usecases, domain, "")
+    Rel_D(usecases, workflows, "")
+    Rel_D(workflows, stores, "")
+    Rel_R(usecases, stores, "")
+    Rel_D(usecases, releaseClient, "")
+    Rel_D(releaseClient, releaseTracker, "")
+    Rel_D(stores, subscriptionDb, "")
+    Rel_R(workflows, eventbus, "")
+    Rel_D(eventbus, rabbitmq, "")
 
     UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
+
+| From | To | Interaction |
+| --- | --- | --- |
+| HTTP Handlers | Use Cases | Calls subscription use cases |
+| gRPC Handler | Use Cases | Calls active-subscription query use case |
+| Use Cases | Domain | Uses subscription, subscriber, and saga models |
+| Use Cases | Workflow + Outbox | Starts confirmation saga through a port |
+| Workflow + Outbox | PostgreSQL Stores | Persists saga and outbox state |
+| Use Cases | PostgreSQL Stores | Reads and writes subscription state |
+| Use Cases | Release Client | Ensures repositories and reads metadata |
+| Release Client | Release Tracker | Calls repository APIs over HTTP |
+| PostgreSQL Stores | Subscription DB | Reads and writes data over SQL |
+| Workflow + Outbox | RabbitMQ Adapters | Publishes confirmation events |
+| RabbitMQ Adapters | RabbitMQ | Uses AMQP |
 
 ## Level 3: Release Tracker Components
 
@@ -124,20 +158,34 @@ C4Component
         Component(publisher, "Publisher", "AMQP", "Release notification jobs")
     }
 
-    Rel_D(httpRouter, usecases, "Calls")
-    Rel_D(scanner, usecases, "Triggers")
-    Rel_R(usecases, domain, "Uses")
-    Rel_D(usecases, stores, "Reads/Writes")
-    Rel_D(stores, releaseDb, "Reads/Writes", "SQL")
-    Rel_R(usecases, githubClient, "Checks tags")
-    Rel_D(githubClient, github, "Calls", "HTTPS")
-    Rel_D(usecases, subscriptionClient, "Gets subscribers")
-    Rel_D(subscriptionClient, subscription, "Calls", "gRPC")
-    Rel_R(usecases, publisher, "Publishes")
-    Rel_D(publisher, rabbitmq, "AMQP")
+    Rel_D(httpRouter, usecases, "")
+    Rel_D(scanner, usecases, "")
+    Rel_R(usecases, domain, "")
+    Rel_D(usecases, stores, "")
+    Rel_D(stores, releaseDb, "")
+    Rel_R(usecases, githubClient, "")
+    Rel_D(githubClient, github, "")
+    Rel_D(usecases, subscriptionClient, "")
+    Rel_D(subscriptionClient, subscription, "")
+    Rel_R(usecases, publisher, "")
+    Rel_D(publisher, rabbitmq, "")
 
     UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
+
+| From | To | Interaction |
+| --- | --- | --- |
+| HTTP Handlers | Use Cases | Calls repository ensure/read use cases |
+| Scan Scheduler | Use Cases | Triggers periodic release scans |
+| Use Cases | Domain | Uses repository and active-subscriber models |
+| Use Cases | Repository Store | Reads and writes tracked repositories |
+| Repository Store | Release Tracker DB | Reads and writes data over SQL |
+| Use Cases | GitHub Client | Checks repository existence and latest tags |
+| GitHub Client | GitHub API | Calls GitHub over HTTPS |
+| Use Cases | Subscription Client | Requests active subscribers for changed repositories |
+| Subscription Client | Subscription Service | Calls gRPC by default; HTTP client is retained |
+| Use Cases | Publisher | Publishes release notification jobs |
+| Publisher | RabbitMQ | Uses AMQP |
 
 ## Level 3: Notification Worker Components
 
@@ -158,16 +206,26 @@ C4Component
         Component(resultPublisher, "Saga Result Publisher", "AMQP", "Reports confirmation outcome")
     }
 
-    Rel_D(rabbitmq, consumer, "Delivers", "AMQP")
-    Rel_D(consumer, service, "Dispatches")
-    Rel_R(service, builder, "Builds")
-    Rel_D(service, emailClient, "Sends")
-    Rel_D(emailClient, smtp, "SMTP")
-    Rel_R(service, resultPublisher, "Reports")
-    Rel_D(resultPublisher, rabbitmq, "Publishes", "AMQP")
+    Rel_D(rabbitmq, consumer, "")
+    Rel_D(consumer, service, "")
+    Rel_R(service, builder, "")
+    Rel_D(service, emailClient, "")
+    Rel_D(emailClient, smtp, "")
+    Rel_R(service, resultPublisher, "")
+    Rel_D(resultPublisher, rabbitmq, "")
 
     UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
+
+| From | To | Interaction |
+| --- | --- | --- |
+| RabbitMQ | Consumer | Delivers notification events over AMQP |
+| Consumer | Notification Service | Dispatches decoded events |
+| Notification Service | Message Builder | Builds email subject and body |
+| Notification Service | Email Client | Sends email requests |
+| Email Client | SMTP Server / Mailpit | Sends email over SMTP |
+| Notification Service | Saga Result Publisher | Reports confirmation outcome |
+| Saga Result Publisher | RabbitMQ | Publishes saga result events over AMQP |
 
 ## Layering and Dependency Rules
 
