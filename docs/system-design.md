@@ -44,29 +44,11 @@ The production codebase mirrors those boundaries with separate Go modules under 
 
 ### 3.1 C4 Diagrams
 
-#### Level 1: System Context Diagram
-Shows the GitHub Release Notifier in relation to users and external systems.
+The current C4 diagrams are maintained as Mermaid source in [docs/architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md).
 
-![System Context Diagram](diagrams/system-context.drawio.png)
-
-> [!TIP]
-> The diagram above is an "Editable PNG". To modify it, download the file and drag it into [drawio](https://drawio.com/).
-
-#### Level 2: Container Diagram
-Shows the shows the high-level shape of the software architecture and how responsibilities are distributed across it.
-
-![Container Diagram](diagrams/container.drawio.png)
-
-> [!TIP]
-> The diagram above is an "Editable PNG". To modify it, download the file and drag it into [drawio](https://drawio.com/).
-
-#### Level 3: Component Diagram
-Shows the internal structure of the Go workspace and its interactions.
-
-![Container Diagram](diagrams/component.drawio.png)
-
-> [!TIP]
-> The diagram above is an "Editable PNG". To modify it, download the file and drag it into [drawio](https://drawio.com/).
+- **Level 1: System Context** shows the GitHub Release Notifier in relation to users and external systems.
+- **Level 2: Containers** shows independently deployable services, owned databases, RabbitMQ, and external dependencies.
+- **Level 3: Components** shows the main components inside the subscription service, release tracker, and notification worker.
 
 
 ## 4. Detailed Design of Components
