@@ -44,7 +44,7 @@ The production codebase mirrors those boundaries with separate Go modules under 
 
 ### 3.1 C4 Diagrams
 
-The current C4 diagrams are maintained as Mermaid source in [docs/architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md).
+The current C4 diagrams are maintained as Mermaid blocks in [docs/architecture/architecture.md](architecture/architecture.md).
 
 - **Level 1: System Context** shows the GitHub Release Notifier in relation to users and external systems.
 - **Level 2: Containers** shows independently deployable services, owned databases, RabbitMQ, and external dependencies.
