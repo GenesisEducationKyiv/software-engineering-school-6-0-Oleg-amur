@@ -90,6 +90,16 @@ C4Container
 
 Observability containers are available through the Compose `observability` profile and scrape `/metrics` from the Go services.
 
+## Code Architecture Style
+
+At the system level, the application is split into independently deployable services. Each service owns its runtime process and, where needed, its own PostgreSQL database.
+
+`subscription-service` and `release-tracker` use a modular ports-and-adapters style. Their business capabilities live under `internal/modules/...`; inside a module, transport adapters, use cases, workflows, domain models, and persistence stay close to the capability they serve. Use cases define application behavior and depend on local ports, while concrete PostgreSQL, RabbitMQ, GitHub, HTTP, and gRPC adapters are wired in `cmd/server`.
+
+`notification-worker` is intentionally simpler because it has one main capability: notification delivery. It uses a thin application service in `internal/notification`, with SMTP and RabbitMQ adapters around it, instead of the full module structure used by the stateful services.
+
+The dependency direction stays inward: transports and infrastructure adapters call use cases or application services, and domain models do not depend on infrastructure. The architecture lint configuration captures the most important import boundaries.
+
 ## Level 3: Subscription Service Components
 
 The subscription service uses vertical module slices. Transport adapters call use cases, use cases depend on ports, and infrastructure adapters are wired in the composition root.
