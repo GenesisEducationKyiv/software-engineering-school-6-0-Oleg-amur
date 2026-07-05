@@ -1,0 +1,36 @@
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+  deepScan: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+
+components:
+  cmd: { in: cmd/** }
+  support: { in: internal/config }
+  core: { in: internal/notification }
+  email-adapter: { in: internal/adapters/email }
+  eventbus-adapter: { in: internal/adapters/eventbus/** }
+
+deps:
+  cmd:
+    mayDependOn:
+      - support
+      - core
+      - email-adapter
+      - eventbus-adapter
+
+  support:
+    anyVendorDeps: true
+
+  core:
+    anyVendorDeps: true
+
+  email-adapter:
+    anyVendorDeps: true
+
+  eventbus-adapter:
+    anyVendorDeps: true

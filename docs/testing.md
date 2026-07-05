@@ -122,4 +122,4 @@ go install github.com/fe3dback/go-arch-lint@v1.15.0
 make arch-lint
 ```
 
-The root `.go-arch-lint.yml` checks that domain, use cases, workflows, transport, persistence, and adapters keep the intended dependency direction across the subscription service, release tracker, and notification worker.
+Each service owns its `.go-arch-lint.yml`. The configs check that domain, use cases, workflows, transport, persistence, and adapters keep the intended dependency direction inside `subscription-service`, `release-tracker`, and `notification-worker`.

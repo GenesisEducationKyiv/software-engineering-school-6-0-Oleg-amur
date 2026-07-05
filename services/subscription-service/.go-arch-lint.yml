@@ -1,0 +1,83 @@
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+  deepScan: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+  - "^.*\\/test\\/.*$"
+
+components:
+  cmd: { in: cmd/** }
+  support:
+    in:
+      - internal/apperr
+      - internal/config
+      - internal/database
+      - internal/observability
+      - internal/worker
+      - migrations
+      - static
+  api: { in: internal/api/** }
+  adapters: { in: internal/adapters/** }
+  domain: { in: internal/modules/subscriptions/domain }
+  usecase: { in: internal/modules/subscriptions/usecase }
+  workflow: { in: internal/modules/subscriptions/workflow }
+  persistence: { in: internal/modules/subscriptions/persistence/** }
+  transport: { in: internal/modules/subscriptions/transport/** }
+
+deps:
+  cmd:
+    mayDependOn:
+      - support
+      - api
+      - adapters
+      - domain
+      - usecase
+      - workflow
+      - persistence
+      - transport
+
+  support:
+    mayDependOn:
+      - support
+      - api
+      - usecase
+
+  api:
+    mayDependOn:
+      - support
+      - transport
+      - usecase
+
+  adapters:
+    mayDependOn:
+      - support
+      - usecase
+      - workflow
+
+  domain:
+    anyVendorDeps: true
+
+  usecase:
+    mayDependOn:
+      - support
+      - domain
+
+  workflow:
+    mayDependOn:
+      - domain
+
+  persistence:
+    mayDependOn:
+      - support
+      - adapters
+      - domain
+
+  transport:
+    mayDependOn:
+      - support
+      - domain
+      - usecase

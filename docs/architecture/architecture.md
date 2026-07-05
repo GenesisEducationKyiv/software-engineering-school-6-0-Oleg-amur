@@ -98,7 +98,7 @@ At the system level, the application is split into independently deployable serv
 
 `notification-worker` is intentionally simpler because it has one main capability: notification delivery. It uses a thin application service in `internal/notification`, with SMTP and RabbitMQ adapters around it, instead of the full module structure used by the stateful services.
 
-The dependency direction stays inward: transports and infrastructure adapters call use cases or application services, and domain models do not depend on infrastructure. The architecture lint configuration captures the most important import boundaries.
+The dependency direction stays inward: transports and infrastructure adapters call use cases or application services, and domain models do not depend on infrastructure. Service-local architecture lint configurations capture the most important import boundaries.
 
 ## Level 3: Subscription Service Components
 

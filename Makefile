@@ -21,7 +21,9 @@ proto-generate:
 	buf generate
 
 arch-lint:
-	go-arch-lint check
+	cd $(SUBSCRIPTION_SERVICE_DIR) && go-arch-lint check
+	cd $(RELEASE_TRACKER_DIR) && go-arch-lint check
+	cd $(NOTIFICATION_WORKER_DIR) && go-arch-lint check
 
 lint: arch-lint
 	cd $(CONTRACTS_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
