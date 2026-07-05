@@ -10,18 +10,18 @@ The system lets users subscribe to GitHub repositories, confirms subscriptions b
 C4Context
     title System Context Diagram for GitHub Release Notifier
 
-    Person(user, "Subscriber", "Registers an email address and subscribes to public GitHub repositories")
-    System(system, "GitHub Release Notifier", "Tracks GitHub releases and emails confirmed subscribers")
-    System_Ext(github, "GitHub API", "Provides repository metadata and latest release tags")
-    System_Ext(smtp, "SMTP Server / Mailpit", "Delivers confirmation and release notification emails")
-    System_Ext(observability, "Observability Tools", "Prometheus, Grafana, Filebeat, Elasticsearch, and Kibana")
+    Person(user, "Subscriber", "Subscribes to public GitHub repositories")
+    System(system, "GitHub Release Notifier", "Tracks releases and emails subscribers")
+    System_Ext(github, "GitHub API", "Repository and release data")
+    System_Ext(smtp, "SMTP Server / Mailpit", "Email delivery")
+    System_Ext(observability, "Observability Tools", "Metrics and logs")
 
-    Rel(user, system, "Subscribes, confirms, lists, and unsubscribes", "HTTPS/HTTP")
-    Rel(system, github, "Checks repository existence and latest releases", "HTTPS/REST")
-    Rel(system, smtp, "Sends confirmation and release emails", "SMTP")
-    Rel(observability, system, "Scrapes metrics and collects logs", "HTTP / Docker logs")
+    Rel_R(user, system, "Uses", "HTTP")
+    Rel_D(system, github, "Reads releases", "HTTPS/REST")
+    Rel_D(system, smtp, "Sends emails", "SMTP")
+    Rel_L(observability, system, "Reads telemetry", "HTTP / logs")
 
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
 ## Level 2: Containers
@@ -35,33 +35,32 @@ C4Container
     Person(user, "Subscriber", "Uses the web UI and public subscription API")
 
     System_Boundary(app, "GitHub Release Notifier") {
-        Container(subscription, "Subscription Service", "Go, Chi, gRPC", "Serves the static UI and subscription APIs, owns subscribers, subscriptions, confirmation sagas, and the outbox")
-        Container(releaseTracker, "Release Tracker", "Go, Chi", "Stores tracked repositories, polls GitHub, and publishes release notification jobs")
-        Container(notificationWorker, "Notification Worker", "Go", "Consumes notification jobs, sends emails, and publishes subscription saga results")
-        ContainerDb(subscriptionDb, "Subscription DB", "PostgreSQL", "Stores subscribers, subscriptions, confirmation sagas, and outbox records")
-        ContainerDb(releaseDb, "Release Tracker DB", "PostgreSQL", "Stores tracked repositories and last seen release tags")
-        ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Durable notification queue, saga result queue, and dead-letter queues")
+        Container(subscription, "Subscription Service", "Go, Chi, gRPC", "UI, subscription API, confirmation sagas, and outbox")
+        Container(releaseTracker, "Release Tracker", "Go, Chi", "Repository tracking and GitHub polling")
+        Container(notificationWorker, "Notification Worker", "Go", "Email delivery from durable events")
+        ContainerDb(subscriptionDb, "Subscription DB", "PostgreSQL", "Subscribers, subscriptions, sagas, outbox")
+        ContainerDb(releaseDb, "Release Tracker DB", "PostgreSQL", "Tracked repositories and last seen tags")
+        ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Notification, saga, and DLQ queues")
     }
 
-    System_Ext(github, "GitHub API", "Repository and release metadata")
+    System_Ext(github, "GitHub API", "Repository releases")
     System_Ext(smtp, "SMTP Server / Mailpit", "Email delivery")
-    System_Ext(prometheus, "Prometheus", "Metrics scraping")
 
-    Rel(user, subscription, "Uses web UI and subscription endpoints", "HTTP")
-    Rel(subscription, releaseTracker, "Ensures repositories and reads metadata", "HTTP/REST")
-    Rel(subscription, subscriptionDb, "Reads and writes subscription state", "SQL")
-    Rel(subscription, rabbitmq, "Publishes confirmation requests and consumes saga results", "AMQP")
-    Rel(releaseTracker, releaseDb, "Reads and writes tracked repositories", "SQL")
-    Rel(releaseTracker, github, "Checks existence and latest release tags", "HTTPS/REST")
-    Rel(releaseTracker, subscription, "Lists active subscriptions for changed repositories", "gRPC; HTTP adapter retained for comparison")
-    Rel(releaseTracker, rabbitmq, "Publishes release notification requests", "AMQP")
-    Rel(notificationWorker, rabbitmq, "Consumes notification requests and publishes saga results", "AMQP")
-    Rel(notificationWorker, smtp, "Sends emails", "SMTP")
-    Rel(prometheus, subscription, "Scrapes metrics", "HTTP /metrics")
-    Rel(prometheus, releaseTracker, "Scrapes metrics", "HTTP /metrics")
+    Rel_R(user, subscription, "Uses", "HTTP")
+    Rel_R(subscription, releaseTracker, "Ensures repos", "HTTP")
+    Rel_L(releaseTracker, subscription, "Reads subscribers", "gRPC")
+    Rel_D(subscription, subscriptionDb, "Reads/Writes", "SQL")
+    Rel_D(releaseTracker, releaseDb, "Reads/Writes", "SQL")
+    Rel_R(releaseTracker, github, "Polls releases", "HTTPS")
+    Rel_D(subscription, rabbitmq, "Confirmation events", "AMQP")
+    Rel_D(releaseTracker, rabbitmq, "Release events", "AMQP")
+    Rel_U(notificationWorker, rabbitmq, "Consumes events", "AMQP")
+    Rel_R(notificationWorker, smtp, "Sends emails", "SMTP")
 
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
+
+Observability containers are available through the Compose `observability` profile and scrape `/metrics` from the Go services.
 
 ## Level 3: Subscription Service Components
 
@@ -71,34 +70,34 @@ The subscription service uses vertical module slices. Transport adapters call us
 C4Component
     title Component Diagram for Subscription Service
 
-    Container(releaseTracker, "Release Tracker", "Go service", "Repository metadata service")
-    ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Notification and saga event broker")
-    ContainerDb(subscriptionDb, "Subscription DB", "PostgreSQL", "Subscription-owned data")
+    Container(releaseTracker, "Release Tracker", "Go service", "Repository metadata")
+    ContainerDb(subscriptionDb, "Subscription DB", "PostgreSQL", "Subscription data")
+    ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Events")
 
     Container_Boundary(subscription, "Subscription Service") {
-        Component(httpRouter, "HTTP Router and Handlers", "Chi / Go", "Serves static UI, public REST endpoints, internal REST endpoint, health, and metrics")
-        Component(grpcHandler, "gRPC Handler", "Go gRPC", "Exposes active-subscription queries for release tracking")
-        Component(usecases, "Subscription Use Cases", "Go", "Coordinates subscribe, confirm, unsubscribe, list, and active-subscription queries")
-        Component(workflows, "Confirmation Workflow and Outbox", "Go", "Starts confirmation saga, stores outbox messages, and handles saga results")
-        Component(stores, "PostgreSQL Stores", "Go / SQL", "Persists subscribers, subscriptions, sagas, and outbox messages")
-        Component(releaseClient, "Release Tracker Client", "Go HTTP client", "Ensures repositories and reads repository metadata")
-        Component(eventbus, "RabbitMQ Adapters", "AMQP", "Publishes confirmation requests and consumes saga result events")
-        Component(domain, "Subscription Domain", "Go", "Subscription, subscriber, saga, and outbox domain models")
+        Component(httpRouter, "HTTP Handlers", "Chi / Go", "Public API, static UI, health, metrics")
+        Component(grpcHandler, "gRPC Handler", "Go gRPC", "Active subscription query")
+        Component(usecases, "Use Cases", "Go", "Subscribe, confirm, unsubscribe, list")
+        Component(domain, "Domain", "Go", "Subscriber, subscription, saga models")
+        Component(workflows, "Workflow + Outbox", "Go", "Confirmation saga and outbox relay")
+        Component(stores, "PostgreSQL Stores", "Go / SQL", "Subscribers, subscriptions, sagas, outbox")
+        Component(releaseClient, "Release Client", "Go HTTP client", "Repository metadata")
+        Component(eventbus, "RabbitMQ Adapters", "AMQP", "Confirmation and saga events")
     }
 
-    Rel(httpRouter, usecases, "Invokes")
-    Rel(grpcHandler, usecases, "Invokes")
-    Rel(usecases, domain, "Uses")
-    Rel(usecases, workflows, "Starts confirmation through port")
-    Rel(workflows, stores, "Persists saga and outbox state through ports")
-    Rel(usecases, stores, "Reads and writes subscriptions through ports")
-    Rel(usecases, releaseClient, "Ensures and reads repositories through port")
-    Rel(releaseClient, releaseTracker, "Calls", "HTTP/REST")
-    Rel(stores, subscriptionDb, "Reads/Writes", "SQL")
-    Rel(eventbus, rabbitmq, "Publishes and consumes", "AMQP")
-    Rel(workflows, eventbus, "Publishes outbox messages through port")
+    Rel_D(httpRouter, usecases, "Calls")
+    Rel_D(grpcHandler, usecases, "Calls")
+    Rel_R(usecases, domain, "Uses")
+    Rel_D(usecases, workflows, "Starts saga")
+    Rel_D(workflows, stores, "Persists")
+    Rel_R(usecases, stores, "Reads/Writes")
+    Rel_D(usecases, releaseClient, "Tracks repo")
+    Rel_D(releaseClient, releaseTracker, "Calls", "HTTP")
+    Rel_D(stores, subscriptionDb, "Reads/Writes", "SQL")
+    Rel_R(workflows, eventbus, "Publishes")
+    Rel_D(eventbus, rabbitmq, "AMQP")
 
-    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
 ## Level 3: Release Tracker Components
@@ -109,35 +108,35 @@ The release tracker owns repository tracking and scanning. The subscription quer
 C4Component
     title Component Diagram for Release Tracker
 
-    Container(subscription, "Subscription Service", "Go service", "Active subscriber source")
-    ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Notification broker")
+    Container(subscription, "Subscription Service", "Go service", "Active subscribers")
     ContainerDb(releaseDb, "Release Tracker DB", "PostgreSQL", "Tracked repositories")
-    System_Ext(github, "GitHub API", "Repository release metadata")
+    ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Notification events")
+    System_Ext(github, "GitHub API", "Release metadata")
 
     Container_Boundary(releaseTracker, "Release Tracker") {
-        Component(httpRouter, "HTTP Router and Handlers", "Chi / Go", "Repository ensure/read API, health, and metrics")
-        Component(scanner, "Scan Scheduler", "Go worker", "Runs release scans on a configured interval")
-        Component(usecases, "Release Tracker Use Cases", "Go", "Ensures repositories, reads repository metadata, and scans for release changes")
-        Component(stores, "Repository Store", "Go / SQL", "Persists repository names and last seen release tags")
-        Component(githubClient, "GitHub Client", "Go HTTP client", "Checks repository existence and latest release tags")
-        Component(subscriptionClient, "Subscription Query Client", "Go gRPC / HTTP client", "Lists active subscriptions for repositories with new releases")
-        Component(publisher, "Notification Publisher", "AMQP", "Publishes release notification requests")
-        Component(domain, "Repository Domain", "Go", "Repository and active-subscription models")
+        Component(httpRouter, "HTTP Handlers", "Chi / Go", "Repository API, health, metrics")
+        Component(scanner, "Scan Scheduler", "Go worker", "Periodic release scans")
+        Component(usecases, "Use Cases", "Go", "Ensure repo, get repo, scan releases")
+        Component(domain, "Domain", "Go", "Repository and subscriber models")
+        Component(stores, "Repository Store", "Go / SQL", "Tracked repositories")
+        Component(githubClient, "GitHub Client", "Go HTTP client", "Repository releases")
+        Component(subscriptionClient, "Subscription Client", "Go gRPC / HTTP", "Active subscriptions")
+        Component(publisher, "Publisher", "AMQP", "Release notification jobs")
     }
 
-    Rel(httpRouter, usecases, "Invokes")
-    Rel(scanner, usecases, "Triggers scheduled scan")
-    Rel(usecases, domain, "Uses")
-    Rel(usecases, stores, "Reads and writes repositories through port")
-    Rel(stores, releaseDb, "Reads/Writes", "SQL")
-    Rel(usecases, githubClient, "Checks repositories and tags through port")
-    Rel(githubClient, github, "Calls", "HTTPS/REST")
-    Rel(usecases, subscriptionClient, "Requests active subscriptions through port")
-    Rel(subscriptionClient, subscription, "Calls", "gRPC default; HTTP fallback")
-    Rel(usecases, publisher, "Publishes notification jobs through port")
-    Rel(publisher, rabbitmq, "Publishes", "AMQP")
+    Rel_D(httpRouter, usecases, "Calls")
+    Rel_D(scanner, usecases, "Triggers")
+    Rel_R(usecases, domain, "Uses")
+    Rel_D(usecases, stores, "Reads/Writes")
+    Rel_D(stores, releaseDb, "Reads/Writes", "SQL")
+    Rel_R(usecases, githubClient, "Checks tags")
+    Rel_D(githubClient, github, "Calls", "HTTPS")
+    Rel_D(usecases, subscriptionClient, "Gets subscribers")
+    Rel_D(subscriptionClient, subscription, "Calls", "gRPC")
+    Rel_R(usecases, publisher, "Publishes")
+    Rel_D(publisher, rabbitmq, "AMQP")
 
-    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
 ## Level 3: Notification Worker Components
@@ -148,26 +147,26 @@ The notification worker has no database. It consumes durable events, sends email
 C4Component
     title Component Diagram for Notification Worker
 
-    ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Notification and saga result broker")
+    ContainerQueue(rabbitmq, "RabbitMQ", "AMQP", "Notification and saga events")
     System_Ext(smtp, "SMTP Server / Mailpit", "Email delivery")
 
     Container_Boundary(notificationWorker, "Notification Worker") {
-        Component(consumer, "Notification Consumer", "AMQP", "Decodes confirmation and release notification events")
-        Component(service, "Notification Service", "Go", "Coordinates email delivery and confirmation saga result publishing")
-        Component(builder, "Message Builder", "Go", "Builds confirmation and release email subjects and bodies")
-        Component(emailClient, "Email Client", "SMTP", "Sends email with retry policy")
-        Component(resultPublisher, "Saga Result Publisher", "AMQP", "Publishes confirmation succeeded or failed events")
+        Component(consumer, "Consumer", "AMQP", "Decodes notification events")
+        Component(service, "Notification Service", "Go", "Coordinates delivery")
+        Component(builder, "Message Builder", "Go", "Builds email content")
+        Component(emailClient, "Email Client", "SMTP", "Sends with retry policy")
+        Component(resultPublisher, "Saga Result Publisher", "AMQP", "Reports confirmation outcome")
     }
 
-    Rel(consumer, rabbitmq, "Consumes notification events from", "AMQP")
-    Rel(consumer, service, "Dispatches events to")
-    Rel(service, builder, "Builds messages with")
-    Rel(service, emailClient, "Sends email through")
-    Rel(emailClient, smtp, "Sends", "SMTP")
-    Rel(service, resultPublisher, "Reports confirmation outcome through")
-    Rel(resultPublisher, rabbitmq, "Publishes saga result events to", "AMQP")
+    Rel_D(rabbitmq, consumer, "Delivers", "AMQP")
+    Rel_D(consumer, service, "Dispatches")
+    Rel_R(service, builder, "Builds")
+    Rel_D(service, emailClient, "Sends")
+    Rel_D(emailClient, smtp, "SMTP")
+    Rel_R(service, resultPublisher, "Reports")
+    Rel_D(resultPublisher, rabbitmq, "Publishes", "AMQP")
 
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
 ## Layering and Dependency Rules
@@ -182,4 +181,4 @@ The service code follows these dependency directions:
 - `persistence` and `adapters`: concrete PostgreSQL, RabbitMQ, GitHub, SMTP, and cross-service clients; implement ports and may depend inward on domain/usecase contracts.
 - `shared/contracts` and `shared/messaging`: shared event, protobuf, and RabbitMQ utility modules used across service boundaries.
 
-The `.go-arch-lint.yml` rules enforce the most important import boundaries as part of `make arch-lint` and `make lint`.
+The layering rules above document the intended dependency direction between packages.
