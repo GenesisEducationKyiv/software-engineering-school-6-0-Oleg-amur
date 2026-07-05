@@ -2,7 +2,7 @@ version: 3
 workdir: .
 
 allow:
-  depOnAnyVendor: true
+  depOnAnyVendor: false
   deepScan: false
 
 excludeFiles:
@@ -15,6 +15,9 @@ components:
   email-adapter: { in: internal/adapters/email }
   eventbus-adapter: { in: internal/adapters/eventbus/** }
 
+vendors:
+  shared-contract-events: { in: github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events }
+
 deps:
   cmd:
     mayDependOn:
@@ -22,14 +25,18 @@ deps:
       - core
       - email-adapter
       - eventbus-adapter
+    anyVendorDeps: true
 
   support:
     anyVendorDeps: true
 
   core:
-    anyVendorDeps: true
+    canUse:
+      - shared-contract-events
 
   email-adapter:
+    mayDependOn:
+      - email-adapter
     anyVendorDeps: true
 
   eventbus-adapter:

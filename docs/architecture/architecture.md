@@ -191,7 +191,6 @@ C4Component
         Component(releaseUsecaseSpacerMidRight, " ", " ", " ")
         Component(releaseUsecaseSpacerRight, " ", " ", " ")
 
-        Component(scanWorkflow, "Scan Workflow", "Go", "Finds release deltas and plans notifications")
         Component(domain, "Domain Models", "Go", "Repository and subscriber models")
         Component(repository, "Repository", "Go / SQL", "Tracked repositories")
     }
@@ -204,9 +203,7 @@ C4Component
     Rel_D(githubClient, github, "")
     Rel_D(publisher, rabbitmq, "")
     Rel_R(usecases, domain, "")
-    Rel_D(usecases, scanWorkflow, "")
     Rel_D(usecases, repository, "")
-    Rel_D(scanWorkflow, repository, "")
     Rel_R(usecases, githubClient, "")
     Rel_D(usecases, subscriptionClient, "")
     Rel_R(usecases, publisher, "")
@@ -227,9 +224,7 @@ C4Component
 | GitHub Client | GitHub API | Calls GitHub over HTTPS |
 | RabbitMQ Publisher | RabbitMQ | Publishes release notification jobs over AMQP |
 | Use Cases | Domain Models | Uses repository and active-subscriber models |
-| Use Cases | Scan Workflow | Finds release deltas and plans notifications |
 | Use Cases | Repository | Reads and writes tracked repositories |
-| Scan Workflow | Repository | Persists scan progress |
 | Use Cases | GitHub Client | Checks repository existence and latest tags |
 | Use Cases | Subscription Client | Requests active subscribers for changed repositories |
 | Use Cases | RabbitMQ Publisher | Publishes release notification jobs |
