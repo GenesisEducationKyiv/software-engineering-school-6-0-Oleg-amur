@@ -12,7 +12,7 @@ GO_PACKAGES := ./...
 INTERNAL_PACKAGES := ./internal/...
 INTEGRATION_PACKAGES := ./test/integration/...
 
-.PHONY: proto-lint proto-generate lint test test-unit test-integration test-e2e coverage coverage-unit coverage-integration coverage-summary benchmark-seed benchmark-http benchmark-grpc benchmark-client clean-test-artifacts
+.PHONY: proto-lint proto-generate arch-lint lint test test-unit test-integration test-e2e coverage coverage-unit coverage-integration coverage-summary benchmark-seed benchmark-http benchmark-grpc benchmark-client clean-test-artifacts
 
 proto-lint:
 	buf lint
@@ -20,7 +20,10 @@ proto-lint:
 proto-generate:
 	buf generate
 
-lint:
+arch-lint:
+	go-arch-lint check
+
+lint: arch-lint
 	cd $(CONTRACTS_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(MESSAGING_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)
 	cd $(SUBSCRIPTION_SERVICE_DIR) && golangci-lint run --config=../../.golangci.yml $(GO_PACKAGES)

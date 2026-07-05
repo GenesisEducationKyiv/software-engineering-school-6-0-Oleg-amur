@@ -1,0 +1,195 @@
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+  deepScan: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+  - "^.*\\/test\\/.*$"
+  - "^shared\\/contracts\\/gen\\/.*$"
+  - "^.*\\/workspace\\/.*$"
+
+components:
+  shared-contracts: { in: shared/contracts/** }
+  shared-messaging: { in: shared/messaging/** }
+
+  subscription-cmd: { in: services/subscription-service/cmd/** }
+  subscription-support:
+    in:
+      - services/subscription-service/internal/apperr
+      - services/subscription-service/internal/config
+      - services/subscription-service/internal/database
+      - services/subscription-service/internal/observability
+      - services/subscription-service/internal/worker
+      - services/subscription-service/migrations
+      - services/subscription-service/static
+  subscription-api: { in: services/subscription-service/internal/api/** }
+  subscription-adapters: { in: services/subscription-service/internal/adapters/** }
+  subscription-domain: { in: services/subscription-service/internal/modules/subscriptions/domain }
+  subscription-usecase: { in: services/subscription-service/internal/modules/subscriptions/usecase }
+  subscription-workflow: { in: services/subscription-service/internal/modules/subscriptions/workflow }
+  subscription-persistence: { in: services/subscription-service/internal/modules/subscriptions/persistence/** }
+  subscription-transport: { in: services/subscription-service/internal/modules/subscriptions/transport/** }
+
+  release-tracker-cmd: { in: services/release-tracker/cmd/** }
+  release-tracker-support:
+    in:
+      - services/release-tracker/internal/apperr
+      - services/release-tracker/internal/config
+      - services/release-tracker/internal/database
+      - services/release-tracker/internal/observability
+      - services/release-tracker/internal/worker
+      - services/release-tracker/migrations
+  release-tracker-api: { in: services/release-tracker/internal/api/** }
+  release-tracker-adapters: { in: services/release-tracker/internal/adapters/** }
+  release-tracker-domain: { in: services/release-tracker/internal/modules/releasetracker/domain }
+  release-tracker-usecase: { in: services/release-tracker/internal/modules/releasetracker/usecase }
+  release-tracker-persistence: { in: services/release-tracker/internal/modules/releasetracker/persistence/** }
+  release-tracker-transport: { in: services/release-tracker/internal/modules/releasetracker/transport/** }
+
+  notification-cmd: { in: services/notification-worker/cmd/** }
+  notification-support: { in: services/notification-worker/internal/config }
+  notification-core: { in: services/notification-worker/internal/notification }
+  notification-email-adapter: { in: services/notification-worker/internal/adapters/email }
+  notification-eventbus-adapter: { in: services/notification-worker/internal/adapters/eventbus/** }
+
+  e2e-fake-github: { in: test/e2e/fakes/github/** }
+  benchmarks: { in: benchmarks/** }
+
+commonComponents:
+  - shared-contracts
+
+deps:
+  shared-contracts:
+    anyVendorDeps: true
+  shared-messaging:
+    anyVendorDeps: true
+
+  subscription-cmd:
+    mayDependOn:
+      - subscription-support
+      - subscription-api
+      - subscription-adapters
+      - subscription-domain
+      - subscription-usecase
+      - subscription-workflow
+      - subscription-persistence
+      - subscription-transport
+
+  subscription-support:
+    mayDependOn:
+      - subscription-support
+      - subscription-api
+      - subscription-usecase
+      - shared-messaging
+
+  subscription-api:
+    mayDependOn:
+      - subscription-support
+      - subscription-transport
+      - subscription-usecase
+
+  subscription-adapters:
+    mayDependOn:
+      - subscription-support
+      - subscription-usecase
+      - subscription-workflow
+      - shared-messaging
+
+  subscription-domain:
+    anyVendorDeps: true
+
+  subscription-usecase:
+    mayDependOn:
+      - subscription-support
+      - subscription-domain
+
+  subscription-workflow:
+    mayDependOn:
+      - subscription-domain
+
+  subscription-persistence:
+    mayDependOn:
+      - subscription-support
+      - subscription-adapters
+      - subscription-domain
+
+  subscription-transport:
+    mayDependOn:
+      - subscription-support
+      - subscription-domain
+      - subscription-usecase
+
+  release-tracker-cmd:
+    mayDependOn:
+      - release-tracker-support
+      - release-tracker-api
+      - release-tracker-adapters
+      - release-tracker-domain
+      - release-tracker-usecase
+      - release-tracker-persistence
+      - shared-messaging
+
+  release-tracker-support:
+    mayDependOn:
+      - release-tracker-support
+
+  release-tracker-api:
+    mayDependOn:
+      - release-tracker-support
+      - release-tracker-transport
+      - release-tracker-usecase
+
+  release-tracker-adapters:
+    mayDependOn:
+      - release-tracker-support
+      - release-tracker-domain
+      - shared-messaging
+
+  release-tracker-domain:
+    anyVendorDeps: true
+
+  release-tracker-usecase:
+    mayDependOn:
+      - release-tracker-support
+      - release-tracker-domain
+
+  release-tracker-persistence:
+    mayDependOn:
+      - release-tracker-support
+      - release-tracker-domain
+
+  release-tracker-transport:
+    mayDependOn:
+      - release-tracker-support
+      - release-tracker-domain
+      - release-tracker-usecase
+
+  notification-cmd:
+    mayDependOn:
+      - notification-support
+      - notification-core
+      - notification-email-adapter
+      - notification-eventbus-adapter
+
+  notification-support:
+    anyVendorDeps: true
+
+  notification-core:
+    anyVendorDeps: true
+
+  notification-email-adapter:
+    anyVendorDeps: true
+
+  notification-eventbus-adapter:
+    mayDependOn:
+      - shared-messaging
+
+  e2e-fake-github:
+    anyVendorDeps: true
+
+  benchmarks:
+    mayDependOn:
+      - shared-contracts

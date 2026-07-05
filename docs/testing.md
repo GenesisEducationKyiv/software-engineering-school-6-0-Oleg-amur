@@ -112,3 +112,14 @@ if got != want {
 ```
 
 Use `mock*` for small unit-test doubles and `Fake*` for reusable integration-test fakes.
+
+## Architecture Lint
+
+Architecture dependency rules are checked by `go-arch-lint` and run as part of `make lint`.
+
+```sh
+go install github.com/fe3dback/go-arch-lint@v1.15.0
+make arch-lint
+```
+
+The root `.go-arch-lint.yml` checks that domain, use cases, workflows, transport, persistence, and adapters keep the intended dependency direction across the subscription service, release tracker, and notification worker.
