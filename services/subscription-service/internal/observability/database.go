@@ -10,8 +10,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const databasePingTimeout = time.Second
-const databasePingCacheTTL = 5 * time.Second
+const (
+	databasePingTimeout  = time.Second
+	databasePingCacheTTL = 5 * time.Second
+)
 
 type DatabasePinger interface {
 	PingContext(context.Context) error
