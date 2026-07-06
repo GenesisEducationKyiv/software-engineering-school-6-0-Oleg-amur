@@ -247,9 +247,17 @@ flowchart TB
 
 ## Code Architecture Style
 
-The system is split into independently deployable services. Each service owns its runtime process and, where needed, its own PostgreSQL database. Inside the stateful services, code is organized around business capabilities in a style similar to vertical slices. Each slice keeps its handlers, use cases, workflows, domain models, and persistence close together, while dependencies still point inward toward the application and domain code.
+The system is split into three independently deployable services:
 
-This is a pragmatic clean architecture / ports-and-adapters approach rather than a strict framework. `subscription-service` and `release-tracker` keep business slices under `internal/modules/...`. `notification-worker` is intentionally simpler: it has one application service in `internal/notification`, with SMTP and RabbitMQ adapters around it.
+- `subscription-service`: owns the public UI/API, subscription lifecycle, confirmation saga, and subscription database.
+- `release-tracker`: owns tracked repositories, GitHub polling, release detection, and release notification publishing.
+- `notification-worker`: consumes notification events, sends emails, and reports confirmation saga results.
+
+Shared contracts and messaging helpers live under `shared/`; they are libraries, not deployable services.
+
+Each service owns its runtime process and, where needed, its own PostgreSQL database. The stateful services still keep the module-style organization that came from the earlier modular-monolith design: the main business capability lives under `internal/modules/...` and groups its handlers, use cases, workflows, domain models, and persistence together.
+
+This is a pragmatic clean architecture / ports-and-adapters approach rather than a strict framework. Outer technical code points inward toward use cases and domain models. `notification-worker` is intentionally simpler: it has one application service in `internal/notification`, with SMTP and RabbitMQ adapters around it.
 
 The intended dependency direction is inward:
 
