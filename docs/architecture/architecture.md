@@ -90,16 +90,6 @@ C4Container
 
 Observability containers are available through the Compose `observability` profile and scrape `/metrics` from the Go services.
 
-## Code Architecture Style
-
-At the system level, the application is split into independently deployable services. Each service owns its runtime process and, where needed, its own PostgreSQL database.
-
-`subscription-service` and `release-tracker` use a modular ports-and-adapters style. Their business capabilities live under `internal/modules/...`; inside a module, transport adapters, use cases, workflows, domain models, and persistence stay close to the capability they serve. Use cases define application behavior and depend on local ports, while concrete PostgreSQL, RabbitMQ, GitHub, HTTP, and gRPC adapters are wired in `cmd/server`.
-
-`notification-worker` is intentionally simpler because it has one main capability: notification delivery. It uses a thin application service in `internal/notification`, with SMTP and RabbitMQ adapters around it, instead of the full module structure used by the stateful services.
-
-The dependency direction stays inward: transports and infrastructure adapters call use cases or application services, and domain models do not depend on infrastructure. Service-local architecture lint configurations capture the most important import boundaries.
-
 ## Level 3: Subscription Service Components
 
 The subscription service uses vertical module slices. Transport adapters call use cases, use cases depend on ports, and infrastructure adapters are wired in the composition root.
@@ -280,3 +270,26 @@ C4Component
 | Notification Service | Message Builder | Builds email subject and body |
 | Notification Service | Email Client | Sends email requests |
 | Notification Service | Saga Result Publisher | Reports confirmation outcome |
+
+## Code Architecture Style
+
+The system is split into independently deployable services. Each service owns its runtime process and, where needed, its own PostgreSQL database. Inside the stateful services, code is organized around business capabilities in a style similar to vertical slices. Each slice keeps its handlers, use cases, workflows, domain models, and persistence close together, while dependencies still point inward toward the application and domain code.
+
+This is a pragmatic clean architecture / ports-and-adapters approach rather than a strict framework. `subscription-service` and `release-tracker` keep business slices under `internal/modules/...`. `notification-worker` is intentionally simpler: it has one application service in `internal/notification`, with SMTP and RabbitMQ adapters around it.
+
+The intended dependency direction is inward:
+
+| Layer | Responsibility | May depend on |
+| --- | --- | --- |
+| `cmd/server` | Composition root: loads config, creates databases, clients, adapters, use cases, servers, and workers | Any service-local layer |
+| HTTP/gRPC transports and API routers | Accept external requests and translate transport DTOs into use-case calls | Use cases, domain models, support packages |
+| Use cases and application services | Implement application behavior and define the ports they need | Domain models, local support packages, allowed shared event contracts |
+| Workflows | Coordinate longer business processes such as confirmation saga and outbox publishing | Domain models, local ports, allowed shared event contracts |
+| Domain models | Represent business state and rules | Other domain code only |
+| Persistence | Store and load domain state from PostgreSQL | Domain models, database support |
+| Infrastructure adapters | Implement ports for RabbitMQ, GitHub, SMTP, HTTP, and gRPC clients | Ports or domain models they adapt to |
+| Support packages | Configuration, database bootstrap, observability, schedulers, migrations, and static assets | Other support code and explicitly allowed local layers |
+
+The key rule is that domain and application code do not point outward to concrete infrastructure. For example, a domain model must not import PostgreSQL, RabbitMQ, HTTP, gRPC, or Prometheus. Use cases should depend on interfaces such as repositories, publishers, or external clients, while `cmd/server` wires those interfaces to concrete adapters.
+
+The service-local `.go-arch-lint.yml` files make these boundaries executable. They define the layer components, allowed import directions, and vendor-import policy. Outer layers may use vendor packages freely, while domain packages cannot use vendor packages and application-core packages only allow the shared event contracts they publish or consume.
