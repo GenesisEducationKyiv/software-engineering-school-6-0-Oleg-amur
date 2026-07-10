@@ -2,25 +2,37 @@ package email
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/smtp"
+	"net/textproto"
 	"time"
 )
 
 type Client struct {
-	host      string
-	port      string
-	fromEmail string
-	timeout   time.Duration
+	log         *slog.Logger
+	host        string
+	port        string
+	fromEmail   string
+	timeout     time.Duration
+	retryPolicy RetryPolicy
 }
 
-func NewClient(host, port, fromEmail string, timeout time.Duration) *Client {
+func NewClient(
+	log *slog.Logger,
+	host, port, fromEmail string,
+	timeout time.Duration,
+	retryPolicy RetryPolicy,
+) *Client {
 	return &Client{
-		host:      host,
-		port:      port,
-		fromEmail: fromEmail,
-		timeout:   timeout,
+		log:         log,
+		host:        host,
+		port:        port,
+		fromEmail:   fromEmail,
+		timeout:     timeout,
+		retryPolicy: retryPolicy,
 	}
 }
 
@@ -29,6 +41,24 @@ func (c *Client) Send(ctx context.Context, to, subject, body string) error {
 		ctx = context.Background()
 	}
 
+	return c.retryPolicy.execute(
+		ctx,
+		func() error { return c.sendOnce(ctx, to, subject, body) },
+		isTransientSendError,
+		func(attempt int, delay time.Duration, err error) {
+			c.log.Warn(
+				"temporary email delivery failure; retrying",
+				"email", to,
+				"attempt", attempt,
+				"next_attempt", attempt+1,
+				"retry_in", delay,
+				"err", err,
+			)
+		},
+	)
+}
+
+func (c *Client) sendOnce(ctx context.Context, to, subject, body string) error {
 	sendCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
@@ -55,10 +85,22 @@ func (c *Client) Send(ctx context.Context, to, subject, body string) error {
 		}
 	}
 
-	return sendMail(conn, c.host, c.fromEmail, []string{to}, []byte(msg))
+	return sendMail(c.log, conn, c.host, c.fromEmail, []string{to}, []byte(msg))
 }
 
-func sendMail(conn net.Conn, host, from string, to []string, msg []byte) error {
+func isTransientSendError(err error) bool {
+	var smtpErr *textproto.Error
+	if errors.As(err, &smtpErr) {
+		return smtpErr.Code >= 400 && smtpErr.Code < 500
+	}
+
+	// Network, timeout and unknown transport errors are treated as transient.
+	// It is safer to retry an unclassified delivery failure than to compensate
+	// a subscription that could still receive its confirmation email.
+	return true
+}
+
+func sendMail(log *slog.Logger, conn net.Conn, host, from string, to []string, msg []byte) error {
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
 		return fmt.Errorf("create smtp client: %w", err)
@@ -89,8 +131,11 @@ func sendMail(conn net.Conn, host, from string, to []string, msg []byte) error {
 		return fmt.Errorf("close smtp message: %w", err)
 	}
 
+	// A successful DATA writer close means that the SMTP server accepted the
+	// message. A failure while closing the session must not turn that accepted
+	// delivery into a retry, which could send the same email more than once.
 	if err := client.Quit(); err != nil {
-		return fmt.Errorf("quit smtp session: %w", err)
+		log.Warn("failed to close SMTP session after message was accepted", "err", err)
 	}
 
 	return nil

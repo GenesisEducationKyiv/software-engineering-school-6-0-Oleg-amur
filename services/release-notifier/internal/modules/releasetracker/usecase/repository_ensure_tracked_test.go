@@ -103,7 +103,7 @@ func TestEnsureRepositoryTracked_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repositoryRepo := &mockRepositoryStore{
+			repositoryStore := &mockRepositoryStore{
 				repository: tt.repository,
 				getErr:     tt.getErr,
 				createErr:  tt.createErr,
@@ -114,7 +114,7 @@ func TestEnsureRepositoryTracked_Execute(t *testing.T) {
 				tag:      tt.ghTag,
 				tagErr:   tt.ghTagErr,
 			}
-			usecase := NewEnsureRepositoryTracked(testLogger(), repositoryRepo, ghClient)
+			usecase := NewEnsureRepositoryTracked(testLogger(), repositoryStore, ghClient)
 
 			repository, err := usecase.Execute(context.Background(), tt.repoName)
 

@@ -3,7 +3,6 @@ package main
 import (
 	"log/slog"
 
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/adapters/eventbus/rabbitmq"
 	releasetrackerusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/usecase"
 	subscriptionpostgresql "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/persistence/postgresql"
 	subscriptionusecase "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/usecase"
@@ -11,23 +10,22 @@ import (
 
 func setupSubscriptionsModule(
 	log *slog.Logger,
-	subscriberRepo *subscriptionpostgresql.SubscriberRepository,
-	subscriptionRepo *subscriptionpostgresql.SubscriptionRepository,
+	subscriberStore *subscriptionpostgresql.SubscriberStore,
+	subscriptionStore *subscriptionpostgresql.SubscriptionStore,
+	subscriptionCreator subscriptionusecase.SubscriptionCreator,
 	ensureRepositoryTracked *releasetrackerusecase.EnsureRepositoryTracked,
-	notificationPublisher *rabbitmq.Publisher,
 ) subscriptionusecase.SubscriptionUsecases {
-	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(log, subscriberRepo)
+	getOrCreateSubscriber := subscriptionusecase.NewGetOrCreateSubscriber(log, subscriberStore)
 
 	return subscriptionusecase.SubscriptionUsecases{
 		SubscribeToRepository: subscriptionusecase.NewSubscribeToRepository(
 			log,
 			getOrCreateSubscriber,
 			ensureRepositoryTracked,
-			subscriptionRepo,
-			notificationPublisher,
+			subscriptionCreator,
 		),
-		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionRepo),
-		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionRepo),
-		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionRepo),
+		ConfirmSubscription:       subscriptionusecase.NewConfirmSubscription(subscriptionStore),
+		UnsubscribeFromRepository: subscriptionusecase.NewUnsubscribeFromRepository(subscriptionStore),
+		ListSubscriptions:         subscriptionusecase.NewListSubscriptions(subscriptionStore),
 	}
 }

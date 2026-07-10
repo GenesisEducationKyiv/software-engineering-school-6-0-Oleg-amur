@@ -4,6 +4,8 @@ import "fmt"
 
 const (
 	SubscriptionConfirmationRequestedType = "notification.subscription_confirmation_requested"
+	SubscriptionConfirmationSucceededType = "notification.subscription_confirmation_succeeded"
+	SubscriptionConfirmationFailedType    = "notification.subscription_confirmation_failed"
 	ReleaseNotificationRequestedType      = "notification.release_notification_requested"
 	NotificationSchemaVersion             = 1
 )
@@ -11,8 +13,29 @@ const (
 type SubscriptionConfirmationRequested struct {
 	EventID           string `json:"event_id"`
 	SchemaVersion     int    `json:"schema_version"`
+	SagaID            int    `json:"saga_id"`
+	SubscriptionID    int    `json:"subscription_id"`
 	Email             string `json:"email"`
 	ConfirmationToken string `json:"confirmation_token"`
+}
+
+type SubscriptionConfirmationSucceeded struct {
+	EventID           string `json:"event_id"`
+	SchemaVersion     int    `json:"schema_version"`
+	SagaID            int    `json:"saga_id"`
+	SubscriptionID    int    `json:"subscription_id"`
+	Email             string `json:"email"`
+	ConfirmationToken string `json:"confirmation_token"`
+}
+
+type SubscriptionConfirmationFailed struct {
+	EventID           string `json:"event_id"`
+	SchemaVersion     int    `json:"schema_version"`
+	SagaID            int    `json:"saga_id"`
+	SubscriptionID    int    `json:"subscription_id"`
+	Email             string `json:"email"`
+	ConfirmationToken string `json:"confirmation_token"`
+	Reason            string `json:"reason"`
 }
 
 type ReleaseNotificationRequested struct {

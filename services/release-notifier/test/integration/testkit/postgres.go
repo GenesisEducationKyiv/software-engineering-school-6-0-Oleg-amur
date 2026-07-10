@@ -60,7 +60,11 @@ func NewPostgres(ctx context.Context, t testing.TB) *Postgres {
 	return pg
 }
 
-func openPostgresDatabase(ctx context.Context, container *postgres.PostgresContainer, log *slog.Logger) (*sql.DB, error) {
+func openPostgresDatabase(
+	ctx context.Context,
+	container *postgres.PostgresContainer,
+	log *slog.Logger,
+) (*sql.DB, error) {
 	connString, err := container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
 		return nil, err
@@ -84,7 +88,13 @@ func (p *Postgres) Reset(t testing.TB) {
 
 	_, err := p.DB.ExecContext(
 		context.Background(),
-		"TRUNCATE subscriptions, subscribers, repositories RESTART IDENTITY CASCADE",
+		`TRUNCATE
+			outbox_messages,
+			subscription_sagas,
+			subscriptions,
+			subscribers,
+			repositories
+		RESTART IDENTITY CASCADE`,
 	)
 	if err != nil {
 		t.Fatalf("reset integration test database: %v", err)

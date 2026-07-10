@@ -9,7 +9,6 @@ import (
 
 	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 )
 
 func assertErrorIs(t *testing.T, got error, want error) {
@@ -20,28 +19,18 @@ func assertErrorIs(t *testing.T, got error, want error) {
 	}
 }
 
-func assertSubscriptionEvent(t *testing.T, publisher *mockNotificationPublisher, wantEmail string) {
+func assertSubscriptionSagaStarted(t *testing.T, repo *mockSubscriptionRepo, wantEmail string) {
 	t.Helper()
 
-	if len(publisher.confirmations) != 1 {
-		t.Fatalf("got %d subscription events, want 1", len(publisher.confirmations))
+	if len(repo.startedConfirmations) != 1 {
+		t.Fatalf("got %d started subscription sagas, want 1", len(repo.startedConfirmations))
 	}
-	event := publisher.confirmations[0]
-	if event.Email != wantEmail {
-		t.Errorf("got subscription event email %q, want %q", event.Email, wantEmail)
+	started := repo.startedConfirmations[0]
+	if started.email != wantEmail {
+		t.Errorf("got saga email %q, want %q", started.email, wantEmail)
 	}
-	if event.ConfirmationToken == "" {
-		t.Error("want subscription event token to be set")
-	}
-	if event.EventID == "" {
-		t.Error("want subscription event id to be set")
-	}
-	if event.SchemaVersion != events.NotificationSchemaVersion {
-		t.Errorf(
-			"got subscription event schema version %d, want %d",
-			event.SchemaVersion,
-			events.NotificationSchemaVersion,
-		)
+	if started.token == "" {
+		t.Error("want saga confirmation token to be set")
 	}
 }
 
@@ -70,38 +59,34 @@ func (f *mockRepositoryTracker) Execute(
 	return f.repository, f.err
 }
 
-type mockNotificationPublisher struct {
-	confirmations   []events.SubscriptionConfirmationRequested
-	releases        []events.ReleaseNotificationRequested
-	confirmationErr error
-	releaseErr      error
-}
-
-func (f *mockNotificationPublisher) PublishSubscriptionConfirmation(
-	ctx context.Context,
-	event events.SubscriptionConfirmationRequested,
-) error {
-	f.confirmations = append(f.confirmations, event)
-	return f.confirmationErr
-}
-
-func (f *mockNotificationPublisher) PublishReleaseNotification(
-	ctx context.Context,
-	event events.ReleaseNotificationRequested,
-) error {
-	f.releases = append(f.releases, event)
-	return f.releaseErr
-}
-
 type mockSubscriptionRepo struct {
 	createErr            error
 	activateErr          error
 	deleteErr            error
 	getActiveByEmailSubs []domain.Subscription
 	getActiveByEmailErr  error
+	startedConfirmations []startedConfirmation
 }
 
-func (f *mockSubscriptionRepo) Create(ctx context.Context, subID, repoID int, token string) error {
+type startedConfirmation struct {
+	subID  int
+	repoID int
+	email  string
+	token  string
+}
+
+func (f *mockSubscriptionRepo) StartSubscriptionConfirmation(
+	ctx context.Context,
+	subID, repoID int,
+	email string,
+	token string,
+) error {
+	f.startedConfirmations = append(f.startedConfirmations, startedConfirmation{
+		subID:  subID,
+		repoID: repoID,
+		email:  email,
+		token:  token,
+	})
 	return f.createErr
 }
 

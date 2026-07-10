@@ -9,7 +9,6 @@ import (
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/apperr"
 	releasetrackerdomain "github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/releasetracker/domain"
 	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/services/release-notifier/internal/modules/subscriptions/domain"
-	"github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events"
 	"github.com/google/uuid"
 )
 
@@ -22,11 +21,7 @@ type RepositoryTracker interface {
 }
 
 type SubscriptionCreator interface {
-	Create(ctx context.Context, subID, repoID int, token string) error
-}
-
-type ConfirmationPublisher interface {
-	PublishSubscriptionConfirmation(ctx context.Context, event events.SubscriptionConfirmationRequested) error
+	StartSubscriptionConfirmation(ctx context.Context, subID, repoID int, email string, token string) error
 }
 
 type SubscribeToRepository struct {
@@ -34,7 +29,6 @@ type SubscribeToRepository struct {
 	subscriberRegistration SubscriberRegistration
 	repositoryTracker      RepositoryTracker
 	subscriptions          SubscriptionCreator
-	events                 ConfirmationPublisher
 }
 
 func NewSubscribeToRepository(
@@ -42,14 +36,12 @@ func NewSubscribeToRepository(
 	subscriberRegistration SubscriberRegistration,
 	repositoryTracker RepositoryTracker,
 	subscriptions SubscriptionCreator,
-	events ConfirmationPublisher,
 ) *SubscribeToRepository {
 	return &SubscribeToRepository{
 		log:                    log,
 		subscriberRegistration: subscriberRegistration,
 		repositoryTracker:      repositoryTracker,
 		subscriptions:          subscriptions,
-		events:                 events,
 	}
 }
 
@@ -65,23 +57,12 @@ func (u *SubscribeToRepository) Execute(ctx context.Context, req SubscribeReques
 	}
 
 	token := uuid.New().String()
-	err = u.subscriptions.Create(ctx, subscriber.ID, repo.ID, token)
+	err = u.subscriptions.StartSubscriptionConfirmation(ctx, subscriber.ID, repo.ID, req.Email, token)
 	if err != nil {
 		if errors.Is(err, apperr.ErrAlreadyExists) {
 			return apperr.ErrAlreadySubscribed
 		}
 		return fmt.Errorf("subscription error: %w", err)
-	}
-
-	event := events.SubscriptionConfirmationRequested{
-		EventID:           uuid.New().String(),
-		SchemaVersion:     events.NotificationSchemaVersion,
-		Email:             req.Email,
-		ConfirmationToken: token,
-	}
-	if err := u.events.PublishSubscriptionConfirmation(ctx, event); err != nil {
-		u.log.Error("failed to publish subscription confirmation event", "email", req.Email, "err", err)
-		return fmt.Errorf("publish subscription confirmation event: %w", err)
 	}
 
 	return nil

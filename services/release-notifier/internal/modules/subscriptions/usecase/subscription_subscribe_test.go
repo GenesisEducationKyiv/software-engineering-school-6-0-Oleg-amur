@@ -21,7 +21,6 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 		repository    *releasetrackerdomain.Repository
 		repositoryErr error
 		createErr     error
-		publishErr    error
 		wantErr       error
 	}{
 		{
@@ -46,37 +45,28 @@ func TestSubscribeToRepository_Execute(t *testing.T) {
 			wantErr:    apperr.ErrAlreadySubscribed,
 		},
 		{
-			name:       "enqueues confirmation event after successful subscription",
+			name:       "starts subscription confirmation saga after successful subscription",
 			req:        SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
 			subscriber: &domain.Subscriber{ID: 1},
 			repository: &releasetrackerdomain.Repository{ID: 1},
-		},
-		{
-			name:       "returns publish error after successful subscription",
-			req:        SubscribeRequest{Email: "test@example.com", Repo: "owner/repo"},
-			subscriber: &domain.Subscriber{ID: 1},
-			repository: &releasetrackerdomain.Repository{ID: 1},
-			publishErr: errors.New("broker down"),
-			wantErr:    errors.New("broker down"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			publisher := &mockNotificationPublisher{confirmationErr: tt.publishErr}
+			subscriptions := &mockSubscriptionRepo{createErr: tt.createErr}
 			usecase := NewSubscribeToRepository(
 				testLogger(),
 				&mockSubscriberRegistration{subscriber: tt.subscriber, err: tt.subscriberErr},
 				&mockRepositoryTracker{repository: tt.repository, err: tt.repositoryErr},
-				&mockSubscriptionRepo{createErr: tt.createErr},
-				publisher,
+				subscriptions,
 			)
 
 			err := usecase.Execute(context.Background(), tt.req)
 
 			if tt.wantErr == nil {
 				assertErrorIs(t, err, nil)
-				assertSubscriptionEvent(t, publisher, tt.req.Email)
+				assertSubscriptionSagaStarted(t, subscriptions, tt.req.Email)
 			} else if err == nil {
 				t.Fatalf("got nil error, want %v", tt.wantErr)
 			}
