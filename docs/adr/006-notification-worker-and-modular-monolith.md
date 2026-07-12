@@ -1,6 +1,6 @@
 # ADR 0006: Notification Worker and Modular Monolith
 
-* **Status:** Accepted
+* **Status:** Superseded by ADR 0008 for release tracking; notification worker decision remains valid
 * **Author:** Oleh Volkoboi
 * **Date:** 2026-06-07
 
@@ -42,11 +42,11 @@ We need an architecture that:
 We chose **Option 3: a modular monolith for the core service and a separate notification worker**.
 
 The system is split into:
-- `services/release-notifier`: the core service. It owns HTTP/gRPC APIs, subscription management, repository tracking, release scanning, and notification planning.
+- `services/subscription-service`: the core service. It owns HTTP/gRPC APIs, subscription management, repository tracking, release scanning, and notification planning.
 - `services/notification-worker`: the worker service. It owns email rendering and SMTP delivery.
 - `shared/contracts`: shared event payloads used at the service boundary.
 
-Inside `services/release-notifier`, we use vertical module slices instead of broad technical layers:
+Inside `services/subscription-service`, we use vertical module slices instead of broad technical layers:
 - `subscriptions`: subscription domain, persistence, usecases, and transport handlers.
 - `releasetracker`: repository tracking domain, persistence, release scanning usecases, and scanner worker.
 - `adapters`: external infrastructure implementations such as GitHub, PostgreSQL helpers, and notification publishing.

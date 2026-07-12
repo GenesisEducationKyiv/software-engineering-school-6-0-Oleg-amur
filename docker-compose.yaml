@@ -1,15 +1,29 @@
 services:
 
-  postgresql:
+  subscription-service-postgresql:
     image: postgres:18.3-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${SUBSCRIPTION_SERVICE_DB_USER}
+      POSTGRES_PASSWORD: ${SUBSCRIPTION_SERVICE_DB_PASSWORD}
+      POSTGRES_DB: ${SUBSCRIPTION_SERVICE_DB_NAME}
     ports:
-      - "5432:5432"
+      - "${SUBSCRIPTION_SERVICE_DB_HOST_PORT}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -d ${SUBSCRIPTION_SERVICE_DB_NAME} -U ${SUBSCRIPTION_SERVICE_DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  release-tracker-postgresql:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: ${RELEASE_TRACKER_DB_USER}
+      POSTGRES_PASSWORD: ${RELEASE_TRACKER_DB_PASSWORD}
+      POSTGRES_DB: ${RELEASE_TRACKER_DB_NAME}
+    ports:
+      - "${RELEASE_TRACKER_DB_HOST_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ${RELEASE_TRACKER_DB_NAME} -U ${RELEASE_TRACKER_DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -37,29 +51,59 @@ services:
       timeout: 5s
       retries: 12
 
-  release-notifier:
+  subscription-service:
     build:
       context: .
-      dockerfile: services/release-notifier/Dockerfile
-    image: release-notifier:latest
+      dockerfile: services/subscription-service/Dockerfile
+    image: subscription-service:latest
     depends_on:
-      postgresql:
+      subscription-service-postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      release-tracker:
+        condition: service_healthy
+    ports:
+      - "${SUBSCRIPTION_SERVICE_HTTP_PORT}:${SUBSCRIPTION_SERVICE_HTTP_PORT}"
+      - "${SUBSCRIPTION_SERVICE_GRPC_PORT}:${SUBSCRIPTION_SERVICE_GRPC_PORT}"
+    environment:
+      SERVER_HOST: ${SUBSCRIPTION_SERVICE_HOST}
+      SERVER_PORT: ${SUBSCRIPTION_SERVICE_HTTP_PORT}
+      GRPC_PORT: ${SUBSCRIPTION_SERVICE_GRPC_PORT}
+      DATABASE_URL: postgres://${SUBSCRIPTION_SERVICE_DB_USER}:${SUBSCRIPTION_SERVICE_DB_PASSWORD}@subscription-service-postgresql:5432/${SUBSCRIPTION_SERVICE_DB_NAME}?sslmode=disable
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+      RELEASE_TRACKER_URL: http://release-tracker:${RELEASE_TRACKER_HTTP_PORT}
+      RELEASE_TRACKER_TIMEOUT: 10s
+
+  release-tracker:
+    build:
+      context: .
+      dockerfile: services/release-tracker/Dockerfile
+    image: release-tracker:latest
+    depends_on:
+      release-tracker-postgresql:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     ports:
-      - "8080:8080"
-      - "50051:50051"
+      - "${RELEASE_TRACKER_HTTP_PORT}:${RELEASE_TRACKER_HTTP_PORT}"
     environment:
-      SERVER_HOST: ${SERVER_HOST}
-      SERVER_PORT: ${SERVER_PORT}
-      GRPC_PORT: ${GRPC_PORT}
-      DATABASE_URL: ${DATABASE_URL}
+      SERVER_HOST: ${RELEASE_TRACKER_HOST}
+      SERVER_PORT: ${RELEASE_TRACKER_HTTP_PORT}
+      DATABASE_URL: postgres://${RELEASE_TRACKER_DB_USER}:${RELEASE_TRACKER_DB_PASSWORD}@release-tracker-postgresql:5432/${RELEASE_TRACKER_DB_NAME}?sslmode=disable
+      SUBSCRIPTIONS_URL: http://subscription-service:${SUBSCRIPTION_SERVICE_HTTP_PORT}
+      SUBSCRIPTIONS_GRPC_ADDRESS: subscription-service:${SUBSCRIPTION_SERVICE_GRPC_PORT}
+      SUBSCRIPTIONS_TIMEOUT: 10s
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
       SCAN_INTERVAL: ${SCAN_INTERVAL}
       GITHUB_TIMEOUT: ${GITHUB_TIMEOUT}
       GITHUB_URL: ${GITHUB_URL}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${RELEASE_TRACKER_HTTP_PORT}/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   notification-worker:
     build:
@@ -77,7 +121,7 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_TIMEOUT: ${SMTP_TIMEOUT}
       FROM_EMAIL: ${FROM_EMAIL}
-      BASE_URL: ${BASE_URL}
+      BASE_URL: ${PUBLIC_BASE_URL}
       EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
     healthcheck:
       test: ["CMD-SHELL", "pidof notification-worker"]
@@ -125,8 +169,8 @@ services:
       KIBANA_URL: http://kibana:5601
     command: ["/usr/local/bin/init-kibana.sh"]
     volumes:
-      - ./services/release-notifier/observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
-      - ./services/release-notifier/observability/kibana/release-notifier-logs.ndjson:/usr/local/share/kibana/release-notifier-logs.ndjson:ro
+      - ./observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
+      - ./observability/kibana/subscription-service-logs.ndjson:/usr/local/share/kibana/subscription-service-logs.ndjson:ro
 
   filebeat:
     image: elastic/filebeat:8.15.3
@@ -135,13 +179,15 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      release-notifier:
+      subscription-service:
+        condition: service_started
+      release-tracker:
         condition: service_started
       notification-worker:
         condition: service_healthy
     command: ["--strict.perms=false"]
     volumes:
-      - ./services/release-notifier/observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
@@ -149,13 +195,15 @@ services:
     image: prom/prometheus:v2.55.1
     profiles: ["observability"]
     depends_on:
-      release-notifier:
+      subscription-service:
+        condition: service_started
+      release-tracker:
         condition: service_started
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
     volumes:
-      - ./services/release-notifier/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
@@ -171,8 +219,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_DEFAULT_THEME: light
     volumes:
-      - ./services/release-notifier/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./services/release-notifier/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
       - "3000:3000"

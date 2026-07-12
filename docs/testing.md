@@ -13,7 +13,7 @@ make test
 Without `make`:
 
 ```sh
-sh -c 'cd shared/contracts && go test -v ./... && cd ../../services/release-notifier && go test -v ./... && go test -tags=integration -count=1 -v ./test/integration/... && cd ../notification-worker && go test -v ./... && cd ../.. && docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abort-on-container-exit --exit-code-from playwright; code=$?; docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans; exit $code'
+sh -c 'cd shared/contracts && go test -v ./... && cd ../../services/subscription-service && go test -v ./... && go test -tags=integration -count=1 -v ./test/integration/... && cd ../notification-worker && go test -v ./... && cd ../.. && docker compose -f test/e2e/docker-compose-e2e-tests.yaml up --build --abort-on-container-exit --exit-code-from playwright; code=$?; docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans; exit $code'
 ```
 
 ## Unit Tests
@@ -26,15 +26,15 @@ Without `make`:
 
 ```sh
 cd shared/contracts && go test -v ./...
-cd services/release-notifier && go test -v ./...
+cd services/subscription-service && go test -v ./...
 cd services/notification-worker && go test -v ./...
 cd test/e2e/fakes/github && go test -v ./...
 ```
 
 Unit tests live next to the code they cover, for example:
 
-- `services/release-notifier/internal/service/*_test.go`
-- `services/release-notifier/internal/scanner/*_test.go`
+- `services/subscription-service/internal/service/*_test.go`
+- `services/subscription-service/internal/scanner/*_test.go`
 - `services/notification-worker/internal/service/*_test.go`
 
 ## Integration Tests
@@ -46,10 +46,10 @@ make test-integration
 Without `make`:
 
 ```sh
-cd services/release-notifier && go test -tags=integration -count=1 -v ./test/integration/...
+cd services/subscription-service && go test -tags=integration -count=1 -v ./test/integration/...
 ```
 
-Integration tests live under `services/release-notifier/test/integration`:
+Integration tests live under `services/subscription-service/test/integration`:
 
 - `http` covers HTTP API endpoint behavior.
 - `grpc` covers gRPC API endpoint behavior.
@@ -90,7 +90,7 @@ Unit and integration coverage profiles are written to `coverage/`. CI uploads th
 
 Go test functions use the `TestType_Method` pattern for unit tests, for example `TestRepositoryService_GetOrCreate`. More specific scenarios can append behavior after another underscore, for example `TestNotificationService_ProcessReleaseEvent_BuildsReleaseMessage`.
 
-Integration tests live under `services/release-notifier/test/integration` and use the `integration` build tag, so test names do not repeat `Integration`. Prefer names like `TestHTTPSubscribe_CreatesPendingSubscription`, `TestGRPCSubscribe_CreatesPendingSubscription`, and `TestSubscriptionRepository`.
+Integration tests live under `services/subscription-service/test/integration` and use the `integration` build tag, so test names do not repeat `Integration`. Prefer names like `TestHTTPSubscribe_CreatesPendingSubscription`, `TestGRPCSubscribe_CreatesPendingSubscription`, and `TestSubscriptionRepository`.
 
 Table-driven tests use `name` for the case description and `want*` fields for expected values:
 

@@ -1,4 +1,4 @@
-# Release Notifier Service
+# GitHub Release Notifier
 
 A Go-based service that monitors GitHub repositories for new releases and notifies subscribers via email. It provides both REST and gRPC interfaces for subscription management.
 
@@ -9,7 +9,7 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 - **Multi-Protocol Support**:
   - **REST API**: Standard HTTP endpoints for subscription management.
   - **gRPC API**: High-performance interface for service-to-service communication.
-- **Persistence**: Uses PostgreSQL to store subscribers, repositories, and subscription states.
+- **Database per service**: Subscription and repository tracking data are stored in separate PostgreSQL databases.
 - **Monitoring**: Includes structured JSON logs, Elasticsearch/Kibana log search, Prometheus RED metrics, and a Grafana dashboard.
 - **Dockerized**: Ready to run with Docker and Docker Compose.
 
@@ -35,13 +35,17 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 
 - [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
 - [Go](https://go.dev/doc/install) (optional, for local development)
+- [Buf CLI](https://buf.build/docs/cli/installation/) and the Go protobuf generators (for contract changes)
 
 ### Configuration
 
 The service is configured using environment variables or a YAML file. You can find an example configuration in `.env.example`.
 
 Key configuration options:
-- `DATABASE_URL`: PostgreSQL connection string.
+- `SUBSCRIPTION_SERVICE_HTTP_PORT`/`SUBSCRIPTION_SERVICE_GRPC_PORT`: Public API ports.
+- `SUBSCRIPTION_SERVICE_DB_*`: Subscription database credentials, name, and host port.
+- `RELEASE_TRACKER_HTTP_PORT`: Internal release tracker HTTP port.
+- `RELEASE_TRACKER_DB_*`: Release tracker database credentials, name, and host port.
 - `SCAN_INTERVAL`: How often to check for new releases (e.g., `1m`, `1h`).
 - `GITHUB_TOKEN`: GitHub Personal Access Token (optional, but recommended to avoid rate limits).
 - `SMTP_HOST`/`SMTP_PORT`/`SMTP_TIMEOUT`: Email server configuration.
@@ -69,8 +73,10 @@ The easiest way to run the service along with its core dependencies (PostgreSQL 
 The service will be available at:
 - REST API: `http://localhost:8080`
 - gRPC API: `localhost:50051`
+- Release Tracker internal HTTP API: `http://localhost:8081`
 - Mailpit UI (Email testing): `http://localhost:8025`
-- Prometheus Metrics: `http://localhost:8080/metrics`
+- Subscription Service Metrics: `http://localhost:8080/metrics`
+- Release Tracker Metrics: `http://localhost:8081/metrics`
 
 To start the full observability stack as well:
 
@@ -86,25 +92,32 @@ Additional observability services will be available at:
 
 ## Logging and Metrics
 
-The application writes structured JSON logs to stdout. The `observability` Compose profile runs Filebeat, which tails Docker logs for the `release-notifier` Compose service, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch using Filebeat-managed storage.
+The services write structured JSON logs to stdout. The `observability` Compose profile runs Filebeat, which tails Docker logs for `subscription-service` and `release-tracker`, decodes the JSON payload, removes noisy Filebeat/Docker metadata, and sends events to Elasticsearch using Filebeat-managed storage.
 
-The Kibana init container creates a `filebeat-*` data view and imports a `Release Notifier Logs` dashboard with recent structured log events filtered to `service.name: "release-notifier"`.
+The Kibana init container creates a `filebeat-*` data view and imports a `Subscription Service Logs` dashboard with recent structured log events filtered to `service.name: "subscription-service"`.
 
-In Kibana, open logs in **Analytics -> Discover** and select the `Release Notifier Logs` data view. The imported log dashboard is under **Analytics -> Dashboard -> Release Notifier Logs**. If the data view is empty, generate at least one app request, for example `curl http://localhost:8080/health`, then wait a few seconds for Filebeat to publish the Docker log event.
+In Kibana, open logs in **Analytics -> Discover** and select the `Subscription Service Logs` data view. The imported log dashboard is under **Analytics -> Dashboard -> Subscription Service Logs**. If the data view is empty, generate at least one app request, for example `curl http://localhost:8080/health`, then wait a few seconds for Filebeat to publish the Docker log event.
 
-Prometheus scrapes `release-notifier:8080/metrics` every 15 seconds. The application exposes RED metrics for both HTTP and gRPC traffic:
-- `release_notifier_http_requests_total`
-- `release_notifier_http_request_errors_total`
-- `release_notifier_http_request_duration_seconds`
-- `release_notifier_grpc_requests_total`
-- `release_notifier_grpc_request_errors_total`
-- `release_notifier_grpc_request_duration_seconds`
+Prometheus scrapes both `subscription-service:8080/metrics` and `release-tracker:8081/metrics` every 15 seconds. The subscription service exposes RED metrics for both HTTP and gRPC traffic:
+- `subscription_service_http_requests_total`
+- `subscription_service_http_request_errors_total`
+- `subscription_service_http_request_duration_seconds`
+- `subscription_service_grpc_requests_total`
+- `subscription_service_grpc_request_errors_total`
+- `subscription_service_grpc_request_duration_seconds`
 
-The same endpoint also exposes default Go runtime and process metrics, including CPU, RAM usage, heap usage, goroutines, and GC pauses. Grafana is provisioned automatically with Prometheus as the default datasource and a `Release Notifier Metrics` dashboard. The dashboard has an editable `rate_window` variable at the top for rate and percentile queries.
+The release tracker exposes HTTP and database metrics:
+- `release_tracker_http_requests_total`
+- `release_tracker_http_request_errors_total`
+- `release_tracker_http_request_duration_seconds`
+- `release_tracker_database_up`
+- `release_tracker_database_ping_duration_seconds`
+
+The same endpoint also exposes default Go runtime and process metrics, including CPU, RAM usage, heap usage, goroutines, and GC pauses. Grafana is provisioned automatically with Prometheus as the default datasource and a `Subscription Service Metrics` dashboard. The dashboard has an editable `rate_window` variable at the top for rate and percentile queries.
 
 The Kibana init container is intentionally separate from Kibana itself so the dashboard/data-view import is repeatable and fails visibly when saved object import fails.
 
-The `/health` endpoint checks database connectivity and returns `200 OK` when PostgreSQL is reachable or `503 Service Unavailable` when the database ping fails. Prometheus also exposes `release_notifier_database_up` and `release_notifier_database_ping_duration_seconds`; the dashboard shows the database up/down state.
+The `/health` endpoint checks database connectivity and returns `200 OK` when PostgreSQL is reachable or `503 Service Unavailable` when the database ping fails. Prometheus also exposes `subscription_service_database_up` and `subscription_service_database_ping_duration_seconds`; the dashboard shows the database up/down state.
 
 ## API Documentation
 
@@ -118,15 +131,33 @@ The API documentation is available in Swagger format at `api/swagger.yaml`.
 - `GET /api/v1/unsubscribe/{token}`: Unsubscribe from notifications.
 - `GET /api/v1/subscriptions?email=...`: List all subscriptions for an email.
 
+Internal HTTP communication:
+
+- `subscription-service -> release-tracker`: `POST /internal/v1/repositories/ensure` and `GET /internal/v1/repositories?id=...`.
+- REST baseline for `release-tracker -> subscription-service`: `GET /internal/v1/subscriptions?repository_id=...`.
+- `release-tracker` owns repository IDs; `subscription-service` stores them without a cross-database foreign key.
+
+Internal gRPC communication:
+
+- `release-tracker -> subscription-service`: `subscriptions.v1.SubscriptionService/ListActiveSubscriptionsByRepository`.
+- Change `useGRPCSubscriptionQueries` in `services/release-tracker/cmd/server/main.go` to switch the release tracker between the gRPC implementation and the preserved REST baseline.
+- The shared contract is `shared/contracts/proto/subscriptions/v1/subscription_service.proto`.
+- Run `buf lint` and `buf generate` (or `make proto-lint` and `make proto-generate`) after contract changes.
+
+HTTP/gRPC throughput comparison:
+
+- Benchmark instructions and results are in [`docs/benchmarks.md`](docs/benchmarks.md).
+
 ### gRPC API
 
-The gRPC definition is available at `api/proto/release_notifier.proto`.
+The gRPC definition is available at `shared/contracts/proto/subscriptions/v1/subscription_service.proto`.
 
 **Services:**
 - `Subscribe`: Create a new subscription.
 - `Confirm`: Confirm a subscription.
 - `Unsubscribe`: Remove a subscription.
 - `GetSubscriptions`: List all subscriptions for an email.
+- `ListActiveSubscriptionsByRepository`: List active subscriptions for internal release processing.
 
 ## Project Structure
 
@@ -134,8 +165,10 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 ├── shared/
 │   └── contracts/             # Shared event contracts module
 ├── services/
-│   ├── release-notifier/      # Main API/scanner service module
+│   ├── subscription-service/  # Subscription API and subscription database
+│   ├── release-tracker/       # GitHub scanner and repository database
 │   └── notification-worker/   # RabbitMQ consumer and SMTP delivery module
+├── observability/             # Filebeat, Prometheus, Grafana, and Kibana setup
 ├── docs/                      # System design, C4 diagrams, and ADRs
 ├── test/e2e/                  # Whole-system Playwright tests
 └── docker-compose.yaml        # Local runtime stack
@@ -143,10 +176,10 @@ The gRPC definition is available at `api/proto/release_notifier.proto`.
 
 ## Release Detection Logic
 
-The service maintains a `last_seen_tag` for every tracked repository:
+The release tracker maintains a `last_seen_tag` for every tracked repository:
 1. It fetches all active repositories from the database.
 2. For each, it queries the GitHub API for the latest release.
-3. If a new version is detected (different from `last_seen_tag`), it publishes notification jobs to RabbitMQ for all confirmed subscribers of that repository.
+3. If a new version is detected, it requests confirmed subscribers from `subscription-service` through the selected HTTP or gRPC adapter and publishes notification jobs to RabbitMQ.
 4. If rate limits are hit, the scanner gracefully skips the current cycle to wait for the window reset.
 
 ## Technical Considerations
