@@ -112,3 +112,16 @@ if got != want {
 ```
 
 Use `mock*` for small unit-test doubles and `Fake*` for reusable integration-test fakes.
+
+## Architecture Lint
+
+Architecture dependency rules are checked by `go-arch-lint` and run as part of `make lint`.
+
+```sh
+go install github.com/fe3dback/go-arch-lint@v1.15.0
+make arch-lint
+```
+
+Each service owns its `.go-arch-lint.yml`. The configs check that domain, use cases, workflows, transport, persistence, and adapters keep the intended dependency direction inside `subscription-service`, `release-tracker`, and `notification-worker`.
+
+Vendor and shared-module imports are controlled per layer: outer layers such as transports, adapters, persistence, and composition roots may use vendor packages freely, while domain packages cannot use vendor packages and application-core packages only allow the shared event contracts they publish or consume. `deepScan` remains disabled because the composition roots in `cmd/server` intentionally inject concrete adapters into use cases and workflows; import rules still enforce the package-level dependency boundaries.

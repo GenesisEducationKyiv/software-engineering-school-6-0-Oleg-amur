@@ -1,0 +1,99 @@
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: false
+  deepScan: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+  - "^.*\\/test\\/.*$"
+
+components:
+  cmd: { in: cmd/** }
+  support:
+    in:
+      - internal/apperr
+      - internal/config
+      - internal/database
+      - internal/observability
+      - internal/worker
+      - migrations
+      - static
+  api: { in: internal/api/** }
+  adapters: { in: internal/adapters/** }
+  domain: { in: internal/modules/subscriptions/domain }
+  usecase: { in: internal/modules/subscriptions/usecase }
+  workflow: { in: internal/modules/subscriptions/workflow }
+  persistence: { in: internal/modules/subscriptions/persistence/** }
+  transport: { in: internal/modules/subscriptions/transport/** }
+
+vendors:
+  shared-contract-events: { in: github.com/GenesisEducationKyiv/software-engineering-school-6-0-Oleg-amur/shared/contracts/events }
+  uuid: { in: github.com/google/uuid }
+
+deps:
+  cmd:
+    mayDependOn:
+      - support
+      - api
+      - adapters
+      - domain
+      - usecase
+      - workflow
+      - persistence
+      - transport
+    anyVendorDeps: true
+
+  support:
+    mayDependOn:
+      - support
+      - api
+      - usecase
+    anyVendorDeps: true
+
+  api:
+    mayDependOn:
+      - support
+      - transport
+      - usecase
+    anyVendorDeps: true
+
+  adapters:
+    mayDependOn:
+      - support
+      - usecase
+      - workflow
+    anyVendorDeps: true
+
+  domain:
+    mayDependOn:
+      - domain
+
+  usecase:
+    mayDependOn:
+      - support
+      - domain
+    canUse:
+      - uuid
+
+  workflow:
+    mayDependOn:
+      - domain
+    canUse:
+      - shared-contract-events
+      - uuid
+
+  persistence:
+    mayDependOn:
+      - support
+      - adapters
+      - domain
+    anyVendorDeps: true
+
+  transport:
+    mayDependOn:
+      - support
+      - domain
+      - usecase
+    anyVendorDeps: true
