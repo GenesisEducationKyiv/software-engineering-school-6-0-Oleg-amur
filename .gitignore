@@ -1,0 +1,19 @@
+# Binaries
+bin/
+main
+
+# OS metadata
+.DS_store
+Thumbs.db
+
+# Node and Playwright artifacts
+node_modules/
+test-results/
+playwright-report/
+
+# Test coverage artifacts
+coverage/
+benchmarks/results/
+
+# Environment variables
+.env

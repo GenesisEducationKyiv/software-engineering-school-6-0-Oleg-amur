@@ -1,0 +1,231 @@
+services:
+
+  subscription-service-postgresql:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: ${SUBSCRIPTION_SERVICE_DB_USER}
+      POSTGRES_PASSWORD: ${SUBSCRIPTION_SERVICE_DB_PASSWORD}
+      POSTGRES_DB: ${SUBSCRIPTION_SERVICE_DB_NAME}
+    ports:
+      - "${SUBSCRIPTION_SERVICE_DB_HOST_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ${SUBSCRIPTION_SERVICE_DB_NAME} -U ${SUBSCRIPTION_SERVICE_DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  release-tracker-postgresql:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: ${RELEASE_TRACKER_DB_USER}
+      POSTGRES_PASSWORD: ${RELEASE_TRACKER_DB_PASSWORD}
+      POSTGRES_DB: ${RELEASE_TRACKER_DB_NAME}
+    ports:
+      - "${RELEASE_TRACKER_DB_HOST_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ${RELEASE_TRACKER_DB_NAME} -U ${RELEASE_TRACKER_DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:v1.24
+    container_name: mailpit
+    restart: unless-stopped
+    ports:
+      - 8025:8025
+      - 1025:1025
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  subscription-service:
+    build:
+      context: .
+      dockerfile: services/subscription-service/Dockerfile
+    image: subscription-service:latest
+    depends_on:
+      subscription-service-postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      release-tracker:
+        condition: service_healthy
+    ports:
+      - "${SUBSCRIPTION_SERVICE_HTTP_PORT}:${SUBSCRIPTION_SERVICE_HTTP_PORT}"
+      - "${SUBSCRIPTION_SERVICE_GRPC_PORT}:${SUBSCRIPTION_SERVICE_GRPC_PORT}"
+    environment:
+      SERVER_HOST: ${SUBSCRIPTION_SERVICE_HOST}
+      SERVER_PORT: ${SUBSCRIPTION_SERVICE_HTTP_PORT}
+      GRPC_PORT: ${SUBSCRIPTION_SERVICE_GRPC_PORT}
+      DATABASE_URL: postgres://${SUBSCRIPTION_SERVICE_DB_USER}:${SUBSCRIPTION_SERVICE_DB_PASSWORD}@subscription-service-postgresql:5432/${SUBSCRIPTION_SERVICE_DB_NAME}?sslmode=disable
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+      RELEASE_TRACKER_URL: http://release-tracker:${RELEASE_TRACKER_HTTP_PORT}
+      RELEASE_TRACKER_TIMEOUT: 10s
+
+  release-tracker:
+    build:
+      context: .
+      dockerfile: services/release-tracker/Dockerfile
+    image: release-tracker:latest
+    depends_on:
+      release-tracker-postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "${RELEASE_TRACKER_HTTP_PORT}:${RELEASE_TRACKER_HTTP_PORT}"
+    environment:
+      SERVER_HOST: ${RELEASE_TRACKER_HOST}
+      SERVER_PORT: ${RELEASE_TRACKER_HTTP_PORT}
+      DATABASE_URL: postgres://${RELEASE_TRACKER_DB_USER}:${RELEASE_TRACKER_DB_PASSWORD}@release-tracker-postgresql:5432/${RELEASE_TRACKER_DB_NAME}?sslmode=disable
+      SUBSCRIPTIONS_URL: http://subscription-service:${SUBSCRIPTION_SERVICE_HTTP_PORT}
+      SUBSCRIPTIONS_GRPC_ADDRESS: subscription-service:${SUBSCRIPTION_SERVICE_GRPC_PORT}
+      SUBSCRIPTIONS_TIMEOUT: 10s
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+      SCAN_INTERVAL: ${SCAN_INTERVAL}
+      GITHUB_TIMEOUT: ${GITHUB_TIMEOUT}
+      GITHUB_URL: ${GITHUB_URL}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${RELEASE_TRACKER_HTTP_PORT}/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  notification-worker:
+    build:
+      context: .
+      dockerfile: services/notification-worker/Dockerfile
+    image: notification-worker:latest
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT}
+      FROM_EMAIL: ${FROM_EMAIL}
+      BASE_URL: ${PUBLIC_BASE_URL}
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+    healthcheck:
+      test: ["CMD-SHELL", "pidof notification-worker"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+# Observability profile
+  elasticsearch:
+    image: elasticsearch:8.15.3
+    profiles: ["observability"]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+
+  kibana:
+    image: kibana:8.15.3
+    profiles: ["observability"]
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+
+  kibana-init:
+    image: curlimages/curl:8.6.0
+    profiles: ["observability"]
+    entrypoint: ["/bin/sh"]
+    depends_on:
+      kibana:
+        condition: service_started
+    environment:
+      KIBANA_URL: http://kibana:5601
+    command: ["/usr/local/bin/init-kibana.sh"]
+    volumes:
+      - ./observability/kibana/init.sh:/usr/local/bin/init-kibana.sh:ro
+      - ./observability/kibana/subscription-service-logs.ndjson:/usr/local/share/kibana/subscription-service-logs.ndjson:ro
+
+  filebeat:
+    image: elastic/filebeat:8.15.3
+    profiles: ["observability"]
+    user: root
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      subscription-service:
+        condition: service_started
+      release-tracker:
+        condition: service_started
+      notification-worker:
+        condition: service_healthy
+    command: ["--strict.perms=false"]
+    volumes:
+      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: ["observability"]
+    depends_on:
+      subscription-service:
+        condition: service_started
+      release-tracker:
+        condition: service_started
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    profiles: ["observability"]
+    depends_on:
+      prometheus:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+
+volumes:
+  elasticsearch-data:
+  prometheus-data:
+  grafana-data:

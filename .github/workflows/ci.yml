@@ -1,0 +1,161 @@
+name: CI/CD workflow
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.3
+          cache: true
+
+      - name: setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: 1.68.3
+
+      - name: lint protobuf contracts
+        run: buf lint
+
+      - name: install protobuf generators
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+
+      - name: verify generated protobuf code
+        run: |
+          buf generate
+          git diff --exit-code -- shared/contracts/gen
+
+      - name: install architecture linter
+        run: go install github.com/fe3dback/go-arch-lint@v1.15.0
+
+      - name: lint architecture
+        run: make arch-lint
+
+      - name: lint shared contracts
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: shared/contracts
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint shared messaging
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: shared/messaging
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint subscription service
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: services/subscription-service
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint release tracker
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: services/release-tracker
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint notification worker
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: services/notification-worker
+          args: --config=../../.golangci.yml ./...
+
+      - name: lint e2e fake github
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: test/e2e/fakes/github
+          args: --config=../../../../.golangci.yml ./...
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.3
+          cache: true
+
+      - name: unit tests
+        run: make coverage-unit
+
+      - name: upload unit coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage
+          path: coverage/unit-*.out
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.3
+          cache: true
+
+      - name: integration tests
+        run: make coverage-integration
+
+      - name: upload integration coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-coverage
+          path: coverage/integration.out
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: e2e tests
+        run: make test-e2e
+
+      - name: cleanup e2e containers
+        if: always()
+        run: docker compose -f test/e2e/docker-compose-e2e-tests.yaml down -v --remove-orphans
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - unit-tests
+      - integration-tests
+      - e2e-tests
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: build subscription service image
+        run: docker build -f services/subscription-service/Dockerfile -t subscription-service .
+
+      - name: build release tracker image
+        run: docker build -f services/release-tracker/Dockerfile -t release-tracker .
+
+      - name: build notification worker image
+        run: docker build -f services/notification-worker/Dockerfile -t notification-worker .

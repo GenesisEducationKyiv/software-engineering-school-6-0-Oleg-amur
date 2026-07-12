@@ -1,0 +1,153 @@
+services:
+  subscription-service-postgres:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: subscription_service
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d subscription_service -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  release-tracker-postgres:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: release_tracker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d release_tracker -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.24
+    container_name: mailpit
+    restart: unless-stopped
+    ports:
+      - 8025:8025
+      - 1025:1025
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  fake-github:
+    build:
+      context: ../..
+      dockerfile: test/e2e/fakes/github/Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  subscription-service:
+    build:
+      context: ../..
+      dockerfile: services/subscription-service/Dockerfile
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      GRPC_PORT: 50051
+      DATABASE_URL: postgres://postgres:postgres@subscription-service-postgres:5432/subscription_service?sslmode=disable
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+      RELEASE_TRACKER_URL: http://release-tracker:8081
+      RELEASE_TRACKER_TIMEOUT: 10s
+    ports:
+      - "8080:8080"
+    depends_on:
+      subscription-service-postgres:
+        condition: service_healthy
+      fake-github:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      release-tracker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  release-tracker:
+    build:
+      context: ../..
+      dockerfile: services/release-tracker/Dockerfile
+    environment:
+      SERVER_PORT: 8081
+      DATABASE_URL: postgres://postgres:postgres@release-tracker-postgres:5432/release_tracker?sslmode=disable
+      SUBSCRIPTIONS_URL: http://subscription-service:8080
+      SUBSCRIPTIONS_GRPC_ADDRESS: subscription-service:50051
+      SUBSCRIPTIONS_TIMEOUT: 10s
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+      SCAN_INTERVAL: 2s
+      GITHUB_TIMEOUT: 10s
+      GITHUB_URL: http://fake-github:8081
+      GITHUB_TOKEN: ""
+    depends_on:
+      release-tracker-postgres:
+        condition: service_healthy
+      fake-github:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  notification-worker:
+    build:
+      context: ../..
+      dockerfile: services/notification-worker/Dockerfile
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      FROM_EMAIL: no-reply@test.com
+      BASE_URL: http://subscription-service:8080
+      EVENT_BUS_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      mailpit:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof notification-worker"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.59.1-noble
+    working_dir: /work/test/e2e
+    volumes:
+      - ../..:/work
+      - node_modules:/work/test/e2e/node_modules
+    environment:
+      PLAYWRIGHT_BASE_URL: http://subscription-service:8080
+      MAILPIT_URL: http://mailpit:8025
+      FAKE_GITHUB_URL: http://fake-github:8081
+      PLAYWRIGHT_OUTPUT_DIR: /tmp/playwright-results
+    command: sh -c "npm ci --no-audit --no-fund && npx playwright test"
+    depends_on:
+      subscription-service:
+        condition: service_healthy
+      notification-worker:
+        condition: service_healthy
+
+volumes:
+  node_modules:

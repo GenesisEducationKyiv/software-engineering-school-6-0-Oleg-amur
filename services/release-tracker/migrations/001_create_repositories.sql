@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS repositories (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    last_seen_tag TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
