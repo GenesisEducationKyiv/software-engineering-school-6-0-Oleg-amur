@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -25,7 +26,7 @@ func UnaryServerInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
 
 		grpcRequestsTotal.WithLabelValues(info.FullMethod, code).Inc()
 		grpcRequestDuration.WithLabelValues(info.FullMethod, code).Observe(duration.Seconds())
-		if err != nil {
+		if isServerErrorCode(status.Code(err)) {
 			grpcRequestErrorsTotal.WithLabelValues(info.FullMethod, code).Inc()
 		}
 
@@ -37,5 +38,14 @@ func UnaryServerInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
 		)
 
 		return resp, err
+	}
+}
+
+func isServerErrorCode(code codes.Code) bool {
+	switch code {
+	case codes.Unknown, codes.DeadlineExceeded, codes.Internal, codes.Unavailable, codes.DataLoss:
+		return true
+	default:
+		return false
 	}
 }

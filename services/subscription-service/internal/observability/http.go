@@ -47,7 +47,7 @@ func HTTPMiddleware(log *slog.Logger, next http.Handler) http.Handler {
 
 		httpRequestsTotal.WithLabelValues(r.Method, route, status).Inc()
 		httpRequestDuration.WithLabelValues(r.Method, route, status).Observe(duration.Seconds())
-		if recorder.statusCode >= http.StatusBadRequest {
+		if recorder.statusCode >= http.StatusInternalServerError {
 			httpRequestErrorsTotal.WithLabelValues(r.Method, route, status).Inc()
 		}
 

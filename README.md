@@ -15,7 +15,8 @@ A Go-based service that monitors GitHub repositories for new releases and notifi
 
 ## Documentation
 
-- **[System Design](docs/system-design.md)**: High-level overview of the service architecture, C4 diagrams, and core workflows.
+- **[Architecture](docs/architecture/architecture.md)**: C4-style diagrams, service boundaries, component views, and dependency direction.
+- **[System Design](docs/system-design.md)**: High-level overview of the service architecture and core workflows.
 - **[Architectural Decision Records (ADR)](docs/adr/adr-summary.md)**: Detailed rationale for key technical choices.
 
 ## Tech Stack

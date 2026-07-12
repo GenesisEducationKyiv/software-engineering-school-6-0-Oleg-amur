@@ -37,6 +37,12 @@ jobs:
           buf generate
           git diff --exit-code -- shared/contracts/gen
 
+      - name: install architecture linter
+        run: go install github.com/fe3dback/go-arch-lint@v1.15.0
+
+      - name: lint architecture
+        run: make arch-lint
+
       - name: lint shared contracts
         uses: golangci/golangci-lint-action@v9
         with:
